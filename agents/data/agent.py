@@ -26,7 +26,7 @@ class AssetDataAgent:
             model_id=self.model_id,
         )
 
-    def invoke(self, message: str) -> str:
+    async def invoke(self, message: str) -> str:
         # Create a Strands agent
         with self.stdio_mcp_client as mcp_client:
             tools = mcp_client.list_tools_sync()
@@ -39,8 +39,8 @@ class AssetDataAgent:
                 tools=tools,
                 model=self.ollama_model,
             )
-            response = agent(message)
-            return response
+            return await agent.invoke_async(message)
+            
 
 
 if __name__ == "__main__":
