@@ -1,0 +1,18 @@
+[project]
+name = "investmentagents"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mcp>=1.11.0",
+    "strands-agents-builder>=0.1.7",
+    "strands-agents-tools[a2a-client]>=0.2.0",
+    "strands-agents[a2a,ollama]>=1.0.0",
+]
+
+[tool.uv.workspace]
+members = [
+    "mcp-servers/asset-data-server",
+    "mcp-servers/market-data-server",
+]
