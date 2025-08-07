@@ -3,10 +3,18 @@ import logging
 from mcp import stdio_client, StdioServerParameters
 
 from strands import Agent
+from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.tools.mcp import MCPClient
 
-logging.basicConfig(level=logging.INFO)
+# Enables Strands debug log level
+logging.getLogger("strands").setLevel(logging.INFO)
+
+# Sets the logging format and streams logs to stderr
+logging.basicConfig(
+    format="%(levelname)s | %(name)s | %(message)s",
+    handlers=[logging.StreamHandler()]
+)
 
 
 class AssetDataAgent:
@@ -26,7 +34,7 @@ class AssetDataAgent:
             model_id=self.model_id,
         )
 
-    async def invoke(self, message: str) -> str:
+    async def invoke(self, message: str) -> AgentResult:
         # Create a Strands agent
         with self.stdio_mcp_client as mcp_client:
             tools = mcp_client.list_tools_sync()

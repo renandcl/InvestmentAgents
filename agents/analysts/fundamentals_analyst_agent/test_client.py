@@ -67,7 +67,7 @@ async def main() -> None:
         send_message_payload: dict[str, Any] = {
             "message": {
                 "role": "user",
-                "parts": [{"kind": "text", "text": "Get AAPL ticker price?"}],
+                "parts": [{"kind": "text", "text": "Get AAPL info"}],
                 "messageId": uuid4().hex,
             },
         }
@@ -77,6 +77,7 @@ async def main() -> None:
 
         response = await client.send_message(request)
         print(response.model_dump(mode="json", exclude_none=True))
+        print("\n\n")
 
 
 if __name__ == "__main__":

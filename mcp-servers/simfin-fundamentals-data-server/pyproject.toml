@@ -1,0 +1,13 @@
+[project]
+name = "simfin-fundamentals-data-server"
+version = "0.1.0"
+description = "MCP server for financial statements trading data"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mcp>=1.11.0",
+    "pandas>=2.3.1",
+    "pydantic>=2.0.0",
+    "requests>=2.31.0",
+    "simfin>=1.0.1",
+]

@@ -1,7 +1,7 @@
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
-from agent import AssetDataAgent
+from agent import FundamentalsAnalystAgent
 import logging
 
 # Enables Strands debug log level
@@ -11,11 +11,11 @@ logging.basicConfig(
     format="%(levelname)s | %(name)s | %(message)s",
 )
 
-class DataAgentExecutor(AgentExecutor):
+class FundamentalsAnalystAgentExecutor(AgentExecutor):
     """Test AgentProxy Implementation."""
 
     def __init__(self):
-        self.agent = AssetDataAgent()
+        self.agent = FundamentalsAnalystAgent()
 
     async def execute(
         self,
