@@ -1,9 +1,9 @@
-import logging
 import asyncio
 import datetime
+import logging
 import os
-from mcp import stdio_client, StdioServerParameters
 
+from mcp import StdioServerParameters, stdio_client
 from strands import Agent
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
@@ -60,7 +60,10 @@ class FundamentalsAnalystAgent:
     async def invoke(self, message: str) -> AgentResult:
         # Create a Strands agent
         with self.stdio_mcp_simfin_client, self.stdio_mcp_finnhub_client:
-            tools = self.stdio_mcp_simfin_client.list_tools_sync() + self.stdio_mcp_finnhub_client.list_tools_sync()
+            tools = (
+                self.stdio_mcp_simfin_client.list_tools_sync()
+                + self.stdio_mcp_finnhub_client.list_tools_sync()
+            )
             logging.info(f"Available tools: {tools}")
 
             agent = Agent(
