@@ -1,15 +1,15 @@
 from mcp.server.fastmcp import FastMCP
-from models import (
-    InsiderSentimentRequest,
-    InsiderTransactionsRequest,
+from models import InsiderSentimentRequest, InsiderTransactionsRequest
+from services import (
+    get_finnhub_company_insider_sentiment,
+    get_finnhub_company_insider_transactions,
 )
-import services
 
 mcp = FastMCP("finnhub-financial-data")
 
 
 @mcp.tool()
-async def get_finnhub_company_insider_sentiment(
+async def get_insider_sentiment(
     request: InsiderSentimentRequest,
 ) -> str:
     """
@@ -20,14 +20,14 @@ async def get_finnhub_company_insider_sentiment(
     Returns:
         str: a report of the sentiment in the past 30 days starting at curr_date
     """
-    data_sentiment = services.get_finnhub_company_insider_sentiment(
+    data_sentiment = get_finnhub_company_insider_sentiment(
         request.ticker, request.curr_date, 30
     )
     return data_sentiment
 
 
 @mcp.tool()
-async def get_finnhub_company_insider_transactions(
+async def get_insider_transactions(
     request: InsiderTransactionsRequest,
 ) -> str:
     """
@@ -38,7 +38,7 @@ async def get_finnhub_company_insider_transactions(
     Returns:
         str: a report of the company's insider transactions/trading information in the past 30 days
     """
-    data_trans = services.get_finnhub_company_insider_transactions(
+    data_trans = get_finnhub_company_insider_transactions(
         request.ticker, request.curr_date, 30
     )
     return data_trans
