@@ -15,6 +15,15 @@ def get_simfin_balance_sheet(
     ],
     curr_date: Annotated[str, "current date you are trading at, yyyy-mm-dd"],
 ):
+    """
+    Retrieve the balance sheet for a specific company from SimFin.
+    Args:
+        ticker (str): The ticker symbol of the company.
+        freq (str): The reporting frequency (annual or quarterly).
+        curr_date (str): The current date in yyyy-mm-dd format.
+    Returns:
+        str: The balance sheet information for the specified company.
+    """
     data_path = os.path.join(
         DATA_DIR,
         f"us-balance-{freq}.csv",

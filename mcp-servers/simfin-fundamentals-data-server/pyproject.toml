@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "mcp>=1.11.0",
     "pandas>=2.3.1",
-    "pydantic>=2.0.0",
+    "pydantic>=2.11.7",
     "requests>=2.31.0",
     "simfin>=1.0.1",
 ]

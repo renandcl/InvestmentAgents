@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 
-class FinancialsRequest(BaseModel):
+class SimfinFinancialsParameters(BaseModel):
     ticker: str = Field(..., description="ticker symbol")
     freq: str = Field(
         ...,

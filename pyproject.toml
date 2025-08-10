@@ -8,7 +8,7 @@ dependencies = [
     "mcp>=1.11.0",
     "strands-agents-builder>=0.1.7",
     "strands-agents-tools[a2a-client]>=0.2.3",
-    "strands-agents[a2a,ollama]>=1.2.0",
+    "strands-agents[a2a,ollama,otel]>=1.2.0",
 ]
 
 [tool.uv.workspace]
@@ -20,5 +20,6 @@ members = [
 
 [dependency-groups]
 dev = [
+    "arize-phoenix>=11.21.0",
     "pre-commit>=4.2.0",
 ]

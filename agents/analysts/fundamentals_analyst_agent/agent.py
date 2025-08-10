@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import logging
 import os
 
 from mcp import StdioServerParameters, stdio_client
@@ -8,14 +7,6 @@ from strands import Agent
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.tools.mcp import MCPClient
-
-# Enables Strands debug log level
-logging.getLogger("strands").setLevel(logging.INFO)
-
-# Sets the logging format and streams logs to stderr
-logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s", handlers=[logging.StreamHandler()]
-)
 
 
 class FundamentalsAnalystAgent:

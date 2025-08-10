@@ -1,6 +1,6 @@
-# Financial Data Server
+# Finnhub Fundamentals Data Server
 
-This MCP server provides access insider trading data for trading agents.
+This MCP server provides access to insider trading data for trading agents.
 
 ## Features
 

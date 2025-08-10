@@ -1,45 +1,42 @@
 from mcp.server.fastmcp import FastMCP
-from models import InsiderSentimentRequest, InsiderTransactionsRequest
-from services import (
-    get_finnhub_company_insider_sentiment,
-    get_finnhub_company_insider_transactions,
-)
+from models import InsiderTransactionsParameters, InsiderSentimentParameters
+from services import FinnhubInsiderTransactionsService, FinnhubInsiderSentimentService
 
-mcp = FastMCP("finnhub-financial-data")
+mcp = FastMCP("finnhub-fundamental-data")
+finnhub_insider_transactions_service = FinnhubInsiderTransactionsService()
+finnhub_insider_sentiment_service = FinnhubInsiderSentimentService()
 
 
 @mcp.tool()
-async def get_insider_sentiment(
-    request: InsiderSentimentRequest,
-) -> str:
+async def get_insider_sentiment(payload: InsiderSentimentParameters) -> str:
     """
     Retrieve insider sentiment information about a company (retrieved from public SEC information) for the past 30 days
-    Args:
-        ticker (str): ticker symbol of the company
-        curr_date (str): current date you are trading at, yyyy-mm-dd
+
     Returns:
         str: a report of the sentiment in the past 30 days starting at curr_date
     """
-    data_sentiment = get_finnhub_company_insider_sentiment(
-        request.ticker, request.curr_date, 30
+    ticker = payload.ticker
+    curr_date = payload.curr_date
+
+    data_sentiment = finnhub_insider_sentiment_service.get_insider_sentiment(
+        ticker, curr_date, 30
     )
     return data_sentiment
 
 
 @mcp.tool()
-async def get_insider_transactions(
-    request: InsiderTransactionsRequest,
-) -> str:
+async def get_insider_transactions(payload: InsiderTransactionsParameters) -> str:
     """
     Retrieve insider transaction information about a company (retrieved from public SEC information) for the past 30 days
-    Args:
-        ticker (str): ticker symbol of the company
-        curr_date (str): current date you are trading at, yyyy-mm-dd
+
     Returns:
         str: a report of the company's insider transactions/trading information in the past 30 days
     """
-    data_trans = get_finnhub_company_insider_transactions(
-        request.ticker, request.curr_date, 30
+    ticker = payload.ticker
+    curr_date = payload.curr_date
+
+    data_trans = finnhub_insider_transactions_service.get_insider_transactions(
+        ticker, curr_date, 30
     )
     return data_trans
 

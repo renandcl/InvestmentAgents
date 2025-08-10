@@ -1,3 +1,3 @@
-from .financial_request import FinancialsRequest
+from .financial_models import SimfinFinancialsParameters
 
-__all__ = ["FinancialsRequest"]
+__all__ = ["SimfinFinancialsParameters"]

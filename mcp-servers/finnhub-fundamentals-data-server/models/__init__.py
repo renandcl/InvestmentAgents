@@ -1,6 +1,6 @@
-from .insider_requests import InsiderSentimentRequest, InsiderTransactionsRequest
+from .insider_models import InsiderSentimentParameters, InsiderTransactionsParameters
 
 __all__ = [
-    "InsiderSentimentRequest",
-    "InsiderTransactionsRequest",
+    "InsiderSentimentParameters",
+    "InsiderTransactionsParameters",
 ]
