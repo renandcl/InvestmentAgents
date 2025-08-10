@@ -55,7 +55,6 @@ class FundamentalsAnalystAgent:
                 self.stdio_mcp_simfin_client.list_tools_sync()
                 + self.stdio_mcp_finnhub_client.list_tools_sync()
             )
-            logging.info(f"Available tools: {tools}")
 
             agent = Agent(
                 name="FundamentalsAnalystAgent",

@@ -4,6 +4,17 @@ from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 from agent_executor import FundamentalsAnalystAgentExecutor
+import logging
+
+# Configure the root strands logger
+logging.getLogger("strands").setLevel(logging.DEBUG)
+
+# Add a handler to see the logs
+logging.basicConfig(
+    format="%(levelname)s | %(name)s | %(message)s", 
+    handlers=[logging.StreamHandler()]
+)
+
 
 if __name__ == "__main__":
     skill = AgentSkill(
