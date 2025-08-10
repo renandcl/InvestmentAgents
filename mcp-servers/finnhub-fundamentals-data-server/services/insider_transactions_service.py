@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -20,19 +21,21 @@ class FinnhubInsiderTransactionsService:
         before = date_obj - relativedelta(days=look_back_days)
         before = before.strftime("%Y-%m-%d")
 
-        json_data = self.client.stock_insider_transactions(
-            ticker,
-            before,
-            curr_date,
-        )
+        file_path = f"data/insider_transactions_data/finnhub_insider_transactions_{ticker}_{before}_{curr_date}.json"
 
-        os.makedirs("data/insider_transactions_data", exist_ok=True)
-        with open(
-            f"data/insider_transactions_data/finnhub_insider_transactions_{ticker}_{before}_{curr_date}.json",
-            "w",
-        ) as f:
-            f.write(str(json_data))
-        
+        if os.path.exists(file_path):
+            json_data = json.load(open(file_path, "r"))
+        else:
+
+            json_data = self.client.stock_insider_transactions(
+                ticker,
+                before,
+                curr_date,
+            )
+
+            os.makedirs("data/insider_transactions_data", exist_ok=True)
+            json.dump(json_data, open(file_path, "w"))
+            
         if len(json_data.get("data", [])) == 0:
             return "No insider transaction data available for this company."
         

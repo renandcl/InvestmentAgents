@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
+import json
 import os
 
 import finnhub
@@ -31,11 +32,16 @@ class FinnhubNewsService:
         start_date = datetime.strptime(curr_date, "%Y-%m-%d")
         before = start_date - relativedelta(days=look_back_days)
         before = before.strftime("%Y-%m-%d")
-        json_data = {"data": self.client.company_news(ticker, before, curr_date)}
 
-        os.makedirs("data/news_data", exist_ok=True)
-        with open(f"data/news_data/finnhub_news_{ticker}_{before}_{curr_date}.json", "w") as f:
-            f.write(str(json_data))
+        file_path = f"data/news_data/finnhub_news_{ticker}_{before}_{curr_date}.json"
+
+        if os.path.exists(file_path):
+            json_data = json.load(open(file_path, "r"))
+        else:
+            json_data = {"data": self.client.company_news(ticker, before, curr_date)}
+
+            os.makedirs("data/news_data", exist_ok=True)
+            json.dump(json_data, open(file_path, "w"))
 
         if len(json_data["data"]) == 0:
             return "No news data available for this company."
