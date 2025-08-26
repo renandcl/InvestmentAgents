@@ -18,6 +18,7 @@ members = [
     "mcp-servers/finnhub-fundamentals-data-server",
     "mcp-servers/reddit-news-data-server",
     "mcp-servers/google-news-data-server",
+    "mcp-servers/duckduckgo-news-data-server",
 ]
 
 [dependency-groups]
