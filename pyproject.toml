@@ -20,6 +20,7 @@ members = [
     "mcp-servers/reddit-news-data-server",
     "mcp-servers/google-news-data-server",
     "mcp-servers/duckduckgo-news-data-server",
+    "mcp-servers/yfin-market-data-server",
 ]
 
 [dependency-groups]
