@@ -16,6 +16,7 @@ members = [
     "mcp-servers/asset-data-server",
     "mcp-servers/simfin-fundamentals-data-server",
     "mcp-servers/finnhub-fundamentals-data-server",
+    "mcp-servers/reddit-news-data-server",
 ]
 
 [dependency-groups]
