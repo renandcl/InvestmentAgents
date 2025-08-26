@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import os
+import logging
 
 from mcp import StdioServerParameters, stdio_client
 from strands import Agent
@@ -27,6 +28,30 @@ class NewsAnalystAgent:
                 )
             )
         )
+        self.stdio_mcp_reddit_news_client = MCPClient(
+            lambda: stdio_client(
+                StdioServerParameters(
+                    command="uv",
+                    args=[
+                        "run",
+                        "--env-file",
+                        "mcp-servers/reddit-news-data-server/.env",
+                        "mcp-servers/reddit-news-data-server/main.py",
+                    ],
+                )
+            )
+        )
+        self.stdio_mcp_duckduckgo_news_client = MCPClient(
+            lambda: stdio_client(
+                StdioServerParameters(
+                    command="uv",
+                    args=[
+                        "run",
+                        "mcp-servers/duckduckgo-news-data-server/main.py",
+                    ],
+                )
+            )
+        )
         self.ollama_model = OllamaModel(
             host=self.host,
             model_id=self.model_id,
@@ -39,8 +64,16 @@ class NewsAnalystAgent:
             )
 
     async def invoke(self, message: str) -> AgentResult:
-        with self.stdio_mcp_finnhub_news_client:
-            tools = self.stdio_mcp_finnhub_news_client.list_tools_sync()
+        with (
+            self.stdio_mcp_finnhub_news_client,
+            self.stdio_mcp_reddit_news_client,
+            self.stdio_mcp_duckduckgo_news_client,
+        ):
+            tools = (
+                self.stdio_mcp_finnhub_news_client.list_tools_sync()
+                + self.stdio_mcp_reddit_news_client.list_tools_sync()
+                + self.stdio_mcp_duckduckgo_news_client.list_tools_sync()
+            )
 
             agent = Agent(
                 name="NewsAnalystAgent",
