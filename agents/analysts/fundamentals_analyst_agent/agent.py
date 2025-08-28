@@ -48,22 +48,24 @@ class FundamentalsAnalystAgent:
                 current_date=datetime.datetime.now().strftime("%Y-%m-%d")
             )
 
-    async def invoke(self, message: str) -> AgentResult:
-        # Create a Strands agent
-        with self.stdio_mcp_simfin_client, self.stdio_mcp_finnhub_client:
-            tools = (
-                self.stdio_mcp_simfin_client.list_tools_sync()
-                + self.stdio_mcp_finnhub_client.list_tools_sync()
-            )
+        self.stdio_mcp_simfin_client.start()
+        self.stdio_mcp_finnhub_client.start()
 
-            agent = Agent(
-                name="FundamentalsAnalystAgent",
-                description="hi",
-                system_prompt=self.system_prompt,
-                tools=tools,
-                model=self.ollama_model,
-            )
-            return await agent.invoke_async(message)
+        tools = (
+            self.stdio_mcp_simfin_client.list_tools_sync()
+            + self.stdio_mcp_finnhub_client.list_tools_sync()
+        )
+
+        self.agent = Agent(
+            name="FundamentalsAnalystAgent",
+            description="Analyzes fundamental data and provides insights for investment decisions.",
+            system_prompt=self.system_prompt,
+            tools=tools,
+            model=self.ollama_model,
+        )
+
+    async def invoke(self, message: str) -> AgentResult:
+        return await self.agent.invoke_async(message)
 
 
 if __name__ == "__main__":

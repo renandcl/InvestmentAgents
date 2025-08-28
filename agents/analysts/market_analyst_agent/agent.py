@@ -55,23 +55,25 @@ class MarketAnalystAgent:
                 current_date=datetime.datetime.now().strftime("%Y-%m-%d")
             )
 
-    async def invoke(self, message: str) -> AgentResult:
-        # Open both MCP tool clients simultaneously
-        with self.stdio_mcp_yfin_client, self.stdio_mcp_stockstats_client:
-            tools = (
-                self.stdio_mcp_yfin_client.list_tools_sync()
-                + self.stdio_mcp_stockstats_client.list_tools_sync()
-            )
-            logging.info(f"Available tools: {tools}")
+        self.stdio_mcp_yfin_client.start()
+        self.stdio_mcp_stockstats_client.start()
 
-            agent = Agent(
-                name="MarketAnalystAgent",
-                description="Analyzes market data and technical indicators to produce nuanced trading insights.",
-                system_prompt=self.system_prompt,
-                tools=tools,
-                model=self.ollama_model,
-            )
-            return await agent.invoke_async(message)
+        tools = (
+            self.stdio_mcp_yfin_client.list_tools_sync()
+            + self.stdio_mcp_stockstats_client.list_tools_sync()
+        )
+        logging.info(f"Available tools: {tools}")
+
+        self.agent = Agent(
+            name="MarketAnalystAgent",
+            description="Analyzes market data and technical indicators to produce nuanced trading insights.",
+            system_prompt=self.system_prompt,
+            tools=tools,
+            model=self.ollama_model,
+        )
+
+    async def invoke(self, message: str) -> AgentResult:
+        return await self.agent.invoke_async(message)
 
 if __name__ == "__main__":
     agent = MarketAnalystAgent()

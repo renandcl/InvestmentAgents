@@ -63,26 +63,26 @@ class NewsAnalystAgent:
                 current_date=datetime.datetime.now().strftime("%Y-%m-%d")
             )
 
-    async def invoke(self, message: str) -> AgentResult:
-        with (
-            self.stdio_mcp_finnhub_news_client,
-            self.stdio_mcp_reddit_news_client,
-            self.stdio_mcp_duckduckgo_news_client,
-        ):
-            tools = (
-                self.stdio_mcp_finnhub_news_client.list_tools_sync()
-                + self.stdio_mcp_reddit_news_client.list_tools_sync()
-                + self.stdio_mcp_duckduckgo_news_client.list_tools_sync()
-            )
+        self.stdio_mcp_finnhub_news_client.start()
+        self.stdio_mcp_reddit_news_client.start()
+        self.stdio_mcp_duckduckgo_news_client.start()
 
-            agent = Agent(
-                name="NewsAnalystAgent",
-                description="Analyzes recent news and trends for trading and macroeconomics.",
-                system_prompt=self.system_prompt,
-                tools=tools,
-                model=self.ollama_model,
-            )
-            return await agent.invoke_async(message)
+        tools = (
+            self.stdio_mcp_finnhub_news_client.list_tools_sync()
+            + self.stdio_mcp_reddit_news_client.list_tools_sync()
+            + self.stdio_mcp_duckduckgo_news_client.list_tools_sync()
+        )
+
+        self.agent = Agent(
+            name="NewsAnalystAgent",
+            description="Analyzes recent news and trends for trading and macroeconomics.",
+            system_prompt=self.system_prompt,
+            tools=tools,
+            model=self.ollama_model,
+        )
+
+    async def invoke(self, message: str) -> AgentResult:
+        return await self.agent.invoke_async(message)
 
 if __name__ == "__main__":
     agent = NewsAnalystAgent()
