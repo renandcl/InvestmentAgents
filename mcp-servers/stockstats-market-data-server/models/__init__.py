@@ -1,3 +1,3 @@
-from .stockstats_models import StockStatsModels
+from .stockstats_models import StockstatsIndicatorParameters
 
-__all__ = ["StockStatsModels"]
+__all__ = ["StockstatsIndicatorParameters"]
