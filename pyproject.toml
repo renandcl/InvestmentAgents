@@ -21,6 +21,7 @@ members = [
     "mcp-servers/google-news-data-server",
     "mcp-servers/duckduckgo-news-data-server",
     "mcp-servers/yfin-market-data-server",
+    "mcp-servers/stockstats-market-data-server",
 ]
 
 [dependency-groups]
