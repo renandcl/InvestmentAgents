@@ -1,11 +1,11 @@
-from mcp.server.fastmcp import FastMCP, tool
+from mcp.server.fastmcp import FastMCP
 from models.yfin_models import YFinDataParameters
 from services.yfin_service import YFinMarketDataService
 
 mcp = FastMCP("yfin-market-data-server", "Yahoo Finance market data provider")
 service = YFinMarketDataService()
 
-@tool()
+@mcp.tool()
 def get_yfin_market_data(payload: YFinDataParameters) -> str:
     """Fetch historical OHLCV market data for a symbol from Yahoo Finance.
 

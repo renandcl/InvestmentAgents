@@ -1,3 +1,3 @@
-from .stockstats_service import StockStatsService
+from .stockstats_service import StockstatsService
 
-__all__ = ["StockStatsService"]
+__all__ = ["StockstatsService"]
