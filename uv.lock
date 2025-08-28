@@ -11,6 +11,7 @@ members = [
     "investmentagents",
     "reddit-news-data-server",
     "simfin-fundamentals-data-server",
+    "stockstats-market-data-server",
     "yfin-market-data-server",
 ]
 
@@ -2161,6 +2162,40 @@ wheels = [
 ]
 
 [[package]]
+name = "stockstats"
+version = "0.6.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/28/2a/371a47cf6c34de1254da28536f5b242bb1e2651f4e406899b3f3fe6976c3/stockstats-0.6.5.tar.gz", hash = "sha256:2bc81bff187ab9ab5a4c17cec0bbec46a5b108d21878d2fbc8921eb3afc48606", size = 55788, upload-time = "2025-05-18T08:18:52.755Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/09/15a60adddee87fb0c9d1a2ed2ba0362a80451b107a77cfc87fbe72b9aac7/stockstats-0.6.5-py2.py3-none-any.whl", hash = "sha256:89a42808a8b0f94f7fa537cee8a097ae61790b3773051a889586d51a1e8c9392", size = 31727, upload-time = "2025-05-18T08:18:51.172Z" },
+]
+
+[[package]]
+name = "stockstats-market-data-server"
+version = "0.1.0"
+source = { virtual = "mcp-servers/stockstats-market-data-server" }
+dependencies = [
+    { name = "mcp" },
+    { name = "pandas" },
+    { name = "pydantic" },
+    { name = "stockstats" },
+    { name = "yfinance" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "pandas", specifier = ">=2.2.2" },
+    { name = "pydantic", specifier = ">=2.11.7" },
+    { name = "stockstats", specifier = ">=0.6.5" },
+    { name = "yfinance", specifier = ">=0.2.65" },
+]
+
+[[package]]
 name = "strands-agents"
 version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2500,7 +2535,7 @@ dependencies = [
 requires-dist = [
     { name = "mcp", specifier = ">=1.11.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
-    { name = "yfinance", specifier = ">=0.2.43" },
+    { name = "yfinance", specifier = ">=0.2.65" },
 ]
 
 [[package]]
