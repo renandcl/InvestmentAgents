@@ -71,4 +71,3 @@ if __name__ == "__main__":
     test_message = "Get info for AAPL?"
     response = asyncio.run(agent.invoke(test_message))
     print(f"Response: {response}")
-    logging.info(f"Response: {response}")
