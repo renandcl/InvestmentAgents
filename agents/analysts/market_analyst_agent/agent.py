@@ -1,18 +1,15 @@
 import asyncio
-import datetime
-import logging
 import os
+import uuid
+from datetime import datetime
 
 from mcp import StdioServerParameters, stdio_client
-from strands import Agent
+from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
+from strands.session.file_session_manager import FileSessionManager
 from strands.tools.mcp import MCPClient
 
-logging.getLogger("strands").setLevel(logging.INFO)
-logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s", handlers=[logging.StreamHandler()]
-)
 
 class MarketAnalystAgent:
     def __init__(self, model_id="qwen3:8b", host="http://localhost:11434"):
@@ -49,11 +46,15 @@ class MarketAnalystAgent:
             model_id=self.model_id,
         )
 
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        # get system prompt
         with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
             self.system_prompt = f.read()
-            self.system_prompt = self.system_prompt.format(
-                current_date=datetime.datetime.now().strftime("%Y-%m-%d")
-            )
+
+        self.session_manager = FileSessionManager(
+            session_id=f"{current_date}_{uuid.uuid4()}",
+            storage_dir="data/agents_sessions/analysts/market_analyst",
+        )
 
         self.stdio_mcp_yfin_client.start()
         self.stdio_mcp_stockstats_client.start()
@@ -62,22 +63,26 @@ class MarketAnalystAgent:
             self.stdio_mcp_yfin_client.list_tools_sync()
             + self.stdio_mcp_stockstats_client.list_tools_sync()
         )
-        logging.info(f"Available tools: {tools}")
 
         self.agent = Agent(
             name="MarketAnalystAgent",
-            description="Analyzes market data and technical indicators to produce nuanced trading insights.",
+            description="Analyzes market data and technical indicators to produce nuanced trading insights by providing ticker and date.",
             system_prompt=self.system_prompt,
             tools=tools,
             model=self.ollama_model,
+            session_manager=self.session_manager,
         )
 
-    async def invoke(self, message: str) -> AgentResult:
+    @tool
+    async def get_market_analyst_insights(self, message: str) -> AgentResult:
+        """Get market data and technical indicators analyst insights for investment decisions by providing ticker and date."""
         return await self.agent.invoke_async(message)
 
+
 if __name__ == "__main__":
+    ticker = "AAPL"
+    date = "2025-08-01"
+    test_message = f"The company we want to look at is {ticker}. For your reference, the current date is {date}."
     agent = MarketAnalystAgent()
-    test_message = "Analyze market indicators for AAPL"
-    response = asyncio.run(agent.invoke(test_message))
+    response = asyncio.run(agent.get_market_analyst_insights(test_message))
     print(f"Response: {response}")
-    logging.info(f"Response: {response}")
