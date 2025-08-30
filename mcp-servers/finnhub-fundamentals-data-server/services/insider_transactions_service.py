@@ -21,7 +21,7 @@ class FinnhubInsiderTransactionsService:
         before = date_obj - relativedelta(days=look_back_days)
         before = before.strftime("%Y-%m-%d")
 
-        file_path = f"data/insider_transactions_data/finnhub_insider_transactions_{ticker}_{before}_{curr_date}.json"
+        file_path = f"data/fundamentals_data/finnhub_insider_transactions_{ticker}_{before}_{curr_date}.json"
 
         if os.path.exists(file_path):
             json_data = json.load(open(file_path, "r"))
@@ -33,7 +33,7 @@ class FinnhubInsiderTransactionsService:
                 curr_date,
             )
 
-            os.makedirs("data/insider_transactions_data", exist_ok=True)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
             json.dump(json_data, open(file_path, "w"))
             
         if len(json_data.get("data", [])) == 0:
