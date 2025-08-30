@@ -1,12 +1,13 @@
 import asyncio
-import datetime
 import os
-import logging
+import uuid
+from datetime import datetime
 
 from mcp import StdioServerParameters, stdio_client
-from strands import Agent
+from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
+from strands.session.file_session_manager import FileSessionManager
 from strands.tools.mcp import MCPClient
 
 
@@ -52,16 +53,21 @@ class NewsAnalystAgent:
                 )
             )
         )
+
         self.ollama_model = OllamaModel(
             host=self.host,
             model_id=self.model_id,
         )
 
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        # get system prompt
         with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
             self.system_prompt = f.read()
-            self.system_prompt = self.system_prompt.format(
-                current_date=datetime.datetime.now().strftime("%Y-%m-%d")
-            )
+
+        self.session_manager = FileSessionManager(
+            session_id=f"{current_date}_{uuid.uuid4()}",
+            storage_dir="data/agents_sessions/analysts/news_analyst",
+        )
 
         self.stdio_mcp_finnhub_news_client.start()
         self.stdio_mcp_reddit_news_client.start()
@@ -75,18 +81,23 @@ class NewsAnalystAgent:
 
         self.agent = Agent(
             name="NewsAnalystAgent",
-            description="Analyzes recent news and trends for trading and macroeconomics.",
+            description="Analyzes recent news and trends for trading and macroeconomics by providing ticker and date.",
             system_prompt=self.system_prompt,
             tools=tools,
             model=self.ollama_model,
+            session_manager=self.session_manager,
         )
 
-    async def invoke(self, message: str) -> AgentResult:
+    @tool
+    async def get_news_analyst_insights(self, message: str) -> AgentResult:
+        """Get news and trends analyst insights for investment decisions by providing ticker and date."""
         return await self.agent.invoke_async(message)
 
+
 if __name__ == "__main__":
+    ticker = "AAPL"
+    date = "2025-08-01"
+    test_message = f"The company we want to look at is {ticker}. For your reference, the current date is {date}."
     agent = NewsAnalystAgent()
-    test_message = "Get news for AAPL?"
-    response = asyncio.run(agent.invoke(test_message))
+    response = asyncio.run(agent.get_news_analyst_insights(test_message))
     print(f"Response: {response}")
-    logging.info(f"Response: {response}")
