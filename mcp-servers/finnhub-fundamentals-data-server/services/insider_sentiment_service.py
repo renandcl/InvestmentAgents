@@ -1,9 +1,9 @@
-import os
 import json
+import os
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 
 import finnhub
+from dateutil.relativedelta import relativedelta
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 

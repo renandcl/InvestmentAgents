@@ -1,11 +1,12 @@
-import os
 import json
+import os
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 
 import finnhub
+from dateutil.relativedelta import relativedelta
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+
 
 class FinnhubInsiderTransactionsService:
     def __init__(self):
@@ -26,7 +27,6 @@ class FinnhubInsiderTransactionsService:
         if os.path.exists(file_path):
             json_data = json.load(open(file_path, "r"))
         else:
-
             json_data = self.client.stock_insider_transactions(
                 ticker,
                 before,
@@ -35,10 +35,10 @@ class FinnhubInsiderTransactionsService:
 
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             json.dump(json_data, open(file_path, "w"))
-            
+
         if len(json_data.get("data", [])) == 0:
             return "No insider transaction data available for this company."
-        
+
         result_str = ""
         seen_ids = set()
         for entry in json_data.get("data", []):

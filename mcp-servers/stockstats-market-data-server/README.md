@@ -38,4 +38,3 @@ Use an MCP-compatible client (or existing agent loader pattern) to connect and i
 - Interval / intraday support
 - Indicator parameter customization (periods, std dev, etc.)
 - Error taxonomy for clearer upstream handling
-

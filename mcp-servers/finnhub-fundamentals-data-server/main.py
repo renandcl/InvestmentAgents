@@ -1,6 +1,6 @@
 from mcp.server.fastmcp import FastMCP
-from models import InsiderTransactionsParameters, InsiderSentimentParameters
-from services import FinnhubInsiderTransactionsService, FinnhubInsiderSentimentService
+from models import InsiderSentimentParameters, InsiderTransactionsParameters
+from services import FinnhubInsiderSentimentService, FinnhubInsiderTransactionsService
 
 mcp = FastMCP("finnhub-fundamental-data")
 finnhub_insider_transactions_service = FinnhubInsiderTransactionsService()

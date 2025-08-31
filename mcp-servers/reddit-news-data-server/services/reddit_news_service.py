@@ -1,14 +1,15 @@
+import datetime
+import json
+import os
+
 import praw
 from praw.models import Submission
-import datetime
-import os
-import json
 
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 
-class RedditNewsService:
 
+class RedditNewsService:
     def __init__(self):
         self.reddit = praw.Reddit(
             client_id=REDDIT_CLIENT_ID,
@@ -46,19 +47,23 @@ class RedditNewsService:
             subreddit = []
             for item in json_data["data"]:
                 item["id"] = None
-                subreddit.append(Submission(self.reddit, _data= item))
+                subreddit.append(Submission(self.reddit, _data=item))
         else:
-            subreddit = self.reddit.subreddit("all").search(f"{ticker} financial performance analysis")
+            subreddit = self.reddit.subreddit("all").search(
+                f"{ticker} financial performance analysis"
+            )
 
             os.makedirs("data/news_data", exist_ok=True)
             json_data = {"data": []}
 
             for submission in subreddit:
-                json_data["data"].append({
-                    "title": submission.title,
-                    "selftext": submission.selftext,
-                    "created_utc": submission.created_utc
-                })
+                json_data["data"].append(
+                    {
+                        "title": submission.title,
+                        "selftext": submission.selftext,
+                        "created_utc": submission.created_utc,
+                    }
+                )
                 json.dump(json_data, open(file_path, "w"))
 
         combined_result = ""
@@ -71,7 +76,9 @@ class RedditNewsService:
             title = submission.title
             selftext = submission.selftext
             combined_result += f"### Title: {title}\n"
-            combined_result += f"Date: {datetime.datetime.fromtimestamp(submission.created_utc)}\n"
+            combined_result += (
+                f"Date: {datetime.datetime.fromtimestamp(submission.created_utc)}\n"
+            )
             combined_result += f"Content: {selftext}\n\n"
             combined_result += "-" * 20 + "\n"
             count_submissions += 1
@@ -81,13 +88,13 @@ class RedditNewsService:
         if not combined_result:
             return "No news data available for this company."
 
-
         return f"##{ticker} News Reddit, from {before} to {curr_date}:\n\n{combined_result}"
+
 
 if __name__ == "__main__":
     service = RedditNewsService()
     print(service.get_news("AAPL", "2025-08-20", 30))
-    
+
 
 # reddit = praw.Reddit(
 #     client_id="8joR-B7eqGiaJ9OOCwiwVg",
@@ -117,4 +124,3 @@ if __name__ == "__main__":
 #         # print(f"Created: {submission.created_utc}")
 #         print(f"Created: {datetime.datetime.fromtimestamp(submission.created_utc)}")
 #         print("-" * 20)
-

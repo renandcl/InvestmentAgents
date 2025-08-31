@@ -1,11 +1,12 @@
-from datetime import datetime, timezone
-from dateutil.relativedelta import relativedelta
 import json
 import os
+from datetime import datetime, timezone
 
 import finnhub
+from dateutil.relativedelta import relativedelta
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+
 
 class FinnhubNewsService:
     def __init__(self):
@@ -66,6 +67,6 @@ class FinnhubNewsService:
 
 
 if __name__ == "__main__":
-    finnhub = FinnhubNewsService()
-    data = finnhub.get_news("AAPL", "2025-08-05", 30)
+    finnhub_service = FinnhubNewsService()
+    data = finnhub_service.get_news("AAPL", "2025-08-05", 30)
     print(data)
