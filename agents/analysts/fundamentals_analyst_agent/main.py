@@ -1,50 +1,26 @@
-import uvicorn
-from a2a.server.apps import A2AFastAPIApplication
-from a2a.server.request_handlers import DefaultRequestHandler
-from a2a.server.tasks import InMemoryTaskStore
-from a2a.types import AgentCapabilities, AgentCard, AgentSkill
-from agent_executor import FundamentalsAnalystAgentExecutor
 import logging
 
-# Configure the root strands logger
-logging.getLogger("strands").setLevel(logging.DEBUG)
+import uvicorn
+from agent import FundamentalsAnalystAgent
+from strands.multiagent.a2a import A2AServer
 
-# Add a handler to see the logs
+# Enables Strands debug log level
+logging.getLogger("strands").setLevel(logging.INFO)
 logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s", 
-    handlers=[logging.StreamHandler()]
+    format="%(levelname)s | %(name)s | %(message)s",
 )
 
 
+def a2a_agent_app():
+    """Factory to create the FastAPI app for the fundamentals analyst agent."""
+    fundamental_analyst = FundamentalsAnalystAgent()
+    a2a_server = A2AServer(
+        agent=fundamental_analyst.agent,
+        host="0.0.0.0",
+        port=9900,
+    )
+    return a2a_server.to_fastapi_app()
+
+
 if __name__ == "__main__":
-    skill = AgentSkill(
-        id="fundamentals_analyst",
-        name="Fundamentals Analyst",
-        description="Analyzes and extracts fundamental financial data",
-        tags=["finance", "analysis", "investment"],
-        examples=["analyze financial statements", "extract key metrics for AAPL"],
-    )
-
-    # This will be the public-facing agent card
-    public_agent_card = AgentCard(
-        name="Fundamentals Analyst Agent",
-        description="An agent that analyzes and extracts fundamental financial data",
-        url="http://localhost:9900/",
-        version="1.0.0",
-        defaultInputModes=["text"],
-        defaultOutputModes=["text"],
-        capabilities=AgentCapabilities(),
-        skills=[skill],
-    )
-
-    request_handler = DefaultRequestHandler(
-        agent_executor=FundamentalsAnalystAgentExecutor(),
-        task_store=InMemoryTaskStore(),
-    )
-
-    server = A2AFastAPIApplication(
-        agent_card=public_agent_card,
-        http_handler=request_handler,
-    )
-
-    uvicorn.run(server.build(), host="0.0.0.0", port=9900)
+    uvicorn.run(a2a_agent_app(), host="0.0.0.0", port=9900, log_level="info")
