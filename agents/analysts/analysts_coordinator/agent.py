@@ -1,7 +1,7 @@
 import asyncio
+import logging
 import uuid
 from datetime import datetime
-import logging
 
 from strands import Agent, tool
 from strands.agent import AgentResult
@@ -54,6 +54,7 @@ class AnalystCoordinatorAgent:
     async def get_analysts_insights(self, message: str) -> AgentResult:
         """Get insights and recommendations from market, news, and fundamentals analysts for a specific ticker and date"""
         return await self.agent.invoke_async(message)
+
 
 if __name__ == "__main__":
     test_message = """

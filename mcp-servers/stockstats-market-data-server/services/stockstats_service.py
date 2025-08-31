@@ -1,7 +1,8 @@
 import os
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
+
 import yfinance as yf
+from dateutil.relativedelta import relativedelta
 from stockstats import wrap
 
 from .stockstats_utils import StockstatsUtils
@@ -77,9 +78,7 @@ class StockstatsService:
                 symbol, indicator, curr_str, end_date
             )
         except Exception as e:  # noqa: BLE001
-            print(
-                f"Error getting stockstats indicator {indicator} for {curr_str}: {e}"
-            )
+            print(f"Error getting stockstats indicator {indicator} for {curr_str}: {e}")
             return ""
         return str(indicator_value)
 

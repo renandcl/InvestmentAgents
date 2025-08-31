@@ -1,18 +1,14 @@
-import os
 import json
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from typing import List, Dict
-import requests
-import time
+import os
 import random
+import time
+from datetime import datetime
+from typing import Dict, List
+
+import requests
 from bs4 import BeautifulSoup
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_result,
-)
+from dateutil.relativedelta import relativedelta
+from tenacity import retry, retry_if_result, stop_after_attempt, wait_exponential
 
 
 def is_rate_limited(response):
@@ -46,8 +42,8 @@ class GoogleNewsService:
         while True:
             offset = page * 10
             url = (
-                f"https://www.google.com/search?q={query}"\
-                f"&tbs=cdr:1,cd_min:{start_date},cd_max:{end_date}"\
+                f"https://www.google.com/search?q={query}"
+                f"&tbs=cdr:1,cd_min:{start_date},cd_max:{end_date}"
                 f"&tbm=nws&start={offset}"
             )
             response = make_request(url, self.headers)
@@ -112,7 +108,9 @@ class GoogleNewsService:
             if count >= 20:
                 break
 
-        return f"## {query} Google News, from {before_str} to {curr_date}:\n\n" + combined
+        return (
+            f"## {query} Google News, from {before_str} to {curr_date}:\n\n" + combined
+        )
 
 
 if __name__ == "__main__":

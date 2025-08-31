@@ -1,8 +1,9 @@
+import os
+from typing import Annotated
+
 import pandas as pd
 import yfinance as yf
 from stockstats import wrap
-from typing import Annotated
-import os
 
 
 class StockstatsUtils:
@@ -27,7 +28,9 @@ class StockstatsUtils:
         start_date = start_date.strftime("%Y-%m-%d")
         end_date = end_date.strftime("%Y-%m-%d")
 
-        file_path = f"data/market_data/yfin_stockstats_{symbol}_{curr_date}_{end_date}.csv"
+        file_path = (
+            f"data/market_data/yfin_stockstats_{symbol}_{curr_date}_{end_date}.csv"
+        )
 
         if os.path.exists(file_path):
             try:

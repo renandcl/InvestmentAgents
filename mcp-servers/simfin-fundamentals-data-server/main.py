@@ -13,7 +13,7 @@ mcp = FastMCP("simfin-financial-data")
 async def get_balance_sheet(payload: SimfinFinancialsParameters) -> str:
     """
     Retrieve the most recent balance sheet of a company
-    
+
     Returns:
         str: a report of the company's most recent balance sheet
     """
@@ -21,9 +21,7 @@ async def get_balance_sheet(payload: SimfinFinancialsParameters) -> str:
     freq = payload.freq
     curr_date = payload.curr_date
 
-    data_balance_sheet = get_simfin_balance_sheet(
-        ticker, freq, curr_date
-    )
+    data_balance_sheet = get_simfin_balance_sheet(ticker, freq, curr_date)
     return data_balance_sheet
 
 
@@ -39,16 +37,15 @@ async def get_cashflow(payload: SimfinFinancialsParameters) -> str:
     freq = payload.freq
     curr_date = payload.curr_date
 
-    data_cashflow = get_simfin_cashflow(
-        ticker, freq, curr_date
-    )
+    data_cashflow = get_simfin_cashflow(ticker, freq, curr_date)
     return data_cashflow
+
 
 @mcp.tool()
 async def get_income_statements(payload: SimfinFinancialsParameters) -> str:
     """
     Retrieve the most recent income statement of a company
-    
+
     Returns:
         str: a report of the company's most recent income statement
     """
@@ -56,9 +53,7 @@ async def get_income_statements(payload: SimfinFinancialsParameters) -> str:
     freq = payload.freq
     curr_date = payload.curr_date
 
-    data_income_stmt = get_simfin_income_statements(
-        ticker, freq, curr_date
-    )
+    data_income_stmt = get_simfin_income_statements(ticker, freq, curr_date)
     return data_income_stmt
 
 

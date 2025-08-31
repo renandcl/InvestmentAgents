@@ -5,6 +5,7 @@ from services.yfin_service import YFinMarketDataService
 mcp = FastMCP("yfin-market-data-server", "Yahoo Finance market data provider")
 service = YFinMarketDataService()
 
+
 @mcp.tool()
 def get_yfin_market_data(payload: YFinDataParameters) -> str:
     """Fetch historical OHLCV market data for a symbol from Yahoo Finance.
@@ -21,6 +22,7 @@ def get_yfin_market_data(payload: YFinDataParameters) -> str:
         start_date=start_date,
         end_date=end_date,
     )
+
 
 if __name__ == "__main__":
     mcp.run()

@@ -7,6 +7,7 @@ from services import RedditNewsService
 mcp = FastMCP("reddit-news-data")
 reddit_news_service = RedditNewsService()
 
+
 @mcp.tool()
 def get_reddit_news(payload: RedditNewsParameters) -> str:
     """

@@ -1,9 +1,11 @@
-import os
 import json
+import os
 from datetime import datetime
+from typing import Dict, List
+
 from dateutil.relativedelta import relativedelta
-from typing import List, Dict
 from ddgs import DDGS
+
 
 class DuckDuckGoNewsService:
     def __init__(self):
@@ -61,7 +63,9 @@ class DuckDuckGoNewsService:
             filtered: List[Dict] = []
             for item in results:
                 # each item may have date field as datetime or string
-                published = item.get("date") or item.get("published") or item.get("timestamp")
+                published = (
+                    item.get("date") or item.get("published") or item.get("timestamp")
+                )
                 pub_dt = None
                 if isinstance(published, datetime):
                     pub_dt = published
@@ -69,9 +73,14 @@ class DuckDuckGoNewsService:
                     pub_dt = datetime.utcfromtimestamp(published)
                 elif isinstance(published, str):
                     # attempt multiple parses
-                    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+                    for fmt in (
+                        "%Y-%m-%d %H:%M:%S",
+                        "%Y-%m-%dT%H:%M:%S%z",
+                        "%Y-%m-%dT%H:%M:%S",
+                        "%Y-%m-%d",
+                    ):
                         try:
-                            pub_dt = datetime.strptime(published.replace("Z",""), fmt)
+                            pub_dt = datetime.strptime(published.replace("Z", ""), fmt)
                             break
                         except Exception:
                             continue
@@ -82,13 +91,15 @@ class DuckDuckGoNewsService:
                     continue
                 if not (before <= pub_dt <= curr_dt):
                     continue
-                filtered.append({
-                    "title": item.get("title",""),
-                    "source": item.get("source",""),
-                    "date": pub_dt.strftime("%Y-%m-%d %H:%M"),
-                    "snippet": item.get("body") or item.get("excerpt") or "",
-                    "url": item.get("url") or item.get("link") or "",
-                })
+                filtered.append(
+                    {
+                        "title": item.get("title", ""),
+                        "source": item.get("source", ""),
+                        "date": pub_dt.strftime("%Y-%m-%d %H:%M"),
+                        "snippet": item.get("body") or item.get("excerpt") or "",
+                        "url": item.get("url") or item.get("link") or "",
+                    }
+                )
                 if len(filtered) >= max_results:
                     break
 
@@ -102,13 +113,12 @@ class DuckDuckGoNewsService:
         for entry in json_data["data"]:
             combined += f"### {entry['title']}\nSource: {entry['source']} | Date: {entry['date']}\n{entry['snippet']}\nURL: {entry['url']}\n\n"
 
-        header_meta = (
-            f"Region: {region} | Safesearch: {safesearch} | Timelimit: {timelimit or 'inferred'} | Backend: {backend}"
-        )
+        header_meta = f"Region: {region} | Safesearch: {safesearch} | Timelimit: {timelimit or 'inferred'} | Backend: {backend}"
         return (
             f"## {query} DuckDuckGo News, from {before_str} to {curr_date}:\n"
             f"{header_meta}\n\n" + combined
         )
+
 
 if __name__ == "__main__":
     service = DuckDuckGoNewsService()
