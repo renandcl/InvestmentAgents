@@ -1,7 +1,7 @@
 import logging
 
 import uvicorn
-from agent import FundamentalsAnalystAgent
+from agent import FundamentalsAnalyst
 from strands.multiagent.a2a import A2AServer
 
 # Enables Strands debug log level
@@ -13,7 +13,7 @@ logging.basicConfig(
 
 def a2a_agent_app():
     """Factory to create the FastAPI app for the fundamentals analyst agent."""
-    fundamental_analyst = FundamentalsAnalystAgent()
+    fundamental_analyst = FundamentalsAnalyst()
     a2a_server = A2AServer(
         agent=fundamental_analyst.agent,
         host="0.0.0.0",

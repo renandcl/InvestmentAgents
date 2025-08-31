@@ -11,7 +11,7 @@ from strands.session.file_session_manager import FileSessionManager
 from strands.tools.mcp import MCPClient
 
 
-class FundamentalsAnalystAgent:
+class FundamentalsAnalyst:
     def __init__(self, model_id="qwen3:8b", host="http://localhost:11434"):
         self.model_id = model_id
         self.host = host
@@ -81,6 +81,6 @@ if __name__ == "__main__":
     ticker = "AAPL"
     date = "2025-08-01"
     test_message = f"The company we want to look at is {ticker}. For your reference, the current date is {date}."
-    agent = FundamentalsAnalystAgent()
+    agent = FundamentalsAnalyst()
     response = asyncio.run(agent.get_fundamentals_analyst_insights(test_message))
     print(f"Response: {response}")

@@ -19,7 +19,7 @@ logging.basicConfig(
 )
 
 
-class AnalystCoordinatorAgent:
+class AnalystCoordinator:
     def __init__(self, model_id="qwen3:8b", host="http://localhost:11434"):
         self.model_id = model_id
         self.host = host
@@ -64,6 +64,6 @@ if __name__ == "__main__":
 
     Finally, provide a FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** with a concise rationale in 1-2 sentences.
     """
-    agent = AnalystCoordinatorAgent()
+    agent = AnalystCoordinator()
     response = asyncio.run(agent.get_analysts_insights(test_message))
     print(f"Response: {response}")
