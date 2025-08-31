@@ -9,8 +9,11 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Enables Strands debug log level
+logging.getLogger("strands").setLevel(logging.INFO)
+logging.basicConfig(
+    format="%(levelname)s | %(name)s | %(message)s",
+)
 
 
 class AnalystCoordinatorAgent:
