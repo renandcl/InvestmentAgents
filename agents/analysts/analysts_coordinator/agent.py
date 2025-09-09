@@ -8,9 +8,9 @@ from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from agents.analysts.fundamentals_analyst_agent.agent import FundamentalsAnalystAgent
-from agents.analysts.market_analyst_agent.agent import MarketAnalystAgent
-from agents.analysts.news_analyst_agent.agent import NewsAnalystAgent
+from agents.analysts.fundamentals_analyst.agent import FundamentalsAnalyst
+from agents.analysts.market_analyst.agent import MarketAnalyst
+from agents.analysts.news_analyst.agent import NewsAnalyst
 
 # Enable debug logs and print them to stderr
 logging.getLogger("strands").setLevel(logging.DEBUG)
@@ -29,9 +29,9 @@ class AnalystCoordinator:
             model_id=self.model_id,
         )
 
-        market_analyst = MarketAnalystAgent()
-        news_analyst = NewsAnalystAgent()
-        fundamentals_analyst = FundamentalsAnalystAgent()
+        market_analyst = MarketAnalyst()
+        news_analyst = NewsAnalyst()
+        fundamentals_analyst = FundamentalsAnalyst()
 
         current_date = datetime.now().strftime("%Y-%m-%d")
         self.session_manager = FileSessionManager(
