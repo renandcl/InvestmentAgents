@@ -48,6 +48,7 @@ class AnalystCoordinator:
                 fundamentals_analyst.get_fundamentals_analyst_insights,
             ],
             model=self.ollama_model,
+            session_manager=self.session_manager,
         )
 
     @tool
