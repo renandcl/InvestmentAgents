@@ -1,7 +1,9 @@
 import logging
+import os
 import uuid
 from datetime import datetime
 
+from hook import SharedStateHandler
 from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
@@ -31,8 +33,15 @@ class AnalystCoordinator:
         news_analyst_url = "http://localhost:9901"
         market_analyst_url = "http://localhost:9902"
         provider = A2AClientToolProvider(
-            known_agent_urls=[fundamentals_analyst_url, news_analyst_url, market_analyst_url]
+            known_agent_urls=[
+                fundamentals_analyst_url,
+                news_analyst_url,
+                market_analyst_url,
+            ]
         )
+
+        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+            self.system_prompt = f.read()
 
         current_date = datetime.now().strftime("%Y-%m-%d")
         self.session_manager = FileSessionManager(
@@ -40,15 +49,18 @@ class AnalystCoordinator:
             storage_dir="data/agents_sessions/analysts/analysts_coordinator",
         )
         tools = provider.tools
+        shared_state_file = "data/shared_state.json"
+        shared_state_handler_hook = SharedStateHandler(shared_state_file)
+
         self.agent = Agent(
             name="AnalystCoordinator",
+            agent_id="coordinator",
             description="Coordinates market, news, and fundamentals analyses to produce recommendations.",
-            system_prompt=(
-                "You coordinate specialized analyst agents (market, news, fundamentals). "
-                "Use their tools to gather insights, synthesize them, and produce a clear BUY/HOLD/SELL recommendation with concise rationale."
-            ),
+            system_prompt=self.system_prompt,
             tools=tools,
             model=self.ollama_model,
+            session_manager=self.session_manager,
+            hooks=[shared_state_handler_hook],
         )
 
     @tool

@@ -1,8 +1,10 @@
 import asyncio
 import logging
+import os
 import uuid
 from datetime import datetime
 
+from hook import SharedStateHandler
 from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
@@ -33,15 +35,23 @@ class AnalystCoordinator:
         news_analyst = NewsAnalyst()
         fundamentals_analyst = FundamentalsAnalyst()
 
+        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+            self.system_prompt = f.read()
+
         current_date = datetime.now().strftime("%Y-%m-%d")
         self.session_manager = FileSessionManager(
             session_id=f"{current_date}_{uuid.uuid4()}",
             storage_dir="data/agents_sessions/analysts/analysts_coordinator",
         )
+
+        shared_state_file = "data/shared_state.json"
+        shared_state_handler_hook = SharedStateHandler(shared_state_file)
+
         self.agent = Agent(
             name="AnalystCoordinator",
+            agent_id="coordinator",
             description="Coordinates the analysis of market, news, and fundamentals data to provide insights and recommendations.",
-            system_prompt="You are an expert analyst coordinating the analysis of market, news, and fundamentals data to provide insights and recommendations.",
+            system_prompt=self.system_prompt,
             tools=[
                 market_analyst.get_market_analyst_insights,
                 news_analyst.get_news_analyst_insights,
@@ -49,6 +59,7 @@ class AnalystCoordinator:
             ],
             model=self.ollama_model,
             session_manager=self.session_manager,
+            hooks=[shared_state_handler_hook],
         )
 
     @tool
@@ -58,13 +69,15 @@ class AnalystCoordinator:
 
 
 if __name__ == "__main__":
-    test_message = """
-    Analyse AAPL for date 2025-08-01
+    import json
 
-    Discuss between the agents to come to a consensus on the best course of action.
+    ticker = "AAPL"
+    date = "2025-08-01"
+    with open("data/shared_state.json", "w") as f:
+        json.dump({"ticker": ticker, "current_date": date}, f)
 
-    Finally, provide a FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** with a concise rationale in 1-2 sentences.
-    """
+    test_message = "Provide the analysis"
+
     agent = AnalystCoordinator()
     response = asyncio.run(agent.get_analysts_insights(test_message))
     print(f"Response: {response}")
