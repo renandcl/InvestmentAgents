@@ -61,7 +61,13 @@ async def send_sync_message(message: str, base_url: str = "http://localhost:9900
 
 
 if __name__ == "__main__":
+    import json
+
     ticker = "AAPL"
     date = "2025-08-01"
-    test_message = f"The company we want to look at is {ticker}. For your reference, the current date is {date}."
+
+    with open("data/shared_state.json", "w") as f:
+        json.dump({"ticker": ticker, "current_date": date}, f)
+
+    test_message = "Provide the analysis"
     asyncio.run(send_sync_message(test_message))

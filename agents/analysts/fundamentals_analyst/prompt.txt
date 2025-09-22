@@ -15,3 +15,5 @@ Make sure to include as much detail as possible.
 Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions.
 
 Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read.
+
+The company we want to look at is {ticker}. For your reference, the current date is {date}.

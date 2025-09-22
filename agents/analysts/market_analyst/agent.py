@@ -3,6 +3,7 @@ import os
 import uuid
 from datetime import datetime
 
+from hook import SharedStateHandler
 from mcp import StdioServerParameters, stdio_client
 from strands import Agent, tool
 from strands.agent import AgentResult
@@ -64,13 +65,18 @@ class MarketAnalyst:
             + self.stdio_mcp_stockstats_client.list_tools_sync()
         )
 
+        shared_state_file = "data/shared_state.json"
+        shared_state_handler_hook = SharedStateHandler(shared_state_file)
+
         self.agent = Agent(
             name="MarketAnalystAgent",
+            agent_id="market",
             description="Analyzes market data and technical indicators to produce nuanced trading insights by providing ticker and date.",
             system_prompt=self.system_prompt,
             tools=tools,
             model=self.ollama_model,
             session_manager=self.session_manager,
+            hooks=[shared_state_handler_hook],
         )
 
     @tool
@@ -80,9 +86,15 @@ class MarketAnalyst:
 
 
 if __name__ == "__main__":
-    ticker = "AAPL"
-    date = "2025-08-01"
-    test_message = f"The company we want to look at is {ticker}. For your reference, the current date is {date}."
+    import json
+
+    state = {
+        "ticker": "AAPL",
+        "current_date": "2025-08-01",
+    }
+    with open("data/shared_state.json", "w") as f:
+        json.dump(state, f)
+    test_message = "Provide the analysis"
     agent = MarketAnalyst()
     response = asyncio.run(agent.get_market_analyst_insights(test_message))
     print(f"Response: {response}")

@@ -38,7 +38,13 @@ async def send_sync_message(message: str, base_url: str = "http://localhost:9903
 
 
 if __name__ == "__main__":
+    import json
+
     ticker = "AAPL"
     date = "2025-08-01"
-    prompt = f"Coordinate analyses for {ticker} on {date} and provide a final BUY/HOLD/SELL recommendation."
+
+    with open("data/shared_state.json", "w") as f:
+        json.dump({"ticker": ticker, "current_date": date}, f)
+
+    prompt = "Provide the analysis from all analysts of Agents"
     asyncio.run(send_sync_message(prompt))
