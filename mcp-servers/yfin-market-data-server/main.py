@@ -1,6 +1,6 @@
 from mcp.server.fastmcp import FastMCP
-from models.yfin_models import YFinDataParameters
-from services.yfin_service import YFinMarketDataService
+from models import YFinDataParameters
+from services import YFinMarketDataService
 
 mcp = FastMCP("yfin-market-data-server", "Yahoo Finance market data provider")
 service = YFinMarketDataService()
