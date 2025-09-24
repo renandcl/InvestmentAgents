@@ -1,4 +1,4 @@
-from mem0 import Memory
+from mem0_updated_main import Memory
 
 
 class MemoryService:
@@ -17,6 +17,8 @@ class MemoryService:
                 "config": {
                     "model": "llama3.1:latest",
                     "ollama_base_url": "http://localhost:11434",
+                    "temperature": 0,
+                    "max_tokens": 128000,
                 },
             },
             "embedder": {
@@ -34,7 +36,7 @@ class MemoryService:
         self.memory = Memory.from_config(config)
 
     def add_memory(self, memory):
-        self.memory.add(memory, user_id=self.user_id, infer=False)
+        self.memory.add(memory, user_id=self.user_id, infer=True)
 
     def get_memories(self):
         return self.memory.get_all(user_id=self.user_id)
@@ -44,6 +46,10 @@ if __name__ == "__main__":
     m = MemoryService(user_id="test_user_id")
     # Add a memory
     messages = [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that provides movie recommendations.",
+        },
         {
             "role": "user",
             "content": "I'm planning to watch a movie tonight. Any recommendations?",
@@ -62,9 +68,9 @@ if __name__ == "__main__":
         },
     ]
 
-    result = m.memory.add(messages, user_id="test_user_id", infer=False)
+    result = m.add_memory(messages)
     print("Add memory result:", result)
 
     # Retrieve memories
-    memories = m.memory.get_all(user_id="test_user_id")
+    memories = m.get_memories()
     print("Memories for user 'test_user_id':", memories)
