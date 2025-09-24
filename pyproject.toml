@@ -5,8 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "strands-agents-tools[a2a-client]>=0.2.4",
-    "strands-agents[a2a,ollama,otel]>=1.6.0",
+    "strands-agents-tools[a2a-client]>=0.2.8",
+    "strands-agents[a2a,ollama,otel]>=1.9.1",
+    "mem0ai>=0.1.117",
+    "chromadb>=1.1.0",
 ]
 
 [tool.uv.workspace]
@@ -20,10 +22,16 @@ members = [
     "mcp-servers/duckduckgo-news-data-server",
     "mcp-servers/yfin-market-data-server",
     "mcp-servers/stockstats-market-data-server",
+    "mcp-servers/mem0-server",
 ]
 
 [dependency-groups]
 dev = [
     "arize-phoenix>=11.21.0",
     "pre-commit>=4.2.0",
+    "pytest>=8.4.2",
+    "trio>=0.31.0",
 ]
+
+[tool.pytest.ini_options]
+anyio_backends = ["asyncio"]
