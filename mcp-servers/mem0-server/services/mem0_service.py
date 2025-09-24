@@ -2,8 +2,8 @@ from mem0_updated_main import Memory
 
 
 class MemoryService:
-    def __init__(self, user_id: str):
-        self.user_id = user_id
+    def __init__(self, agent_id: str):
+        self.agent_id = agent_id
         config = {
             "vector_store": {
                 "provider": "chroma",
@@ -35,15 +35,20 @@ class MemoryService:
     def initialize_memory(self, config: dict):
         self.memory = Memory.from_config(config)
 
-    def add_memory(self, memory):
-        self.memory.add(memory, user_id=self.user_id, infer=True)
+    def add_memory(self, memory, ticker: str):
+        self.memory.add(memory, user_id=ticker, agent_id=self.agent_id, infer=True)
 
     def get_memories(self):
-        return self.memory.get_all(user_id=self.user_id)
+        return self.memory.get_all(agent_id=self.agent_id)
+
+    def search_memories(self, current_situation: str, ticker: str, n_matches: int = 2):
+        return self.memory.search(
+            current_situation, user_id=ticker, agent_id=self.agent_id, limit=n_matches
+        )
 
 
 if __name__ == "__main__":
-    m = MemoryService(user_id="test_user_id")
+    m = MemoryService(agent_id="test_agent_id")
     # Add a memory
     messages = [
         {
@@ -73,4 +78,4 @@ if __name__ == "__main__":
 
     # Retrieve memories
     memories = m.get_memories()
-    print("Memories for user 'test_user_id':", memories)
+    print("Memories for agent 'test_agent_id':", memories)
