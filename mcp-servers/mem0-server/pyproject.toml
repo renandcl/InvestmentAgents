@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "mcp>=1.11.0",
     "mem0ai>=0.1.117",
+    "chromadb>=1.1.0",
     "pydantic>=2.11.7",
 ]
 
