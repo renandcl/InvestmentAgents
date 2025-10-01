@@ -44,31 +44,50 @@ class RedditNewsService:
         if os.path.exists(file_path):
             json_data = json.load(open(file_path, "r"))
             # subreddit : List[Submission] = json_data["data"]
-            subreddit = []
+            posts = []
             for item in json_data["data"]:
                 item["id"] = None
-                subreddit.append(Submission(self.reddit, _data=item))
+                posts.append(Submission(self.reddit, _data=item))
         else:
-            subreddit = self.reddit.subreddit("all").search(
-                f"{ticker} financial performance analysis"
-            )
+            query = f"{ticker} financial performance analysis"
+            # query = [f"{ticker} stock", f"{ticker} earnings", f"{ticker} analysis", f"{ticker} news", f"{ticker} financial"]
+
+            # other subreddits to validate: wallstreetbets (meme-driven, with high volatility discussions), DividendInvesting (dividend-focused)
+            subreddits = ["stocks", "investing", "finance", "ValueInvesting", "Daytrading", "options"]
+            # subreddits = ["all"]
+
+            posts = []
+            for sub in subreddits:
+                result = self.reddit.subreddit(sub).search(
+                    query,
+                    sort="new",             # "relevance", "hot", "top", "new", or "comments"
+                    # time_filter="month",    # "day", "week", "month", "year", or "all"
+                    limit=500
+                )
+                result = list(result)
+                posts.extend(result) if result else None
 
             os.makedirs("data/news_data", exist_ok=True)
             json_data = {"data": []}
 
-            for submission in subreddit:
+            for submission in posts:
                 json_data["data"].append(
                     {
                         "title": submission.title,
                         "selftext": submission.selftext,
                         "created_utc": submission.created_utc,
+                        "url": submission.url,
+                        "score": submission.score,
+                        "subreddit": submission.subreddit.display_name,
                     }
                 )
-                json.dump(json_data, open(file_path, "w"))
+
+            with open(file_path, "w") as f:
+                json.dump(json_data, f)
 
         combined_result = ""
         count_submissions = 0
-        for submission in subreddit:
+        for submission in posts:
             if submission.created_utc < before.timestamp():
                 continue
             if submission.created_utc > start_date.timestamp():
@@ -82,6 +101,7 @@ class RedditNewsService:
             combined_result += f"Content: {selftext}\n\n"
             combined_result += "-" * 20 + "\n"
             count_submissions += 1
+
             if count_submissions >= 10:
                 break
 

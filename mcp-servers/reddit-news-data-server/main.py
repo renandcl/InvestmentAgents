@@ -30,4 +30,22 @@ def get_reddit_news(payload: RedditNewsParameters) -> str:
 
 
 if __name__ == "__main__":
+    # print("Starting Reddit News Data Server...")
     mcp.run(transport="stdio")
+    
+    # reddit_news_service = RedditNewsService()
+
+    # payload = RedditNewsParameters(
+    #     ticker="AAPL",
+    #     start_date="2025-09-01",
+    #     end_date="2025-10-01",
+    # )
+    # print(f"Payload: {payload}")
+    
+    # result = reddit_news_service.get_news(
+    #     payload.ticker,
+    #     payload.end_date,
+    #     (datetime.strptime(payload.end_date, "%Y-%m-%d") -
+    #     datetime.strptime(payload.start_date, "%Y-%m-%d")).days
+    # )
+
