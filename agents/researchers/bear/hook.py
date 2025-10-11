@@ -17,7 +17,7 @@ class SharedStateHandler(HookProvider):
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_state)
-        registry.add_callback(BeforeModelInvocationEvent, self.add_prompt_arguments)
+        registry.add_callback(BeforeModelInvocationEvent, self.add_prompt_reports)
         registry.add_callback(AfterInvocationEvent, self.save_shared_state)
 
     def get_shared_state(self, event: BeforeInvocationEvent):
@@ -34,32 +34,32 @@ class SharedStateHandler(HookProvider):
         event.agent.state.set("market_report", shared_state.get("market_report"))
         event.agent.state.set("news_report", shared_state.get("news_report"))
 
-        if "bull_researcher_argument" in shared_state:
-            argument = (
-                shared_state.get("bull_researcher_argument")
-                if shared_state.get("bull_researcher_argument")
-                else "No argument"
+        if "bull_researcher_report" in shared_state:
+            report = (
+                shared_state.get("bull_researcher_report")
+                if shared_state.get("bull_researcher_report")
+                else "No report"
             )
-            event.agent.state.set("bull_researcher_argument", argument)
-        if "bear_researcher_argument" in shared_state:
-            argument = (
-                shared_state.get("bear_researcher_argument")
-                if shared_state.get("bear_researcher_argument")
-                else "No argument"
+            event.agent.state.set("bull_researcher_report", report)
+        if "bear_researcher_report" in shared_state:
+            report = (
+                shared_state.get("bear_researcher_report")
+                if shared_state.get("bear_researcher_report")
+                else "No report"
             )
-            event.agent.state.set("bear_researcher_argument", argument)
+            event.agent.state.set("bear_researcher_report", report)
 
         past_memory_str = self._get_past_memories(shared_state)
         event.agent.state.set("past_memories", past_memory_str)
 
-    def add_prompt_arguments(self, event: BeforeModelInvocationEvent):
+    def add_prompt_reports(self, event: BeforeModelInvocationEvent):
         event.agent.system_prompt = event.agent.system_prompt.format(
             ticker=event.agent.state.get("ticker"),
             date=event.agent.state.get("current_date"),
             fundamentals_report=event.agent.state.get("fundamentals_report"),
             market_report=event.agent.state.get("market_report"),
             news_report=event.agent.state.get("news_report"),
-            bull_researcher_argument=event.agent.state.get("bull_researcher_argument"),
+            bull_researcher_report=event.agent.state.get("bull_researcher_report"),
             past_memories=event.agent.state.get("past_memories"),
         )
 

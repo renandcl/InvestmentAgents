@@ -3,12 +3,13 @@ import os
 import uuid
 from datetime import datetime
 
-from hook import SharedStateHandler
-from memory import MemoryService
 from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
+
+from hook import SharedStateHandler
+from memory import MemoryService
 
 
 class BearResearcher:
