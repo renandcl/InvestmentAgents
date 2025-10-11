@@ -21,7 +21,7 @@ def create_message(*, role: Role = Role.user, text: str) -> Message:
     )
 
 
-async def send_sync_message(message: str, base_url: str = "http://localhost:9901"):
+async def send_sync_message(message: str, base_url: str = "http://localhost:9905"):
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as httpx_client:
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
         agent_card = await resolver.get_agent_card()
