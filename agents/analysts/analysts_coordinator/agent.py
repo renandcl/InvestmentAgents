@@ -4,12 +4,12 @@ import os
 import uuid
 from datetime import datetime
 
-from hook import SharedStateHandler
 from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
+from agents.analysts.analysts_coordinator.hook import SharedStateHandler
 from agents.analysts.fundamentals_analyst.agent import FundamentalsAnalyst
 from agents.analysts.market_analyst.agent import MarketAnalyst
 from agents.analysts.news_analyst.agent import NewsAnalyst
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     ticker = "AAPL"
     date = "2025-08-01"
-    with open("data/shared_state.json", "w") as f:
+    with open("data/shared_state.json", "r") as f:
         json.dump({"ticker": ticker, "current_date": date}, f)
 
     test_message = "Provide the analysis"

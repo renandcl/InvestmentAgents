@@ -8,8 +8,8 @@ from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from hook import SharedStateHandler
-from memory import MemoryService
+from agents.researchers.bull.hook import SharedStateHandler
+from agents.researchers.bull.memory import MemoryService
 
 
 class BullResearcher:
