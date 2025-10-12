@@ -73,7 +73,7 @@ if __name__ == "__main__":
         },
     ]
 
-    result = m.add_memory(messages)
+    result = m.add_memory(messages, ticker="test_ticker")
     print("Add memory result:", result)
 
     # Retrieve memories
