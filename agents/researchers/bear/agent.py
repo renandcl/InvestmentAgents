@@ -8,8 +8,8 @@ from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from hook import SharedStateHandler
-from memory import MemoryService
+from agents.researchers.bear.hook import SharedStateHandler
+from agents.researchers.bear.memory import MemoryService
 
 
 class BearResearcher:

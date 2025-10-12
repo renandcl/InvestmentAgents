@@ -1,4 +1,4 @@
-from package.mem0_updated_main import Memory
+from agents.researchers.bull.package.mem0_updated_main import Memory
 
 
 class MemoryService:
