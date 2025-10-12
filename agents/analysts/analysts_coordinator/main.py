@@ -2,8 +2,9 @@ import logging
 
 import uvicorn
 from a2a.types import AgentSkill
-from a2a_agent import AnalystCoordinator
 from strands.multiagent.a2a import A2AServer
+
+from agents.analysts.analysts_coordinator.a2a_agent import AnalystCoordinator
 
 logging.getLogger("strands").setLevel(logging.INFO)
 logging.basicConfig(format="%(levelname)s | %(name)s | %(message)s")
