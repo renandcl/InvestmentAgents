@@ -40,13 +40,6 @@ class SharedStateHandler(HookProvider):
         
         event.agent.state.set("bull_researcher_report", bull_report)
         event.agent.state.set("bear_researcher_report", bear_report)
-        
-        # Get debate history if available
-        # bull_history = shared_state.get("bull_history", "")
-        # bear_history = shared_state.get("bear_history", "")
-        
-        # event.agent.state.set("bull_history", bull_history)
-        # event.agent.state.set("bear_history", bear_history)
 
         past_memory_str = self._get_past_memories(shared_state)
         event.agent.state.set("past_memories", past_memory_str)
@@ -60,8 +53,6 @@ class SharedStateHandler(HookProvider):
             news_report=event.agent.state.get("news_report"),
             bull_researcher_report=event.agent.state.get("bull_researcher_report"),
             bear_researcher_report=event.agent.state.get("bear_researcher_report"),
-            # bull_history=event.agent.state.get("bull_history"),
-            # bear_history=event.agent.state.get("bear_history"),
             past_memories=event.agent.state.get("past_memories"),
         )
 
@@ -81,7 +72,6 @@ class SharedStateHandler(HookProvider):
 
         # Also save as investment_plan for compatibility
         shared_state["investment_plan"] = message
-        shared_state["judge_decision"] = message
 
         with open(self.shared_state_file, "w") as f:
             json.dump(shared_state, f)
@@ -104,4 +94,5 @@ Bear Researcher Analysis: {shared_state.get('bear_researcher_report')}
             for i, rec in enumerate(past_memories["results"], 1):
                 past_memory_str += rec["text"] + "\n\n"
             return past_memory_str
+        else:
             return "No relevant past memories found."
