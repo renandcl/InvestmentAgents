@@ -1,0 +1,67 @@
+import asyncio
+import logging
+from uuid import uuid4
+
+import httpx
+from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
+from a2a.types import Message, Part, Role, TextPart
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+DEFAULT_TIMEOUT = 300  # 5 minutes timeout
+
+
+def create_message(*, role: Role = Role.user, text: str) -> Message:
+    return Message(
+        kind="message",
+        role=role,
+        parts=[Part(TextPart(kind="text", text=text))],
+        message_id=uuid4().hex,
+    )
+
+
+async def send_sync_message(message: str, base_url: str = "http://localhost:9906"):
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as httpx_client:
+        resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
+        agent_card = await resolver.get_agent_card()
+
+        config = ClientConfig(httpx_client=httpx_client, streaming=False)
+        factory = ClientFactory(config)
+        client = factory.create(agent_card)
+
+        msg = create_message(text=message)
+
+        async for event in client.send_message(msg):
+            if isinstance(event, Message):
+                logger.info(event.model_dump_json(exclude_none=True, indent=2))
+                return event
+            else:
+                logger.info(f"Response: {str(event)}")
+                return event
+
+
+if __name__ == "__main__":
+    import json
+
+    ticker = "AAPL"
+    date = "2025-10-12"
+
+    # Create a complete test state with bull and bear reports
+    state = {
+        "ticker": ticker,
+        "current_date": date,
+        "market_report": "Strong upward trend with high volume. RSI at 65, indicating bullish sentiment.",
+        "news_report": "Company announces new product line with strong pre-orders. Positive analyst coverage.",
+        "fundamentals_report": "P/E ratio: 28.5, Revenue growth: 12% YoY, Strong balance sheet with $50B cash.",
+        "bull_researcher_report": "Strong buy signals based on: 1) New product momentum, 2) Growing market opportunity, 3) Solid fundamentals. Recommend BUY.",
+        "bear_researcher_report": "Concerns about: 1) High valuation vs sector, 2) Competition in AI space, 3) Supply chain risks. Recommend HOLD.",
+        "bull_history": "Bull argued for strong growth potential and market positioning.",
+        "bear_history": "Bear highlighted valuation concerns and competitive risks.",
+    }
+
+    with open("data/shared_state.json", "w") as f:
+        json.dump(state, f)
+
+    test_message = "Provide your final investment recommendation based on the bull and bear analyses."
+    asyncio.run(send_sync_message(test_message))

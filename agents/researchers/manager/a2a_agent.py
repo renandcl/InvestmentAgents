@@ -9,7 +9,8 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
-from agents.analysts.analysts_coordinator.hook import SharedStateHandler
+from agents.researchers.manager.hook import SharedStateHandler
+from agents.researchers.manager.memory import MemoryService
 
 # Enables Strands debug log level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -18,8 +19,8 @@ logging.basicConfig(
 )
 
 
-class AnalystCoordinator:
-    """Coordinator agent that calls other analyst agents via A2A HTTP interfaces."""
+class ResearchManager:
+    """Research Manager agent that coordinates bull and bear researchers via A2A HTTP interfaces."""
 
     def __init__(
         self, model_id: str = "qwen3:8b", host: str = "http://localhost:11434"
@@ -29,15 +30,13 @@ class AnalystCoordinator:
 
         self.ollama_model = OllamaModel(host=self.host, model_id=self.model_id)
 
-        # # Individual A2A client tool providers (remote analysts)
-        fundamentals_analyst_url = "http://localhost:9900"
-        news_analyst_url = "http://localhost:9901"
-        market_analyst_url = "http://localhost:9902"
+        # A2A client tool providers for remote researchers
+        bull_researcher_url = "http://localhost:9905"
+        bear_researcher_url = "http://localhost:9904"
         provider = A2AClientToolProvider(
             known_agent_urls=[
-                fundamentals_analyst_url,
-                news_analyst_url,
-                market_analyst_url,
+                bull_researcher_url,
+                bear_researcher_url,
             ]
         )
 
@@ -47,16 +46,18 @@ class AnalystCoordinator:
         current_date = datetime.now().strftime("%Y-%m-%d")
         self.session_manager = FileSessionManager(
             session_id=f"{current_date}_{uuid.uuid4()}",
-            storage_dir="data/agents_sessions/analysts/analysts_coordinator",
+            storage_dir="data/agents_sessions/researchers/research_manager",
         )
+
         tools = provider.tools
         shared_state_file = "data/shared_state.json"
-        shared_state_handler_hook = SharedStateHandler(shared_state_file)
+        memory = MemoryService(agent_id="research_manager")
+        shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
 
         self.agent = Agent(
-            name="AnalystCoordinator",
-            agent_id="coordinator",
-            description="Coordinates market, news, and fundamentals analyses to produce recommendations.",
+            name="ResearchManagerAgent",
+            agent_id="research_manager",
+            description="Evaluates bull and bear research and makes final investment recommendations.",
             system_prompt=self.system_prompt,
             tools=tools,
             model=self.ollama_model,
@@ -65,6 +66,6 @@ class AnalystCoordinator:
         )
 
     @tool
-    async def get_analysts_insights(self, message: str) -> AgentResult:
-        """Query all underlying analyst agents and aggregate their insights for a ticker/date."""
+    async def get_research_manager_decision(self, message: str) -> AgentResult:
+        """Get final investment decision from the research manager after evaluating bull and bear analyses."""
         return await self.agent.invoke_async(message)
