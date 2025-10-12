@@ -66,12 +66,14 @@ class SharedStateHandler(HookProvider):
             report = report_match.group(2).strip()
             event.agent.state.set(f"{event.agent.agent_id}_report", report)
             shared_state[f"{event.agent.agent_id}_report"] = report
+            # Also save as investment_plan for compatibility
+            shared_state["investment_plan"] = report
+            shared_state["judge_decision"] = report
         else:
             event.agent.state.set(f"{event.agent.agent_id}_report", message)
             shared_state[f"{event.agent.agent_id}_report"] = message
-
-        # Also save as investment_plan for compatibility
-        shared_state["investment_plan"] = message
+            shared_state["investment_plan"] = message
+            shared_state["judge_decision"] = message
 
         with open(self.shared_state_file, "w") as f:
             json.dump(shared_state, f)
