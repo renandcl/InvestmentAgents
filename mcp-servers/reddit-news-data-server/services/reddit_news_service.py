@@ -5,6 +5,11 @@ import os
 import praw
 from praw.models import Submission
 
+# Load environment variables from .env file if it exists
+from dotenv import load_dotenv
+
+load_dotenv()
+
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 
