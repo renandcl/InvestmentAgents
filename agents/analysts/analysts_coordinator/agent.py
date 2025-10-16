@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     ticker = "AAPL"
     date = "2025-08-01"
-    with open("data/shared_state.json", "r") as f:
+    with open("data/shared_state.json", "w") as f:
         json.dump({"ticker": ticker, "current_date": date}, f)
 
     test_message = "Provide the analysis"
