@@ -9,13 +9,14 @@ flowchart LR
         MA["Market Analyst"]
         NA["News Analyst"]
         FA["Fundamentals Analyst"]
+        SA["Social Media Analyst"]
   end
  subgraph subGraph1["Researchers Discussion"]
         BR["Bull Reseacher"]
         BER["Bear Researcher"]
         RM["Research Manager"]
   end
- subgraph subGraph2["Judge Arguments"]
+ subgraph subGraph2["Investment Plan Decision"]
         TR["Trader"]
   end
  subgraph subGraph3["Risk Discussion"]
@@ -26,25 +27,21 @@ flowchart LR
   end
     Init(["Ticker"]) -- Start Analysis --> IM["Investment Manager"]
     IM <-- Phase 1 --> AC
-    AC <--> MA & NA & FA
+    AC <--> MA & NA & FA & SA
     IM <-- Phase 2 --> RM
     RM <--> BR & BER
     IM <-- Phase 3 --> TR
     IM <-- Phase 4 --> RMG
     RMG <--> AD & CD & ND
-    MA -. Market Report .- State["State"]
+    MA -. Market Report .- State["Document"]
     NA -. News Report .- State
     FA -. Fundamentals Report .- State
+    SA -. Social Media Report .- State 
     RM -. Investment Plan .- State
-    TR -. Judgment Report .- State
-    RMG -. Final Trade Decision .- State
+    TR -. Investment Plan Report .- State
+    IM -. Final Trade Decision .- State
     State@{ shape: db}
     Memory["Past Memory"]
     Memory@{ shape: db}
     Memory -.- subGraph1 & subGraph2 & subGraph3
-
-
-
 ```
-
-
