@@ -6,15 +6,16 @@ Leaf agent - does not coordinate other agents.
 """
 
 import os
-from strands import Agent
+
 from hook import SharedDocument
 from memory import MemoryService
+from strands import Agent
 
 
 class ConservativeDebator:
     """
     Conservative/Safe Risk Analyst agent.
-    
+
     Protects assets through risk mitigation, emphasizes stability and security,
     and challenges overly aggressive positions with prudent counterarguments.
     """
@@ -50,10 +51,10 @@ class ConservativeDebator:
     async def provide_conservative_analysis(self, query: str) -> str:
         """
         Provide conservative risk analysis.
-        
+
         Args:
             query: The analysis request
-            
+
         Returns:
             Conservative risk perspective
         """
@@ -71,4 +72,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

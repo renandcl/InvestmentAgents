@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class MemoryService:
     """
     Memory service for Investment Manager.
-    
+
     Stores:
     - Past workflow executions
     - Successful decision patterns
@@ -62,7 +62,7 @@ class MemoryService:
     ) -> str:
         """
         Store a completed workflow execution in memory.
-        
+
         Args:
             ticker: Stock ticker
             date: Execution date
@@ -70,7 +70,7 @@ class MemoryService:
             execution_status: APPROVED/HOLD/REJECTED
             final_decision: Final decision text
             metadata: Additional metadata
-            
+
         Returns:
             Memory ID
         """
@@ -113,12 +113,12 @@ class MemoryService:
     ) -> List[dict]:
         """
         Search for similar past workflow executions.
-        
+
         Args:
             ticker: Filter by ticker (optional)
             query: Search query text
             n_results: Number of results to return
-            
+
         Returns:
             List of similar workflow memories
         """
@@ -143,8 +143,12 @@ class MemoryService:
                 for i, doc in enumerate(results["documents"][0]):
                     memory = {
                         "text": doc,
-                        "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
-                        "distance": results["distances"][0][i] if results["distances"] else 0.0,
+                        "metadata": results["metadatas"][0][i]
+                        if results["metadatas"]
+                        else {},
+                        "distance": results["distances"][0][i]
+                        if results["distances"]
+                        else 0.0,
                     }
                     memories.append(memory)
 
@@ -158,7 +162,7 @@ class MemoryService:
     def get_workflow_statistics(self) -> dict:
         """
         Get statistics on past workflow executions.
-        
+
         Returns:
             Dictionary with workflow statistics
         """

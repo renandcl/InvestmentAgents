@@ -7,7 +7,7 @@ The main orchestrator of the complete investment decision system. Coordinates al
 The Investment Manager is the top-level coordinator that sequences and manages the entire investment decision workflow:
 
 1. **Analysis Phase** - Coordinates market intelligence gathering
-2. **Research Phase** - Evaluates investment opportunity  
+2. **Research Phase** - Evaluates investment opportunity
 3. **Trading Phase** - Develops execution plan
 4. **Risk Management Phase** - Evaluates risk and makes final decision
 5. **Execution Phase** - Makes GO/NO-GO execution decision
@@ -61,7 +61,7 @@ HTTP-based coordination using A2AClientToolProvider:
 ### hook.py
 Workflow state management:
 - `get_shared_document()` - Loads workflow context
-- `add_prompt_reports()` - Aggregates phase results  
+- `add_prompt_reports()` - Aggregates phase results
 - `save_shared_document()` - Saves execution decisions
 
 ### memory.py
@@ -135,22 +135,22 @@ print(f"Status: {result['execution_status']}")
   "ticker": "AAPL",
   "current_date": "2025-01-15",
   "phase": "completed",
-  
+
   "fundamentals_report": "...",
   "news_report": "...",
   "market_report": "...",
-  
+
   "investment_plan": "...",
   "investment_recommendation": "...",
-  
+
   "trader_plan": "...",
-  
+
   "risk_debate_state": {
     "history": [...],
     "judge_decision": "..."
   },
   "final_trade_decision": "BUY...",
-  
+
   "execution_action": "BUY",
   "execution_status": "APPROVED"
 }
@@ -222,7 +222,7 @@ INVESTMENT_MANAGER_PORT=9912        # A2A server port
 
 Requires all coordinator agents to be available:
 - Analysts Coordinator
-- Research Manager  
+- Research Manager
 - Trader
 - Risk Manager
 

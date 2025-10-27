@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class StockstatsIndicatorParameters(BaseModel):
@@ -12,33 +13,33 @@ class StockstatsIndicatorParameters(BaseModel):
     look_back_days: int = Field(
         30, description="Days to look back (default 30) for online report"
     )
-    
-    @field_validator('symbol')
+
+    @field_validator("symbol")
     @classmethod
     def validate_symbol(cls, v: str) -> str:
         v = v.strip().upper()
         if not v:
             raise ValueError("symbol cannot be empty")
         return v
-    
-    @field_validator('indicator')
+
+    @field_validator("indicator")
     @classmethod
     def validate_indicator(cls, v: str) -> str:
         v = v.strip().lower()
         if not v:
             raise ValueError("indicator cannot be empty")
         return v
-    
-    @field_validator('curr_date')
+
+    @field_validator("curr_date")
     @classmethod
     def validate_date(cls, v: str) -> str:
         try:
-            datetime.strptime(v, '%Y-%m-%d')
+            datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
             raise ValueError("curr_date must be in YYYY-MM-DD format")
         return v
-    
-    @field_validator('look_back_days')
+
+    @field_validator("look_back_days")
     @classmethod
     def validate_look_back_days(cls, v: int) -> int:
         if v <= 0:
