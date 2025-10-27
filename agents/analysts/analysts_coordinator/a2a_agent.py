@@ -9,7 +9,7 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
-from agents.analysts.analysts_coordinator.hook import SharedStateHandler
+from agents.analysts.analysts_coordinator.hook import SharedDocument
 
 # Enables Strands debug log level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -50,8 +50,8 @@ class AnalystCoordinator:
             storage_dir="data/agents_sessions/analysts/analysts_coordinator",
         )
         tools = provider.tools
-        shared_state_file = "data/shared_state.json"
-        shared_state_handler_hook = SharedStateHandler(shared_state_file)
+        shared_document_file = "data/shared_document.json"
+        shared_document_handler_hook = SharedDocument(shared_document_file)
 
         self.agent = Agent(
             name="AnalystCoordinator",
@@ -61,7 +61,7 @@ class AnalystCoordinator:
             tools=tools,
             model=self.ollama_model,
             session_manager=self.session_manager,
-            hooks=[shared_state_handler_hook],
+            hooks=[shared_document_handler_hook],
         )
 
     @tool

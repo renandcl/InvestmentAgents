@@ -74,7 +74,7 @@ if __name__ == "__main__":
         "judge_decision": "After evaluating both bull and bear arguments, I recommend BUY. The bull case is stronger with solid fundamentals and positive momentum outweighing short-term risks.",
     }
 
-    with open("data/shared_state.json", "w") as f:
+    with open("data/shared_document.json", "w") as f:
         json.dump(state, f)
 
     test_message = "Execute the investment decision with proper risk management parameters."

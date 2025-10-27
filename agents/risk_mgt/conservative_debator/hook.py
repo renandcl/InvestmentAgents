@@ -10,7 +10,7 @@ from datetime import datetime
 from strands import BeforeInvocationEvent, BeforeModelInvocationEvent, AfterInvocationEvent
 
 
-class SharedStateHandler:
+class SharedDocument:
     """Handles shared state management for the Conservative Debator agent via hooks."""
 
     def __init__(self, memory_service):
@@ -21,10 +21,10 @@ class SharedStateHandler:
             memory_service: Memory service for retrieving past trading memories
         """
         self.memory_service = memory_service
-        self.shared_state = {}
-        self.state_file = "data/shared_state.json"
+        self.shared_document = {}
+        self.state_file = "data/shared_document.json"
 
-    def get_shared_state(self, event: BeforeInvocationEvent):
+    def get_shared_document(self, event: BeforeInvocationEvent):
         """
         Hook 1: Load shared state before agent invocation.
         
@@ -37,29 +37,29 @@ class SharedStateHandler:
         # Load shared state from file
         if os.path.exists(self.state_file):
             with open(self.state_file, "r") as f:
-                self.shared_state = json.load(f)
+                self.shared_document = json.load(f)
         else:
-            self.shared_state = {}
+            self.shared_document = {}
 
         # Store in event context
-        event.context["ticker"] = self.shared_state.get("ticker", "UNKNOWN")
-        event.context["current_date"] = self.shared_state.get(
+        event.context["ticker"] = self.shared_document.get("ticker", "UNKNOWN")
+        event.context["current_date"] = self.shared_document.get(
             "current_date", datetime.now().strftime("%Y-%m-%d")
         )
-        event.context["market_report"] = self.shared_state.get("market_report", "No market report available.")
-        event.context["news_report"] = self.shared_state.get("news_report", "No news report available.")
-        event.context["fundamentals_report"] = self.shared_state.get("fundamentals_report", "No fundamentals report available.")
+        event.context["market_report"] = self.shared_document.get("market_report", "No market report available.")
+        event.context["news_report"] = self.shared_document.get("news_report", "No news report available.")
+        event.context["fundamentals_report"] = self.shared_document.get("fundamentals_report", "No fundamentals report available.")
         
         # Trader's decision - try trader_investment_plan first (TradingAgents pattern)
-        event.context["trader_decision"] = self.shared_state.get(
+        event.context["trader_decision"] = self.shared_document.get(
             "trader_investment_plan",
-            self.shared_state.get("trader_decision",
-                self.shared_state.get("trader_report", "No trader decision available.")
+            self.shared_document.get("trader_decision",
+                self.shared_document.get("trader_report", "No trader decision available.")
             )
         )
         
         # Risk debate context - following TradingAgents RiskDebateState pattern
-        risk_debate = self.shared_state.get("risk_debate_state", {})
+        risk_debate = self.shared_document.get("risk_debate_state", {})
         event.context["risk_debate_history"] = risk_debate.get("history", "No debate history yet.")
         event.context["aggressive_argument"] = risk_debate.get("current_risky_response", "No aggressive argument yet.")
         event.context["neutral_argument"] = risk_debate.get("current_neutral_response", "No neutral argument yet.")
@@ -95,7 +95,7 @@ class SharedStateHandler:
             past_memories=event.context.get("past_memories", "No memories"),
         )
 
-    def save_shared_state(self, event: AfterInvocationEvent):
+    def save_shared_document(self, event: AfterInvocationEvent):
         """
         Hook 3: Save conservative analysis to shared state after agent execution.
         Follows TradingAgents RiskDebateState pattern.
@@ -104,8 +104,8 @@ class SharedStateHandler:
         conservative_analysis = event.result
         
         # Update risk_debate_state (following TradingAgents pattern)
-        if "risk_debate_state" not in self.shared_state:
-            self.shared_state["risk_debate_state"] = {
+        if "risk_debate_state" not in self.shared_document:
+            self.shared_document["risk_debate_state"] = {
                 "history": "",
                 "risky_history": "",
                 "safe_history": "",
@@ -118,7 +118,7 @@ class SharedStateHandler:
                 "count": 0,
             }
         
-        risk_debate_state = self.shared_state["risk_debate_state"]
+        risk_debate_state = self.shared_document["risk_debate_state"]
         
         # Format argument with analyst prefix (matching TradingAgents pattern)
         argument = f"Safe Analyst: {conservative_analysis}"
@@ -130,15 +130,15 @@ class SharedStateHandler:
         risk_debate_state["current_safe_response"] = argument
         risk_debate_state["count"] = risk_debate_state.get("count", 0) + 1
         
-        self.shared_state["risk_debate_state"] = risk_debate_state
-        self.shared_state["conservative_analysis"] = conservative_analysis
+        self.shared_document["risk_debate_state"] = risk_debate_state
+        self.shared_document["conservative_analysis"] = conservative_analysis
         
         # Save to memory for learning
         self.memory_service.add_memory(
             text=f"Conservative Analysis: {conservative_analysis}",
             metadata={
-                "ticker": self.shared_state.get("ticker"),
-                "date": self.shared_state.get("current_date"),
+                "ticker": self.shared_document.get("ticker"),
+                "date": self.shared_document.get("current_date"),
                 "type": "conservative_risk_analysis",
             }
         )
@@ -146,4 +146,4 @@ class SharedStateHandler:
         # Save shared state to file
         os.makedirs("data", exist_ok=True)
         with open(self.state_file, "w") as f:
-            json.dump(self.shared_state, f, indent=2)
+            json.dump(self.shared_document, f, indent=2)

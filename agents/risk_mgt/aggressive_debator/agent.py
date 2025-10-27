@@ -7,7 +7,7 @@ Leaf agent - does not coordinate other agents.
 
 import os
 from strands import Agent
-from hook import SharedStateHandler
+from hook import SharedDocument
 from memory import MemoryService
 
 
@@ -29,7 +29,7 @@ class AggressiveDebator:
         self.memory_service = MemoryService()
 
         # Initialize state handler (hooks)
-        state_handler = SharedStateHandler(self.memory_service)
+        state_handler = SharedDocument(self.memory_service)
 
         # Initialize agent
         self.agent = Agent(
@@ -41,9 +41,9 @@ class AggressiveDebator:
             model_url="http://localhost:11434",
             tools=[],  # Leaf agent - no sub-agents
             hooks=[
-                state_handler.get_shared_state,
+                state_handler.get_shared_document,
                 state_handler.add_prompt_reports,
-                state_handler.save_shared_state,
+                state_handler.save_shared_document,
             ],
         )
 

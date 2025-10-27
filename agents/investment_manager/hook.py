@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SharedStateHandler:
+class SharedDocument:
     """
     Hook handler for Investment Manager workflow state management.
     
@@ -32,11 +32,11 @@ class SharedStateHandler:
     - Execution decision saving
     """
 
-    def __init__(self, shared_state_file: str, memory: "MemoryService"):
-        self.shared_state_file = Path(shared_state_file)
+    def __init__(self, shared_document_file: str, memory: "MemoryService"):
+        self.shared_document_file = Path(shared_document_file)
         self.memory = memory
 
-    def get_shared_state(self, event: BeforeInvocationEvent) -> None:
+    def get_shared_document(self, event: BeforeInvocationEvent) -> None:
         """
         Load current workflow state at the start of invocation.
         
@@ -46,36 +46,36 @@ class SharedStateHandler:
         - All phase results
         - Final decisions from previous phases
         """
-        if not self.shared_state_file.exists():
+        if not self.shared_document_file.exists():
             logger.info("No shared state file found - new workflow")
             return
 
         try:
-            with open(self.shared_state_file, "r") as f:
-                shared_state = json.load(f)
+            with open(self.shared_document_file, "r") as f:
+                shared_document = json.load(f)
 
             # Extract key workflow info
-            ticker = shared_state.get("ticker", "N/A")
-            current_date = shared_state.get("current_date", "N/A")
-            phase = shared_state.get("phase", "initialization")
+            ticker = shared_document.get("ticker", "N/A")
+            current_date = shared_document.get("current_date", "N/A")
+            phase = shared_document.get("phase", "initialization")
             
             # Get reports from each phase
-            fundamentals_report = shared_state.get("fundamentals_report", "")
-            news_report = shared_state.get("news_report", "")
-            market_report = shared_state.get("market_report", "")
+            fundamentals_report = shared_document.get("fundamentals_report", "")
+            news_report = shared_document.get("news_report", "")
+            market_report = shared_document.get("market_report", "")
             
-            investment_plan = shared_state.get("investment_plan", "")
-            investment_recommendation = shared_state.get("investment_recommendation", "")
+            investment_plan = shared_document.get("investment_plan", "")
+            investment_recommendation = shared_document.get("investment_recommendation", "")
             
-            trader_plan = shared_state.get("trader_plan", "")
+            trader_plan = shared_document.get("trader_plan", "")
             
-            final_trade_decision = shared_state.get("final_trade_decision", "")
+            final_trade_decision = shared_document.get("final_trade_decision", "")
             
-            execution_action = shared_state.get("execution_action", "")
-            execution_status = shared_state.get("execution_status", "")
+            execution_action = shared_document.get("execution_action", "")
+            execution_status = shared_document.get("execution_status", "")
 
             # Store in event
-            event.shared_state = {
+            event.shared_document = {
                 "ticker": ticker,
                 "current_date": current_date,
                 "phase": phase,
@@ -101,13 +101,13 @@ class SharedStateHandler:
         
         Provides context from completed phases to inform current phase decisions.
         """
-        shared_state = getattr(event, "shared_state", {})
-        if not shared_state:
+        shared_document = getattr(event, "shared_document", {})
+        if not shared_document:
             return
 
-        ticker = shared_state.get("ticker", "N/A")
-        current_date = shared_state.get("current_date", "N/A")
-        phase = shared_state.get("phase", "initialization")
+        ticker = shared_document.get("ticker", "N/A")
+        current_date = shared_document.get("current_date", "N/A")
+        phase = shared_document.get("phase", "initialization")
 
         # Build context from completed phases
         context_parts = [
@@ -123,9 +123,9 @@ class SharedStateHandler:
         # Add phase-specific context
         if phase in ["research", "trading", "risk_management", "execution"]:
             # Analysis phase completed
-            fundamentals = shared_state.get("fundamentals_report", "")
-            news = shared_state.get("news_report", "")
-            market = shared_state.get("market_report", "")
+            fundamentals = shared_document.get("fundamentals_report", "")
+            news = shared_document.get("news_report", "")
+            market = shared_document.get("market_report", "")
             
             if fundamentals or news or market:
                 context_parts.append("\n--- ANALYSIS PHASE RESULTS ---")
@@ -138,8 +138,8 @@ class SharedStateHandler:
 
         if phase in ["trading", "risk_management", "execution"]:
             # Research phase completed
-            plan = shared_state.get("investment_plan", "")
-            recommendation = shared_state.get("investment_recommendation", "")
+            plan = shared_document.get("investment_plan", "")
+            recommendation = shared_document.get("investment_recommendation", "")
             
             if plan or recommendation:
                 context_parts.append("\n--- RESEARCH PHASE RESULTS ---")
@@ -150,7 +150,7 @@ class SharedStateHandler:
 
         if phase in ["risk_management", "execution"]:
             # Trading phase completed
-            trader_plan = shared_state.get("trader_plan", "")
+            trader_plan = shared_document.get("trader_plan", "")
             
             if trader_plan:
                 context_parts.append("\n--- TRADING PHASE RESULTS ---")
@@ -158,7 +158,7 @@ class SharedStateHandler:
 
         if phase == "execution":
             # Risk phase completed
-            final_decision = shared_state.get("final_trade_decision", "")
+            final_decision = shared_document.get("final_trade_decision", "")
             
             if final_decision:
                 context_parts.append("\n--- RISK MANAGEMENT PHASE RESULTS ---")
@@ -172,7 +172,7 @@ class SharedStateHandler:
 
         logger.info(f"Added workflow context for phase: {phase}")
 
-    def save_shared_state(self, event: AfterInvocationEvent) -> None:
+    def save_shared_document(self, event: AfterInvocationEvent) -> None:
         """
         Save execution decision after workflow completion.
         
@@ -180,11 +180,11 @@ class SharedStateHandler:
         """
         try:
             # Load current state
-            if self.shared_state_file.exists():
-                with open(self.shared_state_file, "r") as f:
-                    shared_state = json.load(f)
+            if self.shared_document_file.exists():
+                with open(self.shared_document_file, "r") as f:
+                    shared_document = json.load(f)
             else:
-                shared_state = {}
+                shared_document = {}
 
             # Extract execution decision from response if present
             response_text = event.response.text if event.response else ""
@@ -193,24 +193,24 @@ class SharedStateHandler:
             if "execution decision" in response_text.lower() or "execution_action" in response_text.lower():
                 # Parse action and status
                 if "BUY" in response_text.upper():
-                    shared_state["execution_action"] = "BUY"
-                    shared_state["execution_status"] = "APPROVED"
+                    shared_document["execution_action"] = "BUY"
+                    shared_document["execution_status"] = "APPROVED"
                 elif "SELL" in response_text.upper():
-                    shared_state["execution_action"] = "SELL"
-                    shared_state["execution_status"] = "APPROVED"
+                    shared_document["execution_action"] = "SELL"
+                    shared_document["execution_status"] = "APPROVED"
                 elif "HOLD" in response_text.upper():
-                    shared_state["execution_action"] = "HOLD"
-                    shared_state["execution_status"] = "HOLD"
+                    shared_document["execution_action"] = "HOLD"
+                    shared_document["execution_status"] = "HOLD"
                 
-                shared_state["execution_decision_details"] = response_text[:1000]
-                shared_state["phase"] = "completed"
+                shared_document["execution_decision_details"] = response_text[:1000]
+                shared_document["phase"] = "completed"
                 
-                logger.info(f"Saved execution decision: {shared_state.get('execution_action')}")
+                logger.info(f"Saved execution decision: {shared_document.get('execution_action')}")
 
             # Save state
-            self.shared_state_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.shared_state_file, "w") as f:
-                json.dump(shared_state, f, indent=2)
+            self.shared_document_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.shared_document_file, "w") as f:
+                json.dump(shared_document, f, indent=2)
 
         except Exception as e:
             logger.error(f"Error saving execution decision: {e}")
