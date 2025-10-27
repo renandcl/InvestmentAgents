@@ -9,7 +9,7 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
-from hook import SharedStateHandler
+from hook import SharedDocument
 from memory import MemoryService
 
 # Enables Strands debug log level
@@ -53,9 +53,9 @@ class RiskManager:
         )
 
         tools = provider.tools
-        shared_state_file = "data/shared_state.json"
+        shared_document_file = "data/shared_document.json"
         memory = MemoryService(agent_id="risk_manager")
-        shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
 
         self.agent = Agent(
             name="RiskManagerAgent",
@@ -66,9 +66,9 @@ class RiskManager:
             model=self.ollama_model,
             session_manager=self.session_manager,
             hooks=[
-                shared_state_handler_hook.get_shared_state,
-                shared_state_handler_hook.add_prompt_reports,
-                shared_state_handler_hook.save_shared_state,
+                shared_document_handler_hook.get_shared_document,
+                shared_document_handler_hook.add_prompt_reports,
+                shared_document_handler_hook.save_shared_document,
             ],
         )
 

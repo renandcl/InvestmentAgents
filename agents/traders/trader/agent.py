@@ -8,7 +8,7 @@ from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from agents.traders.trader.hook import SharedStateHandler
+from agents.traders.trader.hook import SharedDocument
 from agents.traders.trader.memory import MemoryService
 
 
@@ -31,9 +31,9 @@ class Trader:
             storage_dir="data/agents_sessions/traders/trader",
         )
 
-        shared_state_file = "data/shared_state.json"
+        shared_document_file = "data/shared_document.json"
         memory = MemoryService(agent_id="trader")
-        shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
 
         self.agent = Agent(
             name="TraderAgent",
@@ -42,7 +42,7 @@ class Trader:
             system_prompt=self.system_prompt,
             model=self.ollama_model,
             session_manager=self.session_manager,
-            hooks=[shared_state_handler_hook],
+            hooks=[shared_document_handler_hook],
         )
 
     @tool
@@ -59,9 +59,9 @@ if __name__ == "__main__":
     #     "current_date": "2025-10-12",
     #     "investment_plan": "BUY recommendation based on strong fundamentals...",
     # }
-    # with open("data/shared_state.json", "w") as f:
+    # with open("data/shared_document.json", "w") as f:
     #     json.dump(state, f)
-    with open("data/shared_state.json", "r") as f:
+    with open("data/shared_document.json", "r") as f:
         state = json.load(f)
     agent = Trader()
     test_message = "Execute the investment decision based on the plan."

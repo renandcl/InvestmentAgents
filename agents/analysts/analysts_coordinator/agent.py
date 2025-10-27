@@ -9,7 +9,7 @@ from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from agents.analysts.analysts_coordinator.hook import SharedStateHandler
+from agents.analysts.analysts_coordinator.hook import SharedDocument
 from agents.analysts.fundamentals_analyst.agent import FundamentalsAnalyst
 from agents.analysts.market_analyst.agent import MarketAnalyst
 from agents.analysts.news_analyst.agent import NewsAnalyst
@@ -44,8 +44,8 @@ class AnalystCoordinator:
             storage_dir="data/agents_sessions/analysts/analysts_coordinator",
         )
 
-        shared_state_file = "data/shared_state.json"
-        shared_state_handler_hook = SharedStateHandler(shared_state_file)
+        shared_document_file = "data/shared_document.json"
+        shared_document_handler_hook = SharedDocument(shared_document_file)
 
         self.agent = Agent(
             name="AnalystCoordinator",
@@ -59,7 +59,7 @@ class AnalystCoordinator:
             ],
             model=self.ollama_model,
             session_manager=self.session_manager,
-            hooks=[shared_state_handler_hook],
+            hooks=[shared_document_handler_hook],
         )
 
     @tool
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     ticker = "AAPL"
     date = "2025-08-01"
-    with open("data/shared_state.json", "w") as f:
+    with open("data/shared_document.json", "w") as f:
         json.dump({"ticker": ticker, "current_date": date}, f)
 
     test_message = "Provide the analysis"

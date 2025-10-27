@@ -10,7 +10,7 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
 from agents.researchers.manager.memory import MemoryService
-from agents.researchers.manager.hook import SharedStateHandler
+from agents.researchers.manager.hook import SharedDocument
 from agents.researchers.bull.agent import BullResearcher
 from agents.researchers.bear.agent import BearResearcher
 
@@ -44,9 +44,9 @@ class ResearchManager:
             storage_dir="data/agents_sessions/researchers/research_manager",
         )
 
-        shared_state_file = "data/shared_state.json"
+        shared_document_file = "data/shared_document.json"
         memory = MemoryService(agent_id="research_manager")
-        shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
 
         self.agent = Agent(
             name="ResearchManagerAgent",
@@ -59,7 +59,7 @@ class ResearchManager:
             ],
             model=self.ollama_model,
             session_manager=self.session_manager,
-            hooks=[shared_state_handler_hook],
+            hooks=[shared_document_handler_hook],
         )
 
     @tool
@@ -77,11 +77,11 @@ if __name__ == "__main__":
     #     "bull_researcher_report": "Strong buy signal...",
     #     "bear_researcher_report": "High risk concerns...",
     # }
-    with open("data/shared_state.json", "r") as f:
+    with open("data/shared_document.json", "r") as f:
         state = json.load(f)
     agent = ResearchManager()
 
     test_message = "Coordinate a debate between bull and bear researchers and provide your final investment recommendation."
-    
+
     response = asyncio.run(agent.get_research_manager_decision(test_message))
     print(f"Response: {response}")

@@ -10,22 +10,22 @@ from strands.hooks import (
 )
 
 
-class SharedStateHandler(HookProvider):
-    def __init__(self, shared_state_json_file: str):
-        self.shared_state_file = shared_state_json_file
+class SharedDocument(HookProvider):
+    def __init__(self, shared_document_json_file: str):
+        self.shared_document_file = shared_document_json_file
 
     def register_hooks(self, registry: HookRegistry) -> None:
-        registry.add_callback(BeforeInvocationEvent, self.get_shared_state)
+        registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
         registry.add_callback(BeforeModelInvocationEvent, self.add_prompt_arguments)
-        registry.add_callback(AfterInvocationEvent, self.save_shared_state)
+        registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
-    def get_shared_state(self, event: BeforeInvocationEvent):
-        with open(self.shared_state_file, "r") as f:
-            shared_state = json.load(f)
+    def get_shared_document(self, event: BeforeInvocationEvent):
+        with open(self.shared_document_file, "r") as f:
+            shared_document = json.load(f)
 
-        event.agent.state.set("current_date", shared_state.get("current_date"))
-        event.agent.state.set("ticker", shared_state.get("ticker"))
-        event.agent.state.set("shared_state_file", self.shared_state_file)
+        event.agent.state.set("current_date", shared_document.get("current_date"))
+        event.agent.state.set("ticker", shared_document.get("ticker"))
+        event.agent.state.set("shared_document_file", self.shared_document_file)
 
     def add_prompt_arguments(self, event: BeforeModelInvocationEvent):
         event.agent.system_prompt = event.agent.system_prompt.format(
@@ -33,19 +33,19 @@ class SharedStateHandler(HookProvider):
             date=event.agent.state.get("current_date"),
         )
 
-    def save_shared_state(self, event: AfterInvocationEvent):
-        with open(self.shared_state_file, "r") as f:
-            shared_state = json.load(f)
+    def save_shared_document(self, event: AfterInvocationEvent):
+        with open(self.shared_document_file, "r") as f:
+            shared_document = json.load(f)
 
         message = event.agent.messages[-1]["content"][0]["text"]
         report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
         if report_match:
             report = report_match.group(2).strip()
             event.agent.state.set(f"{event.agent.agent_id}_report", report)
-            shared_state[f"{event.agent.agent_id}_report"] = report
+            shared_document[f"{event.agent.agent_id}_report"] = report
         else:
             event.agent.state.set(f"{event.agent.agent_id}_report", message)
-            shared_state[f"{event.agent.agent_id}_report"] = message
+            shared_document[f"{event.agent.agent_id}_report"] = message
 
-        with open(self.shared_state_file, "w") as f:
-            json.dump(shared_state, f)
+        with open(self.shared_document_file, "w") as f:
+            json.dump(shared_document, f)

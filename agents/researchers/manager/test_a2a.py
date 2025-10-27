@@ -60,7 +60,7 @@ if __name__ == "__main__":
         "bear_history": "Bear highlighted valuation concerns and competitive risks.",
     }
 
-    with open("data/shared_state.json", "w") as f:
+    with open("data/shared_document.json", "w") as f:
         json.dump(state, f)
 
     test_message = "Provide your final investment recommendation based on the bull and bear analyses."

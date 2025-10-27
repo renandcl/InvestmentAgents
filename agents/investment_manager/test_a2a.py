@@ -94,7 +94,7 @@ async def test_investment_manager_workflow():
                 
                 # Load final state
                 try:
-                    with open("data/shared_state.json", "r") as f:
+                    with open("data/shared_document.json", "r") as f:
                         final_state = json.load(f)
                     
                     logger.info(f"\n{'='*60}")

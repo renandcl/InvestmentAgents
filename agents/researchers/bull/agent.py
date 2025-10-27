@@ -8,7 +8,7 @@ from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from agents.researchers.bull.hook import SharedStateHandler
+from agents.researchers.bull.hook import SharedDocument
 from agents.researchers.bull.memory import MemoryService
 
 
@@ -31,9 +31,9 @@ class BullResearcher:
             storage_dir="data/agents_sessions/researchers/bull_researcher",
         )
 
-        shared_state_file = "data/shared_state.json"
+        shared_document_file = "data/shared_document.json"
         memory = MemoryService(agent_id="bull_researcher")
-        shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
 
         self.agent = Agent(
             name="BullResearcherAgent",
@@ -42,7 +42,7 @@ class BullResearcher:
             system_prompt=self.system_prompt,
             model=self.ollama_model,
             session_manager=self.session_manager,
-            hooks=[shared_state_handler_hook],
+            hooks=[shared_document_handler_hook],
         )
 
     @tool
@@ -58,9 +58,9 @@ if __name__ == "__main__":
     #     "ticker": "AAPL",
     #     "current_date": "2025-08-01",
     # }
-    # with open("data/shared_state.json", "w") as f:
+    # with open("data/shared_document.json", "w") as f:
     #     json.dump(state, f)
-    with open("data/shared_state.json", "r") as f:
+    with open("data/shared_document.json", "r") as f:
         state = json.load(f)
     agent = BullResearcher()
     test_message = "Provide the bull market analysis."

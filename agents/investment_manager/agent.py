@@ -19,7 +19,7 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
 from memory import MemoryService
-from hook import SharedStateHandler
+from hook import SharedDocument
 
 # Import coordinator agents for direct invocation (testing/development)
 from agents.analysts.analysts_coordinator.agent import AnalystCoordinator
@@ -71,9 +71,9 @@ class InvestmentManager:
             storage_dir="data/agents_sessions/investment_manager",
         )
 
-        shared_state_file = "data/shared_state.json"
+        shared_document_file = "data/shared_document.json"
         memory = MemoryService(agent_id="investment_manager")
-        shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
 
         self.agent = Agent(
             name="InvestmentManagerAgent",
@@ -90,9 +90,9 @@ class InvestmentManager:
             model=self.ollama_model,
             session_manager=self.session_manager,
             hooks=[
-                shared_state_handler_hook.get_shared_state,
-                shared_state_handler_hook.add_prompt_reports,
-                shared_state_handler_hook.save_shared_state,
+                shared_document_handler_hook.get_shared_document,
+                shared_document_handler_hook.add_prompt_reports,
+                shared_document_handler_hook.save_shared_document,
             ],
         )
 
@@ -119,15 +119,15 @@ class InvestmentManager:
         logging.info(f"=== PHASE 1: ANALYSIS - Starting for {ticker} on {date} ===")
         
         # Initialize shared state
-        shared_state = {
+        shared_document = {
             "ticker": ticker,
             "current_date": date,
             "phase": "analysis",
         }
         
         os.makedirs("data", exist_ok=True)
-        with open("data/shared_state.json", "w") as f:
-            json.dump(shared_state, f, indent=2)
+        with open("data/shared_document.json", "w") as f:
+            json.dump(shared_document, f, indent=2)
         
         # Call analysts coordinator
         query = f"Analyze {ticker} for {date}. Provide comprehensive market intelligence."
@@ -155,11 +155,11 @@ class InvestmentManager:
         logging.info(f"=== PHASE 2: RESEARCH - Starting ===")
         
         # Update phase in shared state
-        with open("data/shared_state.json", "r") as f:
-            shared_state = json.load(f)
-        shared_state["phase"] = "research"
-        with open("data/shared_state.json", "w") as f:
-            json.dump(shared_state, f, indent=2)
+        with open("data/shared_document.json", "r") as f:
+            shared_document = json.load(f)
+        shared_document["phase"] = "research"
+        with open("data/shared_document.json", "w") as f:
+            json.dump(shared_document, f, indent=2)
         
         # Call research manager
         result = await self.research_manager.get_research_manager_decision(query)
@@ -186,11 +186,11 @@ class InvestmentManager:
         logging.info(f"=== PHASE 3: TRADING - Starting ===")
         
         # Update phase in shared state
-        with open("data/shared_state.json", "r") as f:
-            shared_state = json.load(f)
-        shared_state["phase"] = "trading"
-        with open("data/shared_state.json", "w") as f:
-            json.dump(shared_state, f, indent=2)
+        with open("data/shared_document.json", "r") as f:
+            shared_document = json.load(f)
+        shared_document["phase"] = "trading"
+        with open("data/shared_document.json", "w") as f:
+            json.dump(shared_document, f, indent=2)
         
         # Call trader
         result = await self.trader.execute_investment_decision(query)
@@ -217,11 +217,11 @@ class InvestmentManager:
         logging.info(f"=== PHASE 4: RISK MANAGEMENT - Starting ===")
         
         # Update phase in shared state
-        with open("data/shared_state.json", "r") as f:
-            shared_state = json.load(f)
-        shared_state["phase"] = "risk_management"
-        with open("data/shared_state.json", "w") as f:
-            json.dump(shared_state, f, indent=2)
+        with open("data/shared_document.json", "r") as f:
+            shared_document = json.load(f)
+        shared_document["phase"] = "risk_management"
+        with open("data/shared_document.json", "w") as f:
+            json.dump(shared_document, f, indent=2)
         
         # Call risk manager
         result = await self.risk_manager.evaluate_risk_and_decide(query)
@@ -229,10 +229,10 @@ class InvestmentManager:
         logging.info(f"=== PHASE 4: RISK MANAGEMENT - Completed ===")
         
         # Get final decision from shared state
-        with open("data/shared_state.json", "r") as f:
-            shared_state = json.load(f)
+        with open("data/shared_document.json", "r") as f:
+            shared_document = json.load(f)
         
-        final_decision = shared_state.get("final_trade_decision", "No decision found")
+        final_decision = shared_document.get("final_trade_decision", "No decision found")
         return f"Risk management phase completed. Final decision: {final_decision[:200]}..."
 
     @tool
@@ -252,12 +252,12 @@ class InvestmentManager:
         logging.info(f"=== PHASE 5: EXECUTION DECISION - Starting ===")
         
         # Load final decision
-        with open("data/shared_state.json", "r") as f:
-            shared_state = json.load(f)
+        with open("data/shared_document.json", "r") as f:
+            shared_document = json.load(f)
         
-        ticker = shared_state.get("ticker", "UNKNOWN")
-        final_decision = shared_state.get("final_trade_decision", "No decision")
-        risk_debate = shared_state.get("risk_debate_state", {})
+        ticker = shared_document.get("ticker", "UNKNOWN")
+        final_decision = shared_document.get("final_trade_decision", "No decision")
+        risk_debate = shared_document.get("risk_debate_state", {})
         
         # Extract BUY/SELL/HOLD from decision
         decision_upper = final_decision.upper()
@@ -275,12 +275,12 @@ class InvestmentManager:
             execution_status = "REJECTED"
         
         # Save execution decision
-        shared_state["execution_action"] = action
-        shared_state["execution_status"] = execution_status
-        shared_state["phase"] = "completed"
+        shared_document["execution_action"] = action
+        shared_document["execution_status"] = execution_status
+        shared_document["phase"] = "completed"
         
-        with open("data/shared_state.json", "w") as f:
-            json.dump(shared_state, f, indent=2)
+        with open("data/shared_document.json", "w") as f:
+            json.dump(shared_document, f, indent=2)
         
         logging.info(f"=== PHASE 5: EXECUTION DECISION - {execution_status} ===")
         
@@ -334,7 +334,7 @@ class InvestmentManager:
             execution_result = await self.make_execution_decision()
             
             # Load final state
-            with open("data/shared_state.json", "r") as f:
+            with open("data/shared_document.json", "r") as f:
                 final_state = json.load(f)
             
             logging.info(f"\n{'='*60}")

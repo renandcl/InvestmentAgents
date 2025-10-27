@@ -15,7 +15,7 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
 from memory import MemoryService
-from hook import SharedStateHandler
+from hook import SharedDocument
 
 # Enable debug logs
 logging.getLogger("strands").setLevel(logging.DEBUG)
@@ -49,9 +49,9 @@ def create_agent() -> Agent:
         storage_dir="data/agents_sessions/investment_manager",
     )
 
-    shared_state_file = "data/shared_state.json"
+    shared_document_file = "data/shared_document.json"
     memory = MemoryService(agent_id="investment_manager")
-    shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
+    shared_document_handler_hook = SharedDocument(shared_document_file, memory)
 
     # Configure A2A client to coordinate major components
     a2a_client_tool_provider = A2AClientToolProvider(
@@ -83,9 +83,9 @@ def create_agent() -> Agent:
         tool_providers=[a2a_client_tool_provider],
         session_manager=session_manager,
         hooks=[
-            shared_state_handler_hook.get_shared_state,
-            shared_state_handler_hook.add_prompt_reports,
-            shared_state_handler_hook.save_shared_state,
+            shared_document_handler_hook.get_shared_document,
+            shared_document_handler_hook.add_prompt_reports,
+            shared_document_handler_hook.save_shared_document,
         ],
     )
 

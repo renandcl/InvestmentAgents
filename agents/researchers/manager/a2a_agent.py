@@ -9,7 +9,7 @@ from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
-from agents.researchers.manager.hook import SharedStateHandler
+from agents.researchers.manager.hook import SharedDocument
 from agents.researchers.manager.memory import MemoryService
 
 # Enables Strands debug log level
@@ -50,9 +50,9 @@ class ResearchManager:
         )
 
         tools = provider.tools
-        shared_state_file = "data/shared_state.json"
+        shared_document_file = "data/shared_document.json"
         memory = MemoryService(agent_id="research_manager")
-        shared_state_handler_hook = SharedStateHandler(shared_state_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
 
         self.agent = Agent(
             name="ResearchManagerAgent",
@@ -62,7 +62,7 @@ class ResearchManager:
             tools=tools,
             model=self.ollama_model,
             session_manager=self.session_manager,
-            hooks=[shared_state_handler_hook],
+            hooks=[shared_document_handler_hook],
         )
 
     @tool
