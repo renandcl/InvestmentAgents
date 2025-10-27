@@ -38,7 +38,7 @@ class Trader:
         self.agent = Agent(
             name="TraderAgent",
             agent_id="trader",
-            description="Executes investment decisions based on the research manager's plan.",
+            description="Analyzes market data to make informed and strategic investment plans.",
             system_prompt=self.system_prompt,
             model=self.ollama_model,
             session_manager=self.session_manager,
@@ -46,8 +46,8 @@ class Trader:
         )
 
     @tool
-    async def execute_investment_decision(self, message: str) -> AgentResult:
-        """Execute the investment decision based on the research manager's plan."""
+    async def get_trader_investment_plan_decision(self, message: str) -> AgentResult:
+        """Get the trading agent to analyze market data to make an informed and strategic investment plandecision"""
         return await self.agent.invoke_async(message)
 
 
@@ -65,5 +65,5 @@ if __name__ == "__main__":
         state = json.load(f)
     agent = Trader()
     test_message = "Execute the investment decision based on the plan."
-    response = asyncio.run(agent.execute_investment_decision(test_message))
+    response = asyncio.run(agent.get_trader_investment_plan_decision(test_message))
     print(f"Response: {response}")
