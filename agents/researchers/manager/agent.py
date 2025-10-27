@@ -51,7 +51,7 @@ class ResearchManager:
         self.agent = Agent(
             name="ResearchManagerAgent",
             agent_id="research_manager",
-            description="Evaluates bull and bear research and makes final investment recommendations.",
+            description="Critically evaluates research from both bull and bear analysts and makes an informed investment plan.",
             system_prompt=self.system_prompt,
             tools=[
                 bear_researcher.get_bear_researcher_insights,
@@ -63,8 +63,8 @@ class ResearchManager:
         )
 
     @tool
-    async def get_research_manager_decision(self, message: str) -> AgentResult:
-        """Get final investment decision from the research manager after evaluating bull and bear analyses."""
+    async def get_research_manager_investment_plan(self, message: str) -> AgentResult:
+        """Get researcher manager to critically evaluate the research from both bull and bear analysts and make an informed investment plan."""
         return await self.agent.invoke_async(message)
 
 
@@ -83,5 +83,5 @@ if __name__ == "__main__":
 
     test_message = "Coordinate a debate between bull and bear researchers and provide your final investment recommendation."
 
-    response = asyncio.run(agent.get_research_manager_decision(test_message))
+    response = asyncio.run(agent.get_research_manager_investment_plan(test_message))
     print(f"Response: {response}")

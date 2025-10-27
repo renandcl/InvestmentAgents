@@ -57,7 +57,7 @@ class ResearchManager:
         self.agent = Agent(
             name="ResearchManagerAgent",
             agent_id="research_manager",
-            description="Evaluates bull and bear research and makes final investment recommendations.",
+            description="Critically evaluates research from both bull and bear analysts and makes an informed investment plan.",
             system_prompt=self.system_prompt,
             tools=tools,
             model=self.ollama_model,
@@ -66,6 +66,6 @@ class ResearchManager:
         )
 
     @tool
-    async def get_research_manager_decision(self, message: str) -> AgentResult:
-        """Get final investment decision from the research manager after evaluating bull and bear analyses."""
+    async def get_research_manager_investment_plan(self, message: str) -> AgentResult:
+        """Get researcher manager to critically evaluate the research from both bull and bear analysts and make an informed investment plan."""
         return await self.agent.invoke_async(message)

@@ -161,7 +161,7 @@ class InvestmentManager:
             json.dump(shared_document, f, indent=2)
 
         # Call research manager
-        result = await self.research_manager.get_research_manager_decision(query)
+        result = await self.research_manager.get_research_manager_investment_plan(query)
 
         logging.info("=== PHASE 2: RESEARCH - Completed ===")
         return "Research phase completed. Investment plan and recommendation generated."
@@ -192,7 +192,7 @@ class InvestmentManager:
             json.dump(shared_document, f, indent=2)
 
         # Call trader
-        result = await self.trader.execute_investment_decision(query)
+        result = await self.trader.get_trader_investment_decision(query)
 
         logging.info("=== PHASE 3: TRADING - Completed ===")
         return "Trading phase completed. Execution plan with risk parameters generated."
