@@ -703,7 +703,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "ddgs", specifier = ">=9.5.4,<10.0.0" },
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
 ]
@@ -768,7 +768,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "finnhub-python", specifier = ">=2.4.24" },
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "requests", specifier = ">=2.31.0" },
@@ -789,7 +789,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "finnhub-python", specifier = ">=2.4.24" },
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "requests", specifier = ">=2.31.0" },
@@ -925,7 +925,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "requests", specifier = ">=2.31.0" },
@@ -1221,8 +1221,8 @@ dev = [
 requires-dist = [
     { name = "chromadb", specifier = ">=1.1.0" },
     { name = "mem0ai", specifier = ">=0.1.117" },
-    { name = "strands-agents", extras = ["a2a", "ollama", "otel"], specifier = ">=1.12.0" },
-    { name = "strands-agents-tools", extras = ["a2a-client"], specifier = ">=0.2.11" },
+    { name = "strands-agents", extras = ["a2a", "ollama", "otel"], specifier = ">=1.13.0" },
+    { name = "strands-agents-tools", extras = ["a2a-client"], specifier = ">=0.2.12" },
 ]
 
 [package.metadata.requires-dev]
@@ -1439,7 +1439,7 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.11.0"
+version = "1.19.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1454,9 +1454,9 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3a/f5/9506eb5578d5bbe9819ee8ba3198d0ad0e2fbe3bab8b257e4131ceb7dfb6/mcp-1.11.0.tar.gz", hash = "sha256:49a213df56bb9472ff83b3132a4825f5c8f5b120a90246f08b0dac6bedac44c8", size = 406907, upload-time = "2025-07-10T16:41:09.388Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/2b/916852a5668f45d8787378461eaa1244876d77575ffef024483c94c0649c/mcp-1.19.0.tar.gz", hash = "sha256:213de0d3cd63f71bc08ffe9cc8d4409cc87acffd383f6195d2ce0457c021b5c1", size = 444163, upload-time = "2025-10-24T01:11:15.839Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/9c/c9ca79f9c512e4113a5d07043013110bb3369fc7770040c61378c7fbcf70/mcp-1.11.0-py3-none-any.whl", hash = "sha256:58deac37f7483e4b338524b98bc949b7c2b7c33d978f5fafab5bde041c5e2595", size = 155880, upload-time = "2025-07-10T16:41:07.935Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/a3/3e71a875a08b6a830b88c40bc413bff01f1650f1efe8a054b5e90a9d4f56/mcp-1.19.0-py3-none-any.whl", hash = "sha256:f5907fe1c0167255f916718f376d05f09a830a215327a3ccdd5ec8a519f2e572", size = 170105, upload-time = "2025-10-24T01:11:14.151Z" },
 ]
 
 [[package]]
@@ -1482,7 +1482,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "chromadb", specifier = ">=1.1.0" },
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "mem0ai", specifier = ">=0.1.117" },
     { name = "pydantic", specifier = ">=2.11.7" },
 ]
@@ -2630,7 +2630,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "praw", specifier = ">=7.8.1" },
     { name = "pydantic", specifier = ">=2.11.7" },
 ]
@@ -2883,7 +2883,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "pandas", specifier = ">=2.3.1" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "requests", specifier = ">=2.31.0" },
@@ -3051,7 +3051,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "stockstats", specifier = ">=0.6.5" },
@@ -3060,7 +3060,7 @@ requires-dist = [
 
 [[package]]
 name = "strands-agents"
-version = "1.12.0"
+version = "1.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -3074,9 +3074,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/58/56/3d3cb9bf62d45f97befe82fbb73ad65b46e9a6efd21151c38c466cd87c11/strands_agents-1.12.0.tar.gz", hash = "sha256:8f17e775971505ab7841a3139cde9879632a26cdd9cd55be74de83f0e7f804c0", size = 418141, upload-time = "2025-10-10T15:16:45.753Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/78/39bd0254fd9586fec1345f1fb93f13e242af1254d3665b5613f74d4e8eef/strands_agents-1.13.0.tar.gz", hash = "sha256:50a15d9174be62eb2a55b33e966e675632ddb89dab192ba0cf68f3d25beb2f65", size = 430554, upload-time = "2025-10-17T19:01:18.202Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/05/2f0fbce4a3acd7b9c042368bbe8038409a7b30d65138bd3b37a06d1a4cc4/strands_agents-1.12.0-py3-none-any.whl", hash = "sha256:af0f9c8a175666009863d0fb4438e71000ea3a2f0cbda3dc308c35dd4f9a1eb0", size = 216043, upload-time = "2025-10-10T15:16:44.043Z" },
+    { url = "https://files.pythonhosted.org/packages/35/29/5617003dd640a005b3b3a00b9a736333b2939942e3bc3a3d9cc976de854a/strands_agents-1.13.0-py3-none-any.whl", hash = "sha256:ac77bce99e55416c54f8d6dbc0301d5a6c6e417dc99dbe6bb445f7c715d89116", size = 223508, upload-time = "2025-10-17T19:01:16.65Z" },
 ]
 
 [package.optional-dependencies]
@@ -3096,7 +3096,7 @@ otel = [
 
 [[package]]
 name = "strands-agents-tools"
-version = "0.2.11"
+version = "0.2.12"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -3113,12 +3113,13 @@ dependencies = [
     { name = "strands-agents" },
     { name = "sympy" },
     { name = "tenacity" },
+    { name = "typing-extensions" },
     { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/a2/5cd71b9db26c98d6289883fe969e884964fbd2a4b78cb75073d6651f0041/strands_agents_tools-0.2.11.tar.gz", hash = "sha256:5ef192b68eddeccb96c47227ca841ccce3aedff5db0953a0af7b7212a09428df", size = 445792, upload-time = "2025-10-10T16:58:26.396Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/de/6b/af065e011dbb9e09eff8db78fa7d254f9ebae388c3baf15c846c653bc1b2/strands_agents_tools-0.2.12.tar.gz", hash = "sha256:fc653100034390f5a59d3850ef361d7a432efef4be4fa3195ecfcbdc5240e2c4", size = 448959, upload-time = "2025-10-17T19:02:35.361Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/1c/a903b4947e3e0e56c2a1db7008c286c399b2e37c6362c569e8a07006e046/strands_agents_tools-0.2.11-py3-none-any.whl", hash = "sha256:ebff41ba782e1ce59530e11321780eae0ffdb5b61e7aee7408c46c1a8f29f18d", size = 297958, upload-time = "2025-10-10T16:58:24.213Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/65/a0688b324a71f3179b04e608a04e9c108bc01e6295be5e74f10e5bb65045/strands_agents_tools-0.2.12-py3-none-any.whl", hash = "sha256:ba9ba1b3c723afdf741d3fa9fa9d21e17cd893258273c50095e8f4d069c2cf84", size = 299449, upload-time = "2025-10-17T19:02:33.503Z" },
 ]
 
 [package.optional-dependencies]
@@ -3547,7 +3548,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mcp", specifier = ">=1.11.0" },
+    { name = "mcp", specifier = ">=1.19.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "yfinance", specifier = ">=0.2.65" },
 ]

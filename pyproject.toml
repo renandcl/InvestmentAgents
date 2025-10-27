@@ -5,8 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "strands-agents-tools[a2a-client]>=0.2.11",
-    "strands-agents[a2a,ollama,otel]>=1.12.0",
+    "strands-agents-tools[a2a-client]>=0.2.12",
+    "strands-agents[a2a,ollama,otel]>=1.13.0",
     "mem0ai>=0.1.117",
     "chromadb>=1.1.0",
 ]
