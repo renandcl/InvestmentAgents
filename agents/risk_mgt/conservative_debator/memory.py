@@ -4,7 +4,6 @@ Memory Service for Aggressive Debator Agent
 Manages ChromaDB-based memory for learning from past aggressive risk analyses.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -54,7 +53,7 @@ class MemoryService:
     def add_memory(self, text: str, metadata: dict = None):
         """
         Add a memory to the vector store.
-        
+
         Args:
             text: The memory text to store
             metadata: Optional metadata dictionary
@@ -71,11 +70,11 @@ class MemoryService:
     def search_memories(self, query: str, n_results: int = 3):
         """
         Search for relevant memories.
-        
+
         Args:
             query: Search query
             n_results: Number of results to return
-            
+
         Returns:
             List of relevant memories
         """
@@ -93,7 +92,7 @@ class MemoryService:
     def get_all_memories(self):
         """
         Get all memories for this agent.
-        
+
         Returns:
             List of all memories
         """

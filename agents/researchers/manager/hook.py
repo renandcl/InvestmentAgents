@@ -37,7 +37,7 @@ class SharedDocument(HookProvider):
         # Get bull and bear researcher reports
         bull_report = shared_document.get("bull_researcher_report", "No report")
         bear_report = shared_document.get("bear_researcher_report", "No report")
-        
+
         event.agent.state.set("bull_researcher_report", bull_report)
         event.agent.state.set("bear_researcher_report", bear_report)
 

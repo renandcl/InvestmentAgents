@@ -35,9 +35,13 @@ class SharedDocument(HookProvider):
         event.agent.state.set("news_report", shared_document.get("news_report"))
 
         # Get trader's plan - try multiple field names for compatibility
-        trader_plan = shared_document.get("trader_investment_plan",
-                                      shared_document.get("trader_decision",
-                                      shared_document.get("trader_report", "No trader plan available")))
+        trader_plan = shared_document.get(
+            "trader_investment_plan",
+            shared_document.get(
+                "trader_decision",
+                shared_document.get("trader_report", "No trader plan available"),
+            ),
+        )
         event.agent.state.set("trader_plan", trader_plan)
 
         # Get risk debate history

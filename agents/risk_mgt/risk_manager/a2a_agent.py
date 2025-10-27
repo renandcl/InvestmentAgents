@@ -3,14 +3,13 @@ import os
 import uuid
 from datetime import datetime
 
+from hook import SharedDocument
+from memory import MemoryService
 from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
-
-from hook import SharedDocument
-from memory import MemoryService
 
 # Enables Strands debug log level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -34,7 +33,7 @@ class RiskManager:
         aggressive_debator_url = "http://localhost:9908"
         conservative_debator_url = "http://localhost:9909"
         neutral_debator_url = "http://localhost:9910"
-        
+
         provider = A2AClientToolProvider(
             known_agent_urls=[
                 aggressive_debator_url,

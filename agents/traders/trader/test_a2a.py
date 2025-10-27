@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     ticker = "AAPL"
     date = "2025-10-12"
-    
+
     # Create a complete test state with investment plan
     state = {
         "ticker": ticker,
@@ -56,15 +56,15 @@ if __name__ == "__main__":
         "fundamentals_report": "P/E ratio: 28.5, Revenue growth: 12% YoY, Strong balance sheet with $50B cash, ROE: 15%.",
         "investment_plan": """
         Based on comprehensive analysis:
-        
+
         RECOMMENDATION: BUY
-        
+
         Rationale:
         - Strong technical indicators showing momentum
         - Positive fundamental outlook with revenue growth
         - Recent product launch creates new revenue streams
         - Market sentiment is favorable
-        
+
         Strategic Actions:
         1. Execute BUY order for target position
         2. Set stop-loss at 5% below entry
@@ -77,5 +77,7 @@ if __name__ == "__main__":
     with open("data/shared_document.json", "w") as f:
         json.dump(state, f)
 
-    test_message = "Execute the investment decision with proper risk management parameters."
+    test_message = (
+        "Execute the investment decision with proper risk management parameters."
+    )
     asyncio.run(send_sync_message(test_message))

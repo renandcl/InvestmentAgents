@@ -12,7 +12,7 @@ reddit_news_service = RedditNewsService()
 def get_reddit_news(ticker: str, start_date: str, end_date: str) -> str:
     """
     Retrieve the latest news about a given stock from Reddit within a specific time frame
-    
+
     Args:
         ticker: ticker symbol for the company
         start_date: start date in yyyy-mm-dd format
@@ -22,13 +22,17 @@ def get_reddit_news(ticker: str, start_date: str, end_date: str) -> str:
         str: A formatted text containing the latest news about the company from Reddit in a specified time frame.
     """
     try:
-        params = RedditNewsParameters(ticker=ticker, start_date=start_date, end_date=end_date)
-        
+        params = RedditNewsParameters(
+            ticker=ticker, start_date=start_date, end_date=end_date
+        )
+
         end_date_dt = datetime.strptime(params.end_date, "%Y-%m-%d")
         start_date_dt = datetime.strptime(params.start_date, "%Y-%m-%d")
         look_back_days = (end_date_dt - start_date_dt).days
 
-        reddit_news_result = reddit_news_service.get_news(params.ticker, params.end_date, look_back_days)
+        reddit_news_result = reddit_news_service.get_news(
+            params.ticker, params.end_date, look_back_days
+        )
         return reddit_news_result
     except Exception as e:
         return f"Error: {str(e)}"

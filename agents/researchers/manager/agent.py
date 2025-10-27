@@ -9,10 +9,10 @@ from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from agents.researchers.manager.memory import MemoryService
-from agents.researchers.manager.hook import SharedDocument
-from agents.researchers.bull.agent import BullResearcher
 from agents.researchers.bear.agent import BearResearcher
+from agents.researchers.bull.agent import BullResearcher
+from agents.researchers.manager.hook import SharedDocument
+from agents.researchers.manager.memory import MemoryService
 
 # Enable debug logs and print them to stderr
 logging.getLogger("strands").setLevel(logging.DEBUG)

@@ -36,9 +36,11 @@ class SharedDocument(HookProvider):
         event.agent.state.set("news_report", shared_document.get("news_report"))
 
         # Get research outputs
-        investment_plan = shared_document.get("investment_plan", "No investment plan provided")
+        investment_plan = shared_document.get(
+            "investment_plan", "No investment plan provided"
+        )
         judge_decision = shared_document.get("judge_decision", "No decision provided")
-        
+
         event.agent.state.set("investment_plan", investment_plan)
         event.agent.state.set("judge_decision", judge_decision)
 

@@ -11,7 +11,7 @@ finnhub_insider_sentiment_service = FinnhubInsiderSentimentService()
 async def get_insider_sentiment(ticker: str, curr_date: str) -> str:
     """
     Retrieve insider sentiment information about a company (retrieved from public SEC information) for the past 30 days
-    
+
     Args:
         ticker: ticker symbol for the company
         curr_date: current date of you are trading at (yyyy-mm-dd)
@@ -33,7 +33,7 @@ async def get_insider_sentiment(ticker: str, curr_date: str) -> str:
 async def get_insider_transactions(ticker: str, curr_date: str) -> str:
     """
     Retrieve insider transaction information about a company (retrieved from public SEC information) for the past 30 days
-    
+
     Args:
         ticker: ticker symbol
         curr_date: current date you are trading at (yyyy-mm-dd)

@@ -4,13 +4,13 @@ import os
 import uuid
 from datetime import datetime
 
+from hook import SharedDocument
+from memory import MemoryService
 from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
 
-from memory import MemoryService
-from hook import SharedDocument
 from agents.risk_mgt.aggressive_debator.agent import AggressiveDebator
 from agents.risk_mgt.conservative_debator.agent import ConservativeDebator
 from agents.risk_mgt.neutral_debator.agent import NeutralDebator
@@ -74,13 +74,13 @@ class RiskManager:
     async def evaluate_risk_and_decide(self, query: str) -> str:
         """
         Evaluates risk perspectives and makes final trading decision.
-        
+
         Coordinates three risk analysts to debate, then synthesizes their
         arguments into a final risk-adjusted recommendation.
-        
+
         Args:
             query: Request for risk evaluation and decision
-            
+
         Returns:
             Final risk-adjusted trading decision (BUY/SELL/HOLD) with rationale
         """

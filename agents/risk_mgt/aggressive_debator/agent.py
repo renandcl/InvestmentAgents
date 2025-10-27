@@ -6,15 +6,16 @@ Leaf agent - does not coordinate other agents.
 """
 
 import os
-from strands import Agent
+
 from hook import SharedDocument
 from memory import MemoryService
+from strands import Agent
 
 
 class AggressiveDebator:
     """
     Aggressive/Risky Risk Analyst agent.
-    
+
     Champions bold, high-reward opportunities and challenges conservative viewpoints
     with data-driven arguments for aggressive risk-taking strategies.
     """
@@ -50,10 +51,10 @@ class AggressiveDebator:
     async def provide_aggressive_analysis(self, query: str) -> str:
         """
         Provide aggressive risk analysis.
-        
+
         Args:
             query: The analysis request
-            
+
         Returns:
             Aggressive risk perspective
         """
@@ -62,8 +63,6 @@ class AggressiveDebator:
 
 # For testing
 async def main():
-    import asyncio
-    
     debator = AggressiveDebator()
     result = await debator.provide_aggressive_analysis(
         "Provide your aggressive risk analysis of the trader's decision."
@@ -73,4 +72,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

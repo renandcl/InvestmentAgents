@@ -9,13 +9,12 @@ import os
 import uuid
 from datetime import datetime
 
+from hook import SharedDocument
+from memory import MemoryService
 from strands import Agent
 from strands.a2a.a2a_client_tool_provider import A2AClientToolProvider
 from strands.models.ollama import OllamaModel
 from strands.session.file_session_manager import FileSessionManager
-
-from memory import MemoryService
-from hook import SharedDocument
 
 # Enable debug logs
 logging.getLogger("strands").setLevel(logging.DEBUG)
@@ -27,7 +26,7 @@ logging.basicConfig(
 def create_agent() -> Agent:
     """
     Create Investment Manager A2A agent for HTTP-based coordination.
-    
+
     Coordinates workflow by calling major component coordinators via HTTP:
     - Port 9903: Analysts Coordinator
     - Port 9906: Research Manager
@@ -68,14 +67,14 @@ def create_agent() -> Agent:
         name="InvestmentManagerA2AAgent",
         agent_id="investment_manager_a2a",
         description="""Main orchestrator that coordinates the complete investment decision workflow.
-        
+
         Sequentially executes phases:
         1. Analysis: Calls Analysts Coordinator (port 9903) for market intelligence
         2. Research: Calls Research Manager (port 9906) for bull/bear evaluation
         3. Trading: Calls Trader (port 9907) for execution plan
         4. Risk: Calls Risk Manager (port 9911) for risk evaluation and final decision
         5. Execution: Makes GO/NO-GO decision for actual execution
-        
+
         Monitors shared state between phases to ensure proper sequencing.
         """,
         system_prompt=system_prompt,
@@ -97,24 +96,24 @@ if __name__ == "__main__":
 
     async def test():
         agent = create_agent()
-        
+
         # Test complete workflow
         workflow_request = """
         Execute complete investment workflow for AAPL on 2025-10-12:
-        
+
         1. First, coordinate market analysis with Analysts Coordinator
         2. Then, coordinate research evaluation with Research Manager
         3. Next, coordinate trading plan with Trader
         4. Then, coordinate risk evaluation with Risk Manager
         5. Finally, make execution decision
-        
+
         Ensure each phase completes before starting the next.
         """
-        
+
         result = await agent.invoke(workflow_request)
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("INVESTMENT MANAGER A2A TEST RESULT:")
-        print("="*60)
+        print("=" * 60)
         print(result.text)
 
     asyncio.run(test())

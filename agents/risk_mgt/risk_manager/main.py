@@ -20,7 +20,9 @@ def a2a_agent_app():
         name=risk_manager.agent.name,
         id=risk_manager.agent.agent_id,
         tags=["risk", "management", "decision"],
-        examples=["Evaluate the trading decision from all risk perspectives and provide final recommendation."],
+        examples=[
+            "Evaluate the trading decision from all risk perspectives and provide final recommendation."
+        ],
     )
     a2a_server = A2AServer(
         agent=risk_manager.agent,

@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     ticker = "AAPL"
     date = "2025-10-12"
-    
+
     # Create test state
     state = {
         "ticker": ticker,

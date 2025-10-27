@@ -7,9 +7,11 @@ service = StockstatsService()
 
 
 @mcp.tool()
-def get_stockstats_indicators_report(symbol: str, indicator: str, curr_date: str, look_back_days: int = 30) -> str:
+def get_stockstats_indicators_report(
+    symbol: str, indicator: str, curr_date: str, look_back_days: int = 30
+) -> str:
     """Retrieve indicator window with a default 30-day lookback.
-    
+
     Args:
         symbol: Ticker symbol, e.g. AAPL
         indicator: Stockstats indicator name (e.g. rsi, macd, macdh, macds, boll, boll_ub, boll_lb, atr, vwma, mfi, close_50_sma, close_200_sma, close_10_ema)
@@ -23,9 +25,9 @@ def get_stockstats_indicators_report(symbol: str, indicator: str, curr_date: str
             symbol=symbol,
             indicator=indicator,
             curr_date=curr_date,
-            look_back_days=look_back_days
+            look_back_days=look_back_days,
         )
-        
+
         return service.get_stock_stats_indicators_window(
             symbol=params.symbol,
             indicator=params.indicator,
