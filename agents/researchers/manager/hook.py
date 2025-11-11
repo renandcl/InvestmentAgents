@@ -41,6 +41,9 @@ class SharedDocument(HookProvider):
         event.agent.state.set("bull_researcher_report", bull_report)
         event.agent.state.set("bear_researcher_report", bear_report)
 
+        event.agent.state.set("debate_rounds", shared_document.get("debate_rounds", 0))
+        event.agent.state.set("debate_action", shared_document.get("debate_action", "Call Bull and Bear Researchers to provide their analysis."))
+
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
 
@@ -53,8 +56,17 @@ class SharedDocument(HookProvider):
             news_report=event.agent.state.get("news_report"),
             bull_researcher_report=event.agent.state.get("bull_researcher_report"),
             bear_researcher_report=event.agent.state.get("bear_researcher_report"),
+            debate_rounds=event.agent.state.get("debate_rounds"),
+            debate_action=event.agent.state.get("debate_action"),
             past_memories=event.agent.state.get("past_memories"),
         )
+
+        if "toolResponse" in event.agent.messages[-1]:
+            event.agent.state.set("debate_rounds", event.agent.state.get("debate_rounds") + 1)
+            if event.agent.state.get("debate_rounds") >= 3:
+                event.agent.state.set("debate_action", "Make final investment decision based on the analyses provided.")
+            else:
+                event.agent.state.set("debate_action", "Call Bull and Bear Researchers to debate on each other's analysis.")
 
     def save_shared_document(self, event: AfterInvocationEvent):
         with open(self.shared_document_file, "r") as f:
