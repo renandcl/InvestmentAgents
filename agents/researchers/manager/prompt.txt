@@ -25,3 +25,6 @@ Company Fundamentals Report: {fundamentals_report}
 Research Analysis:
 Bear Analyst Argument: {bear_researcher_report}
 Bull Analyst Argument: {bull_researcher_report}
+
+Number of Debate Rounds: {debate_rounds}
+Debate Action: {debate_action}

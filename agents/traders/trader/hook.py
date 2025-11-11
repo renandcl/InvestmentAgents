@@ -17,10 +17,11 @@ class SharedDocument(HookProvider):
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
-        registry.add_callback(BeforeModelInvocationEvent, self.add_prompt_reports)
+        registry.add_callback(BeforeInvocationEvent, self.add_prompt_reports)
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
+        event.agent.state.set("system_prompt", event.agent.system_prompt)
         with open(self.shared_document_file, "r") as f:
             shared_document = json.load(f)
 
@@ -45,8 +46,9 @@ class SharedDocument(HookProvider):
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
 
-    def add_prompt_reports(self, event: BeforeModelInvocationEvent):
-        event.agent.system_prompt = event.agent.system_prompt.format(
+    def add_prompt_reports(self, event: BeforeInvocationEvent):
+        system_prompt = event.agent.state.get("system_prompt")
+        event.agent.system_prompt = system_prompt.format(
             ticker=event.agent.state.get("ticker"),
             past_memories=event.agent.state.get("past_memories"),
             investment_plan=event.agent.state.get("investment_plan"),
