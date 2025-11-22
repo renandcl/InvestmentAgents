@@ -7,16 +7,50 @@ from hook import SharedDocument
 from mcp import StdioServerParameters, stdio_client
 from strands import Agent, tool
 from strands.agent import AgentResult
-from strands.models.ollama import OllamaModel
+from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 from strands.tools.mcp import MCPClient
 
 
-class MarketAnalyst:
-    def __init__(self, model_id="qwen3:8b", host="http://localhost:11434"):
-        self.model_id = model_id
-        self.host = host
+class MarketAnalyst(Agent):
+    def __init__(
+        self,
+        model_id="qwen3:8b",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+    ):
+        self._init_system_prompt()
+        self._init_model(model_id, base_url, api_key)
+        self._init_mcps()
+        self._init_tools()
+        self._init_session_manager("data/agents_sessions/analysts/market_analyst")
+        self._init_hooks(shared_document_file="data/shared_document.json")
 
+        super().__init__(
+            name="MarketAnalystAgent",
+            agent_id="market",
+            description="Analyzes market data and technical indicators to produce nuanced trading insights by providing ticker and date.",
+            system_prompt=self.system_prompt,
+            tools=self.tools,
+            model=self.openai_model,
+            session_manager=self.session_manager,
+            hooks=[self.shared_document_handler_hook],
+        )
+
+    def _init_system_prompt(self):
+        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+            self.system_prompt = f.read()
+
+    def _init_model(self, model_id, base_url, api_key):
+        self.openai_model = OpenAIModel(
+            client_args={
+                "base_url": base_url,
+                "api_key": api_key,
+            },
+            model_id=model_id,
+        )
+
+    def _init_mcps(self):
         # MCP client for Yahoo Finance market data
         self.stdio_mcp_yfin_client = MCPClient(
             lambda: stdio_client(
@@ -42,47 +76,29 @@ class MarketAnalyst:
             )
         )
 
-        self.ollama_model = OllamaModel(
-            host=self.host,
-            model_id=self.model_id,
-        )
-
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        # get system prompt
-        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
-            self.system_prompt = f.read()
-
-        self.session_manager = FileSessionManager(
-            session_id=f"{current_date}_{uuid.uuid4()}",
-            storage_dir="data/agents_sessions/analysts/market_analyst",
-        )
-
         self.stdio_mcp_yfin_client.start()
         self.stdio_mcp_stockstats_client.start()
 
-        tools = (
+    def _init_session_manager(self, storage_dir: str):
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        self.session_manager = FileSessionManager(
+            session_id=f"{current_date}_{uuid.uuid4()}",
+            storage_dir=storage_dir,
+        )
+
+    def _init_tools(self):
+        self.tools = (
             self.stdio_mcp_yfin_client.list_tools_sync()
             + self.stdio_mcp_stockstats_client.list_tools_sync()
         )
 
-        shared_document_file = "data/shared_document.json"
-        shared_document_handler_hook = SharedDocument(shared_document_file)
-
-        self.agent = Agent(
-            name="MarketAnalystAgent",
-            agent_id="market",
-            description="Analyzes market data and technical indicators to produce nuanced trading insights by providing ticker and date.",
-            system_prompt=self.system_prompt,
-            tools=tools,
-            model=self.ollama_model,
-            session_manager=self.session_manager,
-            hooks=[shared_document_handler_hook],
-        )
+    def _init_hooks(self, shared_document_file: str):
+        self.shared_document_handler_hook = SharedDocument(shared_document_file)
 
     @tool
     async def get_market_analyst_insights(self, message: str) -> AgentResult:
         """Get market data and technical indicators analyst insights for investment decisions by requesting the analysis for ticker and date."""
-        return await self.agent.invoke_async(message)
+        return await self.invoke_async(message)
 
 
 if __name__ == "__main__":

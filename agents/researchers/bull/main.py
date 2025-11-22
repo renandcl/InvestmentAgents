@@ -16,14 +16,14 @@ def a2a_agent_app():
     """Factory to create the FastAPI app for the bull researcher agent."""
     bull_researcher = BullResearcher()
     skill = AgentSkill(
-        description=bull_researcher.agent.description,
-        name=bull_researcher.agent.name,
-        id=bull_researcher.agent.agent_id,
+        description=bull_researcher.description,
+        name=bull_researcher.name,
+        id=bull_researcher.agent_id,
         tags=[],
         examples=["Provide the bull market analysis."],
     )
     a2a_server = A2AServer(
-        agent=bull_researcher.agent,
+        agent=bull_researcher,
         host="0.0.0.0",
         port=9905,
         skills=[skill],

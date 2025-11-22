@@ -5,7 +5,7 @@ from datetime import datetime
 
 from strands import Agent, tool
 from strands.agent import AgentResult
-from strands.models.ollama import OllamaModel
+from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
@@ -18,17 +18,46 @@ logging.basicConfig(
 )
 
 
-class AnalystCoordinator:
+class AnalystCoordinator(Agent):
     """Coordinator agent that calls other analyst agents via A2A HTTP interfaces."""
 
     def __init__(
-        self, model_id: str = "qwen3:8b", host: str = "http://localhost:11434"
+        self,
+        model_id="qwen3:8b",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
     ):
-        self.model_id = model_id
-        self.host = host
+        self._init_system_prompt()
+        self._init_model(model_id, base_url, api_key)
+        self._init_tools()
+        self._init_session_manager("data/agents_sessions/analysts/analysts_coordinator")
+        self._init_hooks(shared_document_file="data/shared_document.json")
 
-        self.ollama_model = OllamaModel(host=self.host, model_id=self.model_id)
+        super().__init__(
+            name="AnalystCoordinator",
+            agent_id="coordinator",
+            description="Coordinates market, news, and fundamentals analyses to produce recommendations.",
+            system_prompt=self.system_prompt,
+            tools=self.tools,
+            model=self.openai_model,
+            session_manager=self.session_manager,
+            hooks=[self.shared_document_handler_hook],
+        )
 
+    def _init_system_prompt(self):
+        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+            self.system_prompt = f.read()
+
+    def _init_model(self, model_id, base_url, api_key):
+        self.openai_model = OpenAIModel(
+            client_args={
+                "base_url": base_url,
+                "api_key": api_key,
+            },
+            model_id=model_id,
+        )
+
+    def _init_tools(self):
         # # Individual A2A client tool providers (remote analysts)
         fundamentals_analyst_url = "http://localhost:9900"
         news_analyst_url = "http://localhost:9901"
@@ -40,31 +69,19 @@ class AnalystCoordinator:
                 market_analyst_url,
             ]
         )
+        self.tools = provider.tools
 
-        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
-            self.system_prompt = f.read()
-
+    def _init_session_manager(self, storage_dir: str):
         current_date = datetime.now().strftime("%Y-%m-%d")
         self.session_manager = FileSessionManager(
             session_id=f"{current_date}_{uuid.uuid4()}",
-            storage_dir="data/agents_sessions/analysts/analysts_coordinator",
+            storage_dir=storage_dir,
         )
-        tools = provider.tools
-        shared_document_file = "data/shared_document.json"
-        shared_document_handler_hook = SharedDocument(shared_document_file)
 
-        self.agent = Agent(
-            name="AnalystCoordinator",
-            agent_id="coordinator",
-            description="Coordinates market, news, and fundamentals analyses to produce recommendations.",
-            system_prompt=self.system_prompt,
-            tools=tools,
-            model=self.ollama_model,
-            session_manager=self.session_manager,
-            hooks=[shared_document_handler_hook],
-        )
+    def _init_hooks(self, shared_document_file: str):
+        self.shared_document_handler_hook = SharedDocument(shared_document_file)
 
     @tool
     async def get_analysts_insights(self, message: str) -> AgentResult:
         """Query all underlying analyst agents and aggregate their insights for a ticker/date."""
-        return await self.agent.invoke_async(message)
+        return await self.invoke_async(message)
