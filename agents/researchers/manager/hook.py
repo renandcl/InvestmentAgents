@@ -103,10 +103,21 @@ Bear Researcher Analysis: {shared_document.get('bear_researcher_report')}
         past_memories = self.memory.search_memories(
             current_situation, ticker=shared_document.get("ticker"), n_matches=2
         )
-        if past_memories:
+
+        records = []
+        if isinstance(past_memories, dict):
+            records = past_memories.get("results") or []
+        elif isinstance(past_memories, list):
+            records = past_memories
+
+        if records:
             past_memory_str = ""
-            for i, rec in enumerate(past_memories["results"], 1):
-                past_memory_str += rec["text"] + "\n\n"
-            return past_memory_str
-        else:
-            return "No relevant past memories found."
+            for rec in records:
+                memory_text = rec.get("memory") or rec.get("text")
+                if not memory_text:
+                    continue
+                past_memory_str += memory_text + "\n\n"
+            if past_memory_str:
+                return past_memory_str
+
+        return "No relevant past memories found."

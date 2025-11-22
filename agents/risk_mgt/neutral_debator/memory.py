@@ -4,15 +4,7 @@ Memory Service for Aggressive Debator Agent
 Manages ChromaDB-based memory for learning from past aggressive risk analyses.
 """
 
-import sys
-from pathlib import Path
-
-# Add parent package to path for mem0 import
-parent_dir = Path(__file__).parent.parent.parent.parent
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
-from package.mem0_updated_main import Memory
+from mem0 import Memory
 
 
 class MemoryService:
@@ -30,18 +22,20 @@ class MemoryService:
                 },
             },
             "llm": {
-                "provider": "ollama",
+                "provider": "openai",
                 "config": {
-                    "model": "llama3.1:latest",
-                    "temperature": 0.7,
-                    "ollama_base_url": "http://localhost:11434",
+                    "model": "qwen3:8b",
+                    "openai_base_url": "http://localhost:11434/v1",
+                    "api_key": "ollama",
                 },
             },
             "embedder": {
-                "provider": "ollama",
+                "provider": "openai",
                 "config": {
-                    "model": "nomic-embed-text:latest",
-                    "ollama_base_url": "http://localhost:11434",
+                    "model": "embeddinggemma:latest",
+                    "openai_base_url": "http://localhost:11434/v1",
+                    "api_key": "ollama",
+                    "embedding_dims": 768,
                 },
             },
         }
