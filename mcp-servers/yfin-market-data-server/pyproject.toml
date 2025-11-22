@@ -5,9 +5,9 @@ description = "MCP server providing on-demand Yahoo Finance historical OHLCV dat
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mcp>=1.19.0",
-    "pydantic>=2.11.7",
-    "yfinance>=0.2.65",
+    "mcp>=1.22.0",
+    "pydantic>=2.12.4",
+    "yfinance>=0.2.66",
 ]
 
 [tool.setuptools]

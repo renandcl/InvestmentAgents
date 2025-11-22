@@ -5,10 +5,10 @@ description = "MCP Server for Mem0AI"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mcp>=1.19.0",
-    "mem0ai>=0.1.117",
-    "chromadb>=1.1.0",
-    "pydantic>=2.11.7",
+    "mcp>=1.22.0",
+    "mem0ai>=1.0.1",
+    "chromadb>=1.3.5",
+    "pydantic>=2.12.4",
 ]
 
 [tool.setuptools]
