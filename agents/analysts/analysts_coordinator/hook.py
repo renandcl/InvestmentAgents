@@ -11,8 +11,8 @@ from strands.hooks import (
 
 
 class SharedDocument(HookProvider):
-    def __init__(self, shared_document_json_file: str):
-        self.shared_document_file = shared_document_json_file
+    def __init__(self, shared_document_file: str):
+        self.shared_document_file = shared_document_file
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)

@@ -13,14 +13,14 @@ logging.basicConfig(format="%(levelname)s | %(name)s | %(message)s")
 def a2a_agent_app():
     coordinator = AnalystCoordinator()
     skill = AgentSkill(
-        description=coordinator.agent.description,
-        name=coordinator.agent.name,
-        id=coordinator.agent.agent_id,
+        description=coordinator.description,
+        name=coordinator.name,
+        id=coordinator.agent_id,
         tags=[],
         examples=["Provide the analysis from all analysts of Agents."],
     )
     server = A2AServer(
-        agent=coordinator.agent,
+        agent=coordinator,
         host="0.0.0.0",
         port=9903,
         skills=[skill],

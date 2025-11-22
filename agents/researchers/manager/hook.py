@@ -11,8 +11,8 @@ from strands.hooks import (
 
 
 class SharedDocument(HookProvider):
-    def __init__(self, shared_document_json_file: str, memory):
-        self.shared_document_file = shared_document_json_file
+    def __init__(self, shared_document_file: str, memory):
+        self.shared_document_file = shared_document_file
         self.memory = memory
 
     def register_hooks(self, registry: HookRegistry) -> None:
@@ -42,7 +42,13 @@ class SharedDocument(HookProvider):
         event.agent.state.set("bear_researcher_report", bear_report)
 
         event.agent.state.set("debate_rounds", shared_document.get("debate_rounds", 0))
-        event.agent.state.set("debate_action", shared_document.get("debate_action", "Call Bull and Bear Researchers to provide their analysis."))
+        event.agent.state.set(
+            "debate_action",
+            shared_document.get(
+                "debate_action",
+                "Call Bull and Bear Researchers to provide their analysis.",
+            ),
+        )
 
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
@@ -62,11 +68,19 @@ class SharedDocument(HookProvider):
         )
 
         if "toolResponse" in event.agent.messages[-1]:
-            event.agent.state.set("debate_rounds", event.agent.state.get("debate_rounds") + 1)
+            event.agent.state.set(
+                "debate_rounds", event.agent.state.get("debate_rounds") + 1
+            )
             if event.agent.state.get("debate_rounds") >= 3:
-                event.agent.state.set("debate_action", "Make final investment decision based on the analyses provided.")
+                event.agent.state.set(
+                    "debate_action",
+                    "Make final investment decision based on the analyses provided.",
+                )
             else:
-                event.agent.state.set("debate_action", "Call Bull and Bear Researchers to debate on each other's analysis.")
+                event.agent.state.set(
+                    "debate_action",
+                    "Call Bull and Bear Researchers to debate on each other's analysis.",
+                )
 
     def save_shared_document(self, event: AfterInvocationEvent):
         with open(self.shared_document_file, "r") as f:

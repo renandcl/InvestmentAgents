@@ -4,7 +4,7 @@ import uvicorn
 from a2a.types import AgentSkill
 from strands.multiagent.a2a import A2AServer
 
-from agents.researchers.manager.a2a_agent import ResearchManager
+from agents.researchers.manager.agent import ResearchManager
 
 # Enables Strands debug log level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -17,16 +17,16 @@ def a2a_agent_app():
     """Factory to create the FastAPI app for the research manager agent."""
     research_manager = ResearchManager()
     skill = AgentSkill(
-        description=research_manager.agent.description,
-        name=research_manager.agent.name,
-        id=research_manager.agent.agent_id,
+        description=research_manager.description,
+        name=research_manager.name,
+        id=research_manager.agent_id,
         tags=[],
         examples=[
             "Provide your final investment recommendation based on the analyses."
         ],
     )
     a2a_server = A2AServer(
-        agent=research_manager.agent,
+        agent=research_manager,
         host="0.0.0.0",
         port=9906,
         skills=[skill],

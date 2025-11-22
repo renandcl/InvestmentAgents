@@ -16,14 +16,14 @@ def a2a_agent_app():
     """Factory to create the FastAPI app for the trader agent."""
     trader = Trader()
     skill = AgentSkill(
-        description=trader.agent.description,
-        name=trader.agent.name,
-        id=trader.agent.agent_id,
+        description=trader.description,
+        name=trader.name,
+        id=trader.agent_id,
         tags=[],
         examples=["Execute the investment decision based on the plan."],
     )
     a2a_server = A2AServer(
-        agent=trader.agent,
+        agent=trader,
         host="0.0.0.0",
         port=9907,
         skills=[skill],

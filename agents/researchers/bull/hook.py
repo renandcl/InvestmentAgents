@@ -11,8 +11,8 @@ from strands.hooks import (
 
 
 class SharedDocument(HookProvider):
-    def __init__(self, shared_document_json_file: str, memory):
-        self.shared_document_file = shared_document_json_file
+    def __init__(self, shared_document_file: str, memory):
+        self.shared_document_file = shared_document_file
         self.memory = memory
 
     def register_hooks(self, registry: HookRegistry) -> None:
