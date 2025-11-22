@@ -5,9 +5,9 @@ description = "MCP server for financial statements trading data"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mcp>=1.19.0",
-    "pandas>=2.3.1",
-    "pydantic>=2.11.7",
+    "mcp>=1.22.0",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.4",
     "requests>=2.31.0",
     "simfin>=1.0.1",
 ]
