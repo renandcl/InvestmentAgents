@@ -1,4 +1,4 @@
-from agents.researchers.manager.package.mem0_updated_main import Memory
+from mem0 import Memory
 
 
 class MemoryService:
@@ -13,19 +13,19 @@ class MemoryService:
                 },
             },
             "llm": {
-                "provider": "ollama",
+                "provider": "openai",
                 "config": {
-                    "model": "llama3.1:latest",
-                    "ollama_base_url": "http://localhost:11434",
-                    "temperature": 0,
-                    "max_tokens": 128000,
+                    "model": "qwen3:8b",
+                    "openai_base_url": "http://localhost:11434/v1",
+                    "api_key": "ollama",
                 },
             },
             "embedder": {
-                "provider": "ollama",
+                "provider": "openai",
                 "config": {
-                    "model": "nomic-embed-text",
-                    "ollama_base_url": "http://localhost:11434",
+                    "model": "embeddinggemma:latest",
+                    "openai_base_url": "http://localhost:11434/v1",
+                    "api_key": "ollama",
                     "embedding_dims": 768,
                 },
             },
