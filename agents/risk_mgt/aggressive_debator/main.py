@@ -16,14 +16,14 @@ def a2a_agent_app():
     """Factory to create the FastAPI app for the aggressive debator agent."""
     debator = AggressiveDebator()
     skill = AgentSkill(
-        description=debator.agent.description,
-        name=debator.agent.name,
-        id=debator.agent.agent_id,
+        description=debator.description,
+        name=debator.name,
+        id=debator.agent_id,
         tags=["risk", "aggressive", "trading"],
         examples=["Provide aggressive risk analysis of the trading decision."],
     )
     a2a_server = A2AServer(
-        agent=debator.agent,
+        agent=debator,
         host="0.0.0.0",
         port=9908,
         skills=[skill],

@@ -2,7 +2,7 @@ import logging
 
 import uvicorn
 from a2a.types import AgentSkill
-from agent import ConservativeDebator
+from agent import NeutralDebator
 from strands.multiagent.a2a import A2AServer
 
 # Enables Strands debug log level
@@ -14,16 +14,16 @@ logging.basicConfig(
 
 def a2a_agent_app():
     """Factory to create the FastAPI app for the neutral debator agent."""
-    debator = ConservativeDebator()
+    debator = NeutralDebator()
     skill = AgentSkill(
-        description=debator.agent.description,
-        name=debator.agent.name,
-        id=debator.agent.agent_id,
-        tags=["risk", "aggressive", "trading"],
-        examples=["Provide aggressive risk analysis of the trading decision."],
+        description=debator.description,
+        name=debator.name,
+        id=debator.agent_id,
+        tags=["risk", "neutral", "trading"],
+        examples=["Provide neutral risk analysis of the trading decision."],
     )
     a2a_server = A2AServer(
-        agent=debator.agent,
+        agent=debator,
         host="0.0.0.0",
         port=9910,
         skills=[skill],
