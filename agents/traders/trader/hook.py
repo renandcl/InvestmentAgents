@@ -30,10 +30,15 @@ class SharedDocument(HookProvider):
 
         # Get all analyst reports
         event.agent.state.set(
-            "fundamentals_report", shared_document.get("fundamentals_report")
+            "fundamentals_analyst_report",
+            shared_document.get("fundamentals_analyst_report"),
         )
-        event.agent.state.set("market_report", shared_document.get("market_report"))
-        event.agent.state.set("news_report", shared_document.get("news_report"))
+        event.agent.state.set(
+            "market_analyst_report", shared_document.get("market_analyst_report")
+        )
+        event.agent.state.set(
+            "news_analyst_report", shared_document.get("news_analyst_report")
+        )
 
         # Get research outputs
         investment_plan = shared_document.get(
@@ -76,9 +81,9 @@ class SharedDocument(HookProvider):
         current_situation = f"""
 Date: {shared_document.get("current_date")}
 Ticker: {shared_document.get("ticker")}
-Market Research Report: {shared_document.get("market_report")}
-Latest World Affairs News: {shared_document.get("news_report")}
-Company Fundamentals Report: {shared_document.get("fundamentals_report")}
+Market Research Report: {shared_document.get("market_analyst_report")}
+Latest World Affairs News: {shared_document.get("news_analyst_report")}
+Company Fundamentals Report: {shared_document.get("fundamentals_analyst_report")}
 Investment Plan: {shared_document.get("investment_plan")}
         """.strip()
         past_memories = self.memory.search_memories(

@@ -30,10 +30,15 @@ class SharedDocument(HookProvider):
         event.agent.state.set("shared_document_file", self.shared_document_file)
 
         event.agent.state.set(
-            "fundamentals_report", shared_document.get("fundamentals_report")
+            "fundamentals_analyst_report",
+            shared_document.get("fundamentals_analyst_report"),
         )
-        event.agent.state.set("market_report", shared_document.get("market_report"))
-        event.agent.state.set("news_report", shared_document.get("news_report"))
+        event.agent.state.set(
+            "market_analyst_report", shared_document.get("market_analyst_report")
+        )
+        event.agent.state.set(
+            "news_analyst_report", shared_document.get("news_analyst_report")
+        )
 
         if "bull_researcher_report" in shared_document:
             report = (
@@ -58,9 +63,11 @@ class SharedDocument(HookProvider):
         event.agent.system_prompt = system_prompt.format(
             ticker=event.agent.state.get("ticker"),
             date=event.agent.state.get("current_date"),
-            fundamentals_report=event.agent.state.get("fundamentals_report"),
-            market_report=event.agent.state.get("market_report"),
-            news_report=event.agent.state.get("news_report"),
+            fundamentals_analyst_report=event.agent.state.get(
+                "fundamentals_analyst_report"
+            ),
+            market_analyst_report=event.agent.state.get("market_analyst_report"),
+            news_analyst_report=event.agent.state.get("news_analyst_report"),
             bear_researcher_report=event.agent.state.get("bear_researcher_report"),
             past_memories=event.agent.state.get("past_memories"),
         )
@@ -86,9 +93,9 @@ class SharedDocument(HookProvider):
         current_situation = f"""
 Date: {shared_document.get('current_date')}
 Ticker: {shared_document.get('ticker')}
-Market Research Report: {shared_document.get('market_report')}
-Latest World Affairs News: {shared_document.get('news_report')}
-Company Fundamentals Report: {shared_document.get('fundamentals_report')}
+Market Research Report: {shared_document.get('market_analyst_report')}
+Latest World Affairs News: {shared_document.get('news_analyst_report')}
+Company Fundamentals Report: {shared_document.get('fundamentals_analyst_report')}
         """.strip()
         past_memories = self.memory.search_memories(
             current_situation, ticker=shared_document.get("ticker"), n_matches=2

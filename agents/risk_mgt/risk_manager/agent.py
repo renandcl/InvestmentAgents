@@ -88,7 +88,7 @@ class RiskManager(Agent):
 async def main():
     risk_manager = RiskManager()
     result = await risk_manager.evaluate_risk_and_decide(
-        "Evaluate the trader's decision from all risk perspectives and provide your final risk-adjusted recommendation."
+        "Coordinate a debate between the aggressive, conservative, and neutral analysts to make a final risk-adjusted trading decision."
     )
     print(result)
 

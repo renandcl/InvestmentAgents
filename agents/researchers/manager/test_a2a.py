@@ -70,9 +70,9 @@ if __name__ == "__main__":
     state = {
         "ticker": ticker,
         "current_date": date,
-        "market_report": "Strong upward trend with high volume. RSI at 65, indicating bullish sentiment.",
-        "news_report": "Company announces new product line with strong pre-orders. Positive analyst coverage.",
-        "fundamentals_report": "P/E ratio: 28.5, Revenue growth: 12% YoY, Strong balance sheet with $50B cash.",
+        "market_analyst_report": "Strong upward trend with high volume. RSI at 65, indicating bullish sentiment.",
+        "news_analyst_report": "Company announces new product line with strong pre-orders. Positive analyst coverage.",
+        "fundamentals_analyst_report": "P/E ratio: 28.5, Revenue growth: 12% YoY, Strong balance sheet with $50B cash.",
         "bull_researcher_report": "Strong buy signals based on: 1) New product momentum, 2) Growing market opportunity, 3) Solid fundamentals. Recommend BUY.",
         "bear_researcher_report": "Concerns about: 1) High valuation vs sector, 2) Competition in AI space, 3) Supply chain risks. Recommend HOLD.",
         "bull_history": "Bull argued for strong growth potential and market positioning.",

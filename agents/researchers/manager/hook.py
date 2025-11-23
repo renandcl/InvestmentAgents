@@ -30,17 +30,26 @@ class SharedDocument(HookProvider):
         event.agent.state.set("shared_document_file", self.shared_document_file)
 
         event.agent.state.set(
-            "fundamentals_report", shared_document.get("fundamentals_report")
+            "fundamentals_analyst_report",
+            shared_document.get("fundamentals_analyst_report"),
         )
-        event.agent.state.set("market_report", shared_document.get("market_report"))
-        event.agent.state.set("news_report", shared_document.get("news_report"))
+        event.agent.state.set(
+            "market_analyst_report", shared_document.get("market_analyst_report")
+        )
+        event.agent.state.set(
+            "news_analyst_report", shared_document.get("news_analyst_report")
+        )
 
         # Get bull and bear researcher reports
-        bull_report = shared_document.get("bull_researcher_report", "No report")
-        bear_report = shared_document.get("bear_researcher_report", "No report")
+        bull_researcher_report = shared_document.get(
+            "bull_researcher_report", "No report"
+        )
+        bear_researcher_report = shared_document.get(
+            "bear_researcher_report", "No report"
+        )
 
-        event.agent.state.set("bull_researcher_report", bull_report)
-        event.agent.state.set("bear_researcher_report", bear_report)
+        event.agent.state.set("bull_researcher_report", bull_researcher_report)
+        event.agent.state.set("bear_researcher_report", bear_researcher_report)
 
         event.agent.state.set("debate_rounds", shared_document.get("debate_rounds", 0))
         event.agent.state.set(
@@ -59,9 +68,11 @@ class SharedDocument(HookProvider):
         event.agent.system_prompt = system_prompt.format(
             ticker=event.agent.state.get("ticker"),
             date=event.agent.state.get("current_date"),
-            fundamentals_report=event.agent.state.get("fundamentals_report"),
-            market_report=event.agent.state.get("market_report"),
-            news_report=event.agent.state.get("news_report"),
+            fundamentals_analyst_report=event.agent.state.get(
+                "fundamentals_analyst_report"
+            ),
+            market_analyst_report=event.agent.state.get("market_analyst_report"),
+            news_analyst_report=event.agent.state.get("news_analyst_report"),
             bull_researcher_report=event.agent.state.get("bull_researcher_report"),
             bear_researcher_report=event.agent.state.get("bear_researcher_report"),
             debate_rounds=event.agent.state.get("debate_rounds"),
@@ -110,9 +121,9 @@ class SharedDocument(HookProvider):
         current_situation = f"""
 Date: {shared_document.get('current_date')}
 Ticker: {shared_document.get('ticker')}
-Market Research Report: {shared_document.get('market_report')}
-Latest World Affairs News: {shared_document.get('news_report')}
-Company Fundamentals Report: {shared_document.get('fundamentals_report')}
+Market Research Report: {shared_document.get('market_analyst_report')}
+Latest World Affairs News: {shared_document.get('news_analyst_report')}
+Company Fundamentals Report: {shared_document.get('fundamentals_analyst_report')}
 Bull Researcher Analysis: {shared_document.get('bull_researcher_report')}
 Bear Researcher Analysis: {shared_document.get('bear_researcher_report')}
         """.strip()

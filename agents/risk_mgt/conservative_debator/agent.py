@@ -26,7 +26,7 @@ class ConservativeDebator(Agent):
         super().__init__(
             name="ConservativeDebator",
             agent_id="conservative_debator",
-            description="Safe/Conservative Risk Analyst that prioritizes asset protection, stability, and risk mitigation strategies",
+            description="Conservative Risk Analyst that prioritizes asset protection, stability, and risk mitigation strategies",
             system_prompt=self.system_prompt,
             model=self.openai_model,
             session_manager=self.session_manager,
