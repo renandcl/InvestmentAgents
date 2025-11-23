@@ -9,6 +9,9 @@ from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 
+from agents.risk_mgt.aggressive_debator.agent import AggressiveDebator
+from agents.risk_mgt.conservative_debator.agent import ConservativeDebator
+from agents.risk_mgt.neutral_debator.agent import NeutralDebator
 from agents.risk_mgt.risk_manager.hook import SharedDocument
 from agents.risk_mgt.risk_manager.memory import MemoryService
 
@@ -30,12 +33,14 @@ class RiskManager(Agent):
         self._init_model(model_id, base_url, api_key)
         self._init_session_manager("data/agents_sessions/risk_mgt/risk_manager")
         self._init_hooks(shared_document_file="data/shared_document.json")
+        self._init_tools()
 
         super().__init__(
             name="RiskManagerAgent",
             agent_id="risk_manager",
             description="Evaluates risk debate between aggressive, conservative, and neutral analysts to make final risk-adjusted trading decisions.",
             system_prompt=self.system_prompt,
+            tools=self.tools,
             model=self.openai_model,
             session_manager=self.session_manager,
             hooks=[self.shared_document_handler_hook],
@@ -66,6 +71,16 @@ class RiskManager(Agent):
         self.shared_document_handler_hook = SharedDocument(
             shared_document_json_file=shared_document_file, memory=self.memory_service
         )
+
+    def _init_tools(self):
+        aggressive_debator = AggressiveDebator()
+        conservative_debator = ConservativeDebator()
+        neutral_debator = NeutralDebator()
+        self.tools = [
+            aggressive_debator.provide_aggressive_analysis,
+            conservative_debator.provide_conservative_analysis,
+            neutral_debator.provide_neutral_analysis,
+        ]
 
     @tool
     async def evaluate_risk_and_decide(self, query: str) -> AgentResult:
