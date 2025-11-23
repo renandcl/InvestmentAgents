@@ -28,7 +28,7 @@ class FundamentalsAnalyst(Agent):
 
         super().__init__(
             name="FundamentalsAnalystAgent",
-            agent_id="fundamentals",
+            agent_id="fundamentals_analyst",
             description="Analyzes fundamental data and provides insights for investment decisions by providing ticker and date.",
             system_prompt=self.system_prompt,
             tools=self.tools,

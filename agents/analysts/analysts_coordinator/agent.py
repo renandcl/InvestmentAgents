@@ -36,7 +36,7 @@ class AnalystCoordinator(Agent):
 
         super().__init__(
             name="AnalystCoordinator",
-            agent_id="coordinator",
+            agent_id="analyst_coordinator",
             description="Coordinates the analysis of market, news, and fundamentals data to provide insights and recommendations.",
             system_prompt=self.system_prompt,
             tools=self.tools,

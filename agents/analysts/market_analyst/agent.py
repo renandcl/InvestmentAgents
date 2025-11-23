@@ -28,7 +28,7 @@ class MarketAnalyst(Agent):
 
         super().__init__(
             name="MarketAnalystAgent",
-            agent_id="market",
+            agent_id="market_analyst",
             description="Analyzes market data and technical indicators to produce nuanced trading insights by providing ticker and date.",
             system_prompt=self.system_prompt,
             tools=self.tools,
