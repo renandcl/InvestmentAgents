@@ -28,7 +28,7 @@ class NewsAnalyst(Agent):
 
         super().__init__(
             name="NewsAnalystAgent",
-            agent_id="news",
+            agent_id="news_analyst",
             description="Analyzes recent news and trends for trading and macroeconomics by requesting the analysis for ticker and date.",
             system_prompt=self.system_prompt,
             tools=self.tools,
