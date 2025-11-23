@@ -18,9 +18,9 @@ Here are your past reflections on mistakes:
 {past_memories}
 
 Available Resources:
-Market Research Report: {market_report}
-Latest World Affairs News: {news_report}
-Company Fundamentals Report: {fundamentals_report}
+Market Research Report: {market_analyst_report}
+Latest World Affairs News: {news_analyst_report}
+Company Fundamentals Report: {fundamentals_analyst_report}
 
 Research Analysis:
 Bear Analyst Argument: {bear_researcher_report}

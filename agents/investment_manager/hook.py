@@ -60,9 +60,11 @@ class SharedDocument:
             phase = shared_document.get("phase", "initialization")
 
             # Get reports from each phase
-            fundamentals_report = shared_document.get("fundamentals_report", "")
-            news_report = shared_document.get("news_report", "")
-            market_report = shared_document.get("market_report", "")
+            fundamentals_analyst_report = shared_document.get(
+                "fundamentals_analyst_report", ""
+            )
+            news_analyst_report = shared_document.get("news_analyst_report", "")
+            market_analyst_report = shared_document.get("market_analyst_report", "")
 
             investment_plan = shared_document.get("investment_plan", "")
             investment_recommendation = shared_document.get(
@@ -81,11 +83,15 @@ class SharedDocument:
                 "ticker": ticker,
                 "current_date": current_date,
                 "phase": phase,
-                "fundamentals_report": fundamentals_report[:500]
-                if fundamentals_report
+                "fundamentals_analyst_report": fundamentals_analyst_report[:500]
+                if fundamentals_analyst_report
                 else "",
-                "news_report": news_report[:500] if news_report else "",
-                "market_report": market_report[:500] if market_report else "",
+                "news_analyst_report": news_analyst_report[:500]
+                if news_analyst_report
+                else "",
+                "market_analyst_report": market_analyst_report[:500]
+                if market_analyst_report
+                else "",
                 "investment_plan": investment_plan[:500] if investment_plan else "",
                 "investment_recommendation": investment_recommendation[:500]
                 if investment_recommendation
@@ -131,9 +137,9 @@ class SharedDocument:
         # Add phase-specific context
         if phase in ["research", "trading", "risk_management", "execution"]:
             # Analysis phase completed
-            fundamentals = shared_document.get("fundamentals_report", "")
-            news = shared_document.get("news_report", "")
-            market = shared_document.get("market_report", "")
+            fundamentals = shared_document.get("fundamentals_analyst_report", "")
+            news = shared_document.get("news_analyst_report", "")
+            market = shared_document.get("market_analyst_report", "")
 
             if fundamentals or news or market:
                 context_parts.append("\n--- ANALYSIS PHASE RESULTS ---")

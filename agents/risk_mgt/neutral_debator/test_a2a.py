@@ -51,9 +51,9 @@ if __name__ == "__main__":
     state = {
         "ticker": ticker,
         "current_date": date,
-        "market_report": "Strong bullish momentum with RSI at 68. High volume breakout above resistance at $175.",
-        "news_report": "Company announces breakthrough AI chip with 300% performance improvement. Analyst upgrades across the board.",
-        "fundamentals_report": "P/E ratio: 28, Revenue growth: 15% YoY, Strong cash position: $60B, ROE: 18%.",
+        "market_analyst_report": "Strong bullish momentum with RSI at 68. High volume breakout above resistance at $175.",
+        "news_analyst_report": "Company announces breakthrough AI chip with 300% performance improvement. Analyst upgrades across the board.",
+        "fundamentals_analyst_report": "P/E ratio: 28, Revenue growth: 15% YoY, Strong cash position: $60B, ROE: 18%.",
         "trader_decision": "BUY recommendation. Entry at $180, target $210 (16% upside), stop-loss at $170.",
         "risk_debate": {
             "history": "",

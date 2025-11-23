@@ -25,8 +25,8 @@ class AggressiveDebator(Agent):
 
         super().__init__(
             name="AggressiveDebator",
-            agent_id="aggressive-debator",
-            description="Risky Risk Analyst that champions high-reward, high-risk opportunities and bold trading strategies",
+            agent_id="aggressive_risk",
+            description="Aggressive Risk Analyst that champions high-reward, high-risk opportunities and bold trading strategies",
             system_prompt=self.system_prompt,
             model=self.openai_model,
             session_manager=self.session_manager,

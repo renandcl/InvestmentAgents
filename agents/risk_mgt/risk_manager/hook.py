@@ -35,10 +35,15 @@ class SharedDocument(HookProvider):
         event.agent.state.set("shared_document_file", self.shared_document_file)
 
         event.agent.state.set(
-            "fundamentals_report", shared_document.get("fundamentals_report")
+            "fundamentals_analyst_report",
+            shared_document.get("fundamentals_analyst_report"),
         )
-        event.agent.state.set("market_report", shared_document.get("market_report"))
-        event.agent.state.set("news_report", shared_document.get("news_report"))
+        event.agent.state.set(
+            "market_analyst_report", shared_document.get("market_analyst_report")
+        )
+        event.agent.state.set(
+            "news_analyst_report", shared_document.get("news_analyst_report")
+        )
 
         # Get trader's plan - try multiple field names for compatibility
         trader_investment_plan = shared_document.get(
@@ -121,9 +126,9 @@ class SharedDocument(HookProvider):
         current_situation = f"""
 Date: {shared_document.get('current_date')}
 Ticker: {shared_document.get('ticker')}
-Market Research Report: {shared_document.get('market_report')}
-Latest World Affairs News: {shared_document.get('news_report')}
-Company Fundamentals Report: {shared_document.get('fundamentals_report')}
+Market Research Report: {shared_document.get('market_analyst_report')}
+Latest World Affairs News: {shared_document.get('news_analyst_report')}
+Company Fundamentals Report: {shared_document.get('fundamentals_analyst_report')}
         """.strip()
         past_memories = self.memory.search_memories(
             current_situation, ticker=shared_document.get("ticker"), n_matches=2

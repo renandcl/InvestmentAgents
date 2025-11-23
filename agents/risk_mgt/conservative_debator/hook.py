@@ -39,7 +39,7 @@ class SharedDocument(HookProvider):
             shared_document.get(
                 "market_research_report",
                 shared_document.get(
-                    "market_report", "No market research report available."
+                    "market_analyst_report", "No market research report available."
                 ),
             ),
         )
@@ -53,13 +53,13 @@ class SharedDocument(HookProvider):
             ),
         )
         event.agent.state.set(
-            "news_report",
-            shared_document.get("news_report", "No news report available."),
+            "news_analyst_report",
+            shared_document.get("news_analyst_report", "No news report available."),
         )
         event.agent.state.set(
-            "fundamentals_report",
+            "fundamentals_analyst_report",
             shared_document.get(
-                "fundamentals_report", "No fundamentals report available."
+                "fundamentals_analyst_report", "No fundamentals report available."
             ),
         )
 
@@ -83,11 +83,11 @@ class SharedDocument(HookProvider):
             "history", risk_debate.get("history", "No debate history yet.")
         )
         event.agent.state.set(
-            "aggressive_report",
+            "aggressive_risk_analyst_report",
             shared_document.get("aggressive_analysis", "No aggressive analysis yet."),
         )
         event.agent.state.set(
-            "neutral_report",
+            "neutral_risk_analyst_report",
             shared_document.get("neutral_analysis", "No neutral analysis yet."),
         )
 
@@ -99,12 +99,18 @@ class SharedDocument(HookProvider):
             current_date=event.agent.state.get("current_date", "UNKNOWN"),
             market_research_report=event.agent.state.get("market_research_report"),
             sentiment_report=event.agent.state.get("sentiment_report"),
-            news_report=event.agent.state.get("news_report"),
-            fundamentals_report=event.agent.state.get("fundamentals_report"),
+            news_analyst_report=event.agent.state.get("news_analyst_report"),
+            fundamentals_analyst_report=event.agent.state.get(
+                "fundamentals_analyst_report"
+            ),
             trader_decision=event.agent.state.get("trader_decision"),
             history=event.agent.state.get("history"),
-            aggressive_report=event.agent.state.get("aggressive_report"),
-            neutral_report=event.agent.state.get("neutral_report"),
+            aggressive_risk_analyst_report=event.agent.state.get(
+                "aggressive_risk_analyst_report"
+            ),
+            neutral_risk_analyst_report=event.agent.state.get(
+                "neutral_risk_analyst_report"
+            ),
         )
 
     def save_shared_document(self, event: AfterInvocationEvent):
@@ -122,26 +128,6 @@ class SharedDocument(HookProvider):
             report = message
 
         event.agent.state.set(f"{event.agent.agent_id}_report", report)
-
-        # Update risk_debate_state
-        if "risk_debate_state" not in shared_document:
-            shared_document["risk_debate_state"] = {}
-
-        risk_debate_state = shared_document["risk_debate_state"]
-        argument = f"Safe Analyst: {report}"
-
-        risk_debate_state["history"] = (
-            risk_debate_state.get("history", "") + "\n" + argument
-        ).strip()
-        risk_debate_state["safe_history"] = (
-            risk_debate_state.get("safe_history", "") + "\n" + argument
-        ).strip()
-        risk_debate_state["latest_speaker"] = "Safe"
-        risk_debate_state["current_safe_response"] = argument
-        risk_debate_state["count"] = risk_debate_state.get("count", 0) + 1
-
-        shared_document["risk_debate_state"] = risk_debate_state
-        shared_document["conservative_analysis"] = report
 
         with open(self.shared_document_file, "w") as f:
             json.dump(shared_document, f, indent=2)

@@ -70,9 +70,9 @@ if __name__ == "__main__":
     state = {
         "ticker": ticker,
         "current_date": date,
-        "market_report": "Strong upward trend with high volume. RSI at 65, MACD showing bullish crossover.",
-        "news_report": "Company announces new product line with strong pre-orders. Positive analyst coverage.",
-        "fundamentals_report": "P/E ratio: 28.5, Revenue growth: 12% YoY, Strong balance sheet with $50B cash, ROE: 15%.",
+        "market_analyst_report": "Strong upward trend with high volume. RSI at 65, MACD showing bullish crossover.",
+        "news_analyst_report": "Company announces new product line with strong pre-orders. Positive analyst coverage.",
+        "fundamentals_analyst_report": "P/E ratio: 28.5, Revenue growth: 12% YoY, Strong balance sheet with $50B cash, ROE: 15%.",
         "investment_plan": """
         Based on comprehensive analysis:
 
