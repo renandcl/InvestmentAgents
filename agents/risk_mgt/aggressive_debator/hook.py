@@ -83,12 +83,14 @@ class SharedDocument(HookProvider):
             "history", risk_debate.get("history", "No debate history yet.")
         )
         event.agent.state.set(
-            "current_safe_response",
-            risk_debate.get("current_safe_response", "No conservative argument yet."),
+            "conservative_report",
+            shared_document.get(
+                "conservative_analysis", "No conservative analysis yet."
+            ),
         )
         event.agent.state.set(
-            "current_neutral_response",
-            risk_debate.get("current_neutral_response", "No neutral argument yet."),
+            "neutral_report",
+            shared_document.get("neutral_analysis", "No neutral analysis yet."),
         )
 
     def add_prompt_reports(self, event: BeforeModelInvocationEvent):
@@ -103,8 +105,8 @@ class SharedDocument(HookProvider):
             fundamentals_report=event.agent.state.get("fundamentals_report"),
             trader_decision=event.agent.state.get("trader_decision"),
             history=event.agent.state.get("history"),
-            current_safe_response=event.agent.state.get("current_safe_response"),
-            current_neutral_response=event.agent.state.get("current_neutral_response"),
+            conservative_report=event.agent.state.get("conservative_report"),
+            neutral_report=event.agent.state.get("neutral_report"),
         )
 
     def save_shared_document(self, event: AfterInvocationEvent):
