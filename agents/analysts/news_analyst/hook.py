@@ -20,6 +20,7 @@ class SharedDocument(HookProvider):
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
+        event.agent.state.set("system_prompt", event.agent.system_prompt)
         with open(self.shared_document_file, "r") as f:
             shared_document = json.load(f)
 
@@ -28,7 +29,8 @@ class SharedDocument(HookProvider):
         event.agent.state.set("shared_document_file", self.shared_document_file)
 
     def add_prompt_arguments(self, event: BeforeModelInvocationEvent):
-        event.agent.system_prompt = event.agent.system_prompt.format(
+        system_prompt = event.agent.state.get("system_prompt")
+        event.agent.system_prompt = system_prompt.format(
             ticker=event.agent.state.get("ticker"),
             date=event.agent.state.get("current_date"),
         )
