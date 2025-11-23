@@ -3,13 +3,14 @@ import os
 import uuid
 from datetime import datetime
 
-from hook import SharedDocument
-from memory import MemoryService
 from strands import Agent, tool
 from strands.agent import AgentResult
-from strands.models.ollama import OllamaModel
+from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
+
+from agents.risk_mgt.risk_manager.hook import SharedDocument
+from agents.risk_mgt.risk_manager.memory import MemoryService
 
 # Enables Strands debug log level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -18,17 +19,46 @@ logging.basicConfig(
 )
 
 
-class RiskManager:
+class RiskManager(Agent):
     """Risk Manager agent that coordinates aggressive, conservative, and neutral debators via A2A HTTP interfaces."""
 
     def __init__(
-        self, model_id: str = "qwen3:8b", host: str = "http://localhost:11434"
+        self,
+        model_id="qwen3:8b",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
     ):
-        self.model_id = model_id
-        self.host = host
+        self._init_system_prompt()
+        self._init_model(model_id, base_url, api_key)
+        self._init_tools()
+        self._init_session_manager("data/agents_sessions/risk_mgt/risk_manager")
+        self._init_hooks(shared_document_file="data/shared_document.json")
 
-        self.ollama_model = OllamaModel(host=self.host, model_id=self.model_id)
+        super().__init__(
+            name="RiskManagerAgent",
+            agent_id="risk_manager",
+            description="Evaluates risk debate between aggressive, conservative, and neutral analysts to make final risk-adjusted trading decisions.",
+            system_prompt=self.system_prompt,
+            tools=self.tools,
+            model=self.openai_model,
+            session_manager=self.session_manager,
+            hooks=[self.shared_document_handler_hook],
+        )
 
+    def _init_system_prompt(self):
+        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+            self.system_prompt = f.read()
+
+    def _init_model(self, model_id, base_url, api_key):
+        self.openai_model = OpenAIModel(
+            client_args={
+                "base_url": base_url,
+                "api_key": api_key,
+            },
+            model_id=model_id,
+        )
+
+    def _init_tools(self):
         # A2A client tool providers for remote debators
         aggressive_debator_url = "http://localhost:9908"
         conservative_debator_url = "http://localhost:9909"
@@ -41,37 +71,22 @@ class RiskManager:
                 neutral_debator_url,
             ]
         )
+        self.tools = provider.tools
 
-        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
-            self.system_prompt = f.read()
-
+    def _init_session_manager(self, storage_dir: str):
         current_date = datetime.now().strftime("%Y-%m-%d")
         self.session_manager = FileSessionManager(
             session_id=f"{current_date}_{uuid.uuid4()}",
-            storage_dir="data/agents_sessions/risk_mgt/risk_manager",
+            storage_dir=storage_dir,
         )
 
-        tools = provider.tools
-        shared_document_file = "data/shared_document.json"
-        memory = MemoryService(agent_id="risk_manager")
-        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
-
-        self.agent = Agent(
-            name="RiskManagerAgent",
-            agent_id="risk_manager",
-            description="Evaluates risk debate between aggressive, conservative, and neutral analysts to make final risk-adjusted trading decisions.",
-            system_prompt=self.system_prompt,
-            tools=tools,
-            model=self.ollama_model,
-            session_manager=self.session_manager,
-            hooks=[
-                shared_document_handler_hook.get_shared_document,
-                shared_document_handler_hook.add_prompt_reports,
-                shared_document_handler_hook.save_shared_document,
-            ],
+    def _init_hooks(self, shared_document_file: str):
+        self.memory_service = MemoryService(agent_id="risk_manager")
+        self.shared_document_handler_hook = SharedDocument(
+            shared_document_json_file=shared_document_file, memory=self.memory_service
         )
 
     @tool
     async def evaluate_risk_and_decide(self, message: str) -> AgentResult:
         """Evaluate risk from multiple perspectives and make final risk-adjusted trading decision."""
-        return await self.agent.invoke_async(message)
+        return await self.invoke_async(message)
