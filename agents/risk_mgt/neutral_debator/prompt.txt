@@ -10,8 +10,8 @@ Latest World Affairs Report: {news_report}
 Company Fundamentals Report: {fundamentals_report}
 
 Here is the current conversation history: {history}
-Here is the last response from the risky analyst: {current_risky_response}
-Here is the last response from the safe analyst: {current_safe_response}.
+Here is the last response from the risky analyst: {aggressive_report}
+Here is the last response from the safe analyst: {conservative_report}.
 
 If there are no responses from the other viewpoints, do not halluncinate and just present your point.
 

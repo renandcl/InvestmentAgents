@@ -10,8 +10,8 @@ Latest World Affairs Report: {news_report}
 Company Fundamentals Report: {fundamentals_report}
 
 Here is the current conversation history: {history}
-Here are the last arguments from the conservative analyst: {current_safe_response}
-Here are the last arguments from the neutral analyst: {current_neutral_response}.
+Here are the last arguments from the conservative analyst: {conservative_report}
+Here are the last arguments from the neutral analyst: {neutral_report}.
 
 If there are no responses from the other viewpoints, do not halluncinate and just present your point.
 

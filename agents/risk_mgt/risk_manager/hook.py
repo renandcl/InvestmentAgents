@@ -52,6 +52,15 @@ class SharedDocument(HookProvider):
         risk_debate_history = risk_debate.get("history", "No debate history yet")
         event.agent.state.set("history", risk_debate_history)
 
+        event.agent.state.set("debate_rounds", shared_document.get("debate_rounds", 0))
+        event.agent.state.set(
+            "debate_action",
+            shared_document.get(
+                "debate_action",
+                "Call Aggressive, Neutral and Conservative Analysts to provide their analysis.",
+            ),
+        )
+
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
 
@@ -62,7 +71,24 @@ class SharedDocument(HookProvider):
             trader_investment_plan=event.agent.state.get("trader_investment_plan"),
             history=event.agent.state.get("history"),
             past_memories=event.agent.state.get("past_memories"),
+            debate_rounds=event.agent.state.get("debate_rounds"),
+            debate_action=event.agent.state.get("debate_action"),
         )
+
+        if "toolResponse" in event.agent.messages[-1]:
+            event.agent.state.set(
+                "debate_rounds", event.agent.state.get("debate_rounds") + 1
+            )
+            if event.agent.state.get("debate_rounds") >= 3:
+                event.agent.state.set(
+                    "debate_action",
+                    "Make final risk-adjusted trading decision based on the analyses provided.",
+                )
+            else:
+                event.agent.state.set(
+                    "debate_action",
+                    "Call Aggressive, Neutral and Conservative Analysts to debate on each other's analysis.",
+                )
 
     def save_shared_document(self, event: AfterInvocationEvent):
         if os.path.exists(self.shared_document_file):
