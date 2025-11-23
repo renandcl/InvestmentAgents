@@ -1,4 +1,5 @@
 import json
+import os
 import re
 
 from strands.experimental.hooks import BeforeModelInvocationEvent
@@ -21,8 +22,13 @@ class SharedDocument(HookProvider):
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
-        with open(self.shared_document_file, "r") as f:
-            shared_document = json.load(f)
+        event.agent.state.set("system_prompt", event.agent.system_prompt)
+
+        if os.path.exists(self.shared_document_file):
+            with open(self.shared_document_file, "r") as f:
+                shared_document = json.load(f)
+        else:
+            shared_document = {}
 
         event.agent.state.set("current_date", shared_document.get("current_date"))
         event.agent.state.set("ticker", shared_document.get("ticker"))
@@ -35,43 +41,55 @@ class SharedDocument(HookProvider):
         event.agent.state.set("news_report", shared_document.get("news_report"))
 
         # Get trader's plan - try multiple field names for compatibility
-        trader_investment_plan = shared_document.get("trader_investment_plan","No trader plan available")
+        trader_investment_plan = shared_document.get(
+            "trader_investment_plan", "No trader plan available"
+        )
         event.agent.state.set("trader_investment_plan", trader_investment_plan)
 
         # Get risk debate history
-        risk_debate_history = shared_document.get("risk_debate_history", "No debate history yet")
-        event.agent.state.set("risk_debate_history", risk_debate_history)
+        # The prompt expects {history}, so we map risk_debate_state['history'] to it.
+        risk_debate = shared_document.get("risk_debate_state", {})
+        risk_debate_history = risk_debate.get("history", "No debate history yet")
+        event.agent.state.set("history", risk_debate_history)
 
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
 
     def add_prompt_reports(self, event: BeforeModelInvocationEvent):
-        event.agent.system_prompt = event.agent.system_prompt.format(
+        system_prompt = event.agent.state.get("system_prompt")
+
+        event.agent.system_prompt = system_prompt.format(
             trader_investment_plan=event.agent.state.get("trader_investment_plan"),
-            risk_debate_history=event.agent.state.get("risk_debate_history"),
+            history=event.agent.state.get("history"),
             past_memories=event.agent.state.get("past_memories"),
         )
 
     def save_shared_document(self, event: AfterInvocationEvent):
-        with open(self.shared_document_file, "r") as f:
-            shared_document = json.load(f)
+        if os.path.exists(self.shared_document_file):
+            with open(self.shared_document_file, "r") as f:
+                shared_document = json.load(f)
+        else:
+            shared_document = {}
 
         message = event.agent.messages[-1]["content"][0]["text"]
         report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
         if report_match:
             report = report_match.group(2).strip()
-            event.agent.state.set(f"{event.agent.agent_id}_decision", report)
-            shared_document[f"{event.agent.agent_id}_decision"] = report
-            shared_document["risk_debate_history"] = f"\n\n## {event.agent.agent_name} \n History:\n{report}"
-            shared_document["final_trade_decision"] = report
         else:
-            event.agent.state.set(f"{event.agent.agent_id}_decision", message)
-            shared_document[f"{event.agent.agent_id}_decision"] = message
-            shared_document["risk_debate_history"] = f"\n\n## {event.agent.agent_name} \n History:\n{message}"
-            shared_document["final_trade_decision"] = message
+            report = message
+
+        event.agent.state.set(f"{event.agent.agent_id}_decision", report)
+        shared_document[f"{event.agent.agent_id}_decision"] = report
+        shared_document["final_trade_decision"] = report
+
+        # Save to memory
+        self.memory.add_memory(
+            memory=f"Risk Manager Decision for {shared_document.get('ticker')}: {report}",
+            ticker=shared_document.get("ticker"),
+        )
 
         with open(self.shared_document_file, "w") as f:
-            json.dump(shared_document, f)
+            json.dump(shared_document, f, indent=2)
 
     def _get_past_memories(self, shared_document):
         current_situation = f"""
@@ -84,10 +102,20 @@ Company Fundamentals Report: {shared_document.get('fundamentals_report')}
         past_memories = self.memory.search_memories(
             current_situation, ticker=shared_document.get("ticker"), n_matches=2
         )
-        if past_memories:
+
+        records = []
+        if isinstance(past_memories, dict):
+            records = past_memories.get("results") or []
+        elif isinstance(past_memories, list):
+            records = past_memories
+
+        if records:
             past_memory_str = ""
-            for i, rec in enumerate(past_memories["results"], 1):
-                past_memory_str += rec["text"] + "\n\n"
+            for i, rec in enumerate(records, 1):
+                memory_text = rec.get("memory") or rec.get("text")
+                if not memory_text:
+                    continue
+                past_memory_str += f"Memory {i}:\n{memory_text}\n\n"
             return past_memory_str
-        else:
-            return "No relevant past memories found."
+
+        return "No relevant past memories found."

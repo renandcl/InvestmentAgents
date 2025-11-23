@@ -2,13 +2,13 @@ from mem0 import Memory
 
 
 class MemoryService:
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str = "risk_manager"):
         self.agent_id = agent_id
         config = {
             "vector_store": {
                 "provider": "chroma",
                 "config": {
-                    "collection_name": "agent_memories",
+                    "collection_name": f"{agent_id}_memories",
                     "path": "data/chroma_memories",
                 },
             },
@@ -36,15 +36,13 @@ class MemoryService:
         self.memory = Memory.from_config(config)
 
     def add_memory(self, memory, ticker: str):
-        self.memory.add(memory, user_id=ticker, agent_id=self.agent_id, infer=True)
+        self.memory.add(memory, user_id=ticker, agent_id=self.agent_id)
 
     def get_memories(self):
-        return self.memory.get_all(agent_id=self.agent_id)
+        return self.memory.get_all(user_id=self.agent_id)
 
     def search_memories(self, current_situation: str, ticker: str, n_matches: int = 2):
-        return self.memory.search(
-            current_situation, user_id=ticker, agent_id=self.agent_id, limit=n_matches
-        )
+        return self.memory.search(current_situation, user_id=ticker, limit=n_matches)
 
 
 if __name__ == "__main__":

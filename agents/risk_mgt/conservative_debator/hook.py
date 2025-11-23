@@ -1,176 +1,147 @@
-"""
-Shared State Handler for Conservative Debator Agent
-
-Manages state loading, prompt formatting, and state saving through hooks.
-"""
-
 import json
 import os
-from datetime import datetime
+import re
 
-from strands import (
+from strands.experimental.hooks import BeforeModelInvocationEvent
+from strands.hooks import (
     AfterInvocationEvent,
     BeforeInvocationEvent,
-    BeforeModelInvocationEvent,
+    HookProvider,
+    HookRegistry,
 )
 
 
-class SharedDocument:
-    """Handles shared state management for the Conservative Debator agent via hooks."""
+class SharedDocument(HookProvider):
+    def __init__(self, shared_document_file: str):
+        self.shared_document_file = shared_document_file
 
-    def __init__(self, memory_service):
-        """
-        Initialize the state handler.
-
-        Args:
-            memory_service: Memory service for retrieving past trading memories
-        """
-        self.memory_service = memory_service
-        self.shared_document = {}
-        self.state_file = "data/shared_document.json"
+    def register_hooks(self, registry: HookRegistry) -> None:
+        registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
+        registry.add_callback(BeforeModelInvocationEvent, self.add_prompt_reports)
+        registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
-        """
-        Hook 1: Load shared state before agent invocation.
+        event.agent.state.set("system_prompt", event.agent.system_prompt)
 
-        Loads:
-        - ticker, current_date
-        - market_report, news_report, fundamentals_report
-        - trader_decision (from trader_investment_plan)
-        - risk_debate_state and individual analyst arguments
-        """
-        # Load shared state from file
-        if os.path.exists(self.state_file):
-            with open(self.state_file, "r") as f:
-                self.shared_document = json.load(f)
+        if os.path.exists(self.shared_document_file):
+            with open(self.shared_document_file, "r") as f:
+                shared_document = json.load(f)
         else:
-            self.shared_document = {}
+            shared_document = {}
 
-        # Store in event context
-        event.context["ticker"] = self.shared_document.get("ticker", "UNKNOWN")
-        event.context["current_date"] = self.shared_document.get(
-            "current_date", datetime.now().strftime("%Y-%m-%d")
+        event.agent.state.set("current_date", shared_document.get("current_date"))
+        event.agent.state.set("ticker", shared_document.get("ticker"))
+        event.agent.state.set("shared_document_file", self.shared_document_file)
+
+        # Load reports
+        event.agent.state.set(
+            "market_research_report",
+            shared_document.get(
+                "market_research_report",
+                shared_document.get(
+                    "market_report", "No market research report available."
+                ),
+            ),
         )
-        event.context["market_report"] = self.shared_document.get(
-            "market_report", "No market report available."
+        event.agent.state.set(
+            "sentiment_report",
+            shared_document.get(
+                "sentiment_report",
+                shared_document.get(
+                    "social_sentiment_report", "No sentiment report available."
+                ),
+            ),
         )
-        event.context["news_report"] = self.shared_document.get(
-            "news_report", "No news report available."
+        event.agent.state.set(
+            "news_report",
+            shared_document.get("news_report", "No news report available."),
         )
-        event.context["fundamentals_report"] = self.shared_document.get(
-            "fundamentals_report", "No fundamentals report available."
+        event.agent.state.set(
+            "fundamentals_report",
+            shared_document.get(
+                "fundamentals_report", "No fundamentals report available."
+            ),
         )
 
-        # Trader's decision - try trader_investment_plan first (TradingAgents pattern)
-        event.context["trader_decision"] = self.shared_document.get(
-            "trader_investment_plan",
-            self.shared_document.get(
-                "trader_decision",
-                self.shared_document.get(
-                    "trader_report", "No trader decision available."
+        # Trader decision
+        event.agent.state.set(
+            "trader_decision",
+            shared_document.get(
+                "trader_investment_plan",
+                shared_document.get(
+                    "trader_decision",
+                    shared_document.get(
+                        "trader_report", "No trader decision available."
+                    ),
                 ),
             ),
         )
 
-        # Risk debate context - following TradingAgents RiskDebateState pattern
-        risk_debate = self.shared_document.get("risk_debate_state", {})
-        event.context["risk_debate_history"] = risk_debate.get(
-            "history", "No debate history yet."
+        # Risk debate state
+        risk_debate = shared_document.get("risk_debate_state", {})
+        event.agent.state.set(
+            "history", risk_debate.get("history", "No debate history yet.")
         )
-        event.context["aggressive_argument"] = risk_debate.get(
-            "current_risky_response", "No aggressive argument yet."
+        event.agent.state.set(
+            "current_risky_response",
+            risk_debate.get("current_risky_response", "No aggressive argument yet."),
         )
-        event.context["neutral_argument"] = risk_debate.get(
-            "current_neutral_response", "No neutral argument yet."
+        event.agent.state.set(
+            "current_neutral_response",
+            risk_debate.get("current_neutral_response", "No neutral argument yet."),
         )
-
-        # Get relevant past memories
-        curr_situation = f"{event.context['market_report']}\n\n{event.context['news_report']}\n\n{event.context['fundamentals_report']}"
-        memories = self.memory_service.search_memories(curr_situation, n_results=3)
-
-        if memories and len(memories) > 0:
-            memories_text = "\n\n".join(
-                [f"Memory {i+1}:\n{mem['text']}" for i, mem in enumerate(memories)]
-            )
-        else:
-            memories_text = "No relevant past memories available."
-
-        event.context["past_memories"] = memories_text
 
     def add_prompt_reports(self, event: BeforeModelInvocationEvent):
-        """
-        Hook 2: Format system prompt with actual data before model invocation.
-        """
-        event.agent.system_prompt = event.agent.system_prompt.format(
-            ticker=event.context.get("ticker", "UNKNOWN"),
-            current_date=event.context.get("current_date", "UNKNOWN"),
-            market_report=event.context.get("market_report", "No data"),
-            news_report=event.context.get("news_report", "No data"),
-            fundamentals_report=event.context.get("fundamentals_report", "No data"),
-            trader_decision=event.context.get(
-                "trader_decision", "No decision available"
-            ),
-            risk_debate_history=event.context.get(
-                "risk_debate_history", "No debate yet"
-            ),
-            aggressive_argument=event.context.get("aggressive_argument", "None yet"),
-            neutral_argument=event.context.get("neutral_argument", "None yet"),
-            past_memories=event.context.get("past_memories", "No memories"),
+        system_prompt = event.agent.state.get("system_prompt")
+
+        event.agent.system_prompt = system_prompt.format(
+            ticker=event.agent.state.get("ticker", "UNKNOWN"),
+            current_date=event.agent.state.get("current_date", "UNKNOWN"),
+            market_research_report=event.agent.state.get("market_research_report"),
+            sentiment_report=event.agent.state.get("sentiment_report"),
+            news_report=event.agent.state.get("news_report"),
+            fundamentals_report=event.agent.state.get("fundamentals_report"),
+            trader_decision=event.agent.state.get("trader_decision"),
+            history=event.agent.state.get("history"),
+            current_risky_response=event.agent.state.get("current_risky_response"),
+            current_neutral_response=event.agent.state.get("current_neutral_response"),
         )
 
     def save_shared_document(self, event: AfterInvocationEvent):
-        """
-        Hook 3: Save conservative analysis to shared state after agent execution.
-        Follows TradingAgents RiskDebateState pattern.
-        """
-        # Get the agent's response
-        conservative_analysis = event.result
+        if os.path.exists(self.shared_document_file):
+            with open(self.shared_document_file, "r") as f:
+                shared_document = json.load(f)
+        else:
+            shared_document = {}
 
-        # Update risk_debate_state (following TradingAgents pattern)
-        if "risk_debate_state" not in self.shared_document:
-            self.shared_document["risk_debate_state"] = {
-                "history": "",
-                "risky_history": "",
-                "safe_history": "",
-                "neutral_history": "",
-                "latest_speaker": "",
-                "current_risky_response": "",
-                "current_safe_response": "",
-                "current_neutral_response": "",
-                "judge_decision": "",
-                "count": 0,
-            }
+        message = event.agent.messages[-1]["content"][0]["text"]
+        report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
+        if report_match:
+            report = report_match.group(2).strip()
+        else:
+            report = message
 
-        risk_debate_state = self.shared_document["risk_debate_state"]
+        event.agent.state.set(f"{event.agent.agent_id}_report", report)
 
-        # Format argument with analyst prefix (matching TradingAgents pattern)
-        argument = f"Safe Analyst: {conservative_analysis}"
+        # Update risk_debate_state
+        if "risk_debate_state" not in shared_document:
+            shared_document["risk_debate_state"] = {}
 
-        # Update debate state
+        risk_debate_state = shared_document["risk_debate_state"]
+        argument = f"Safe Analyst: {report}"
+
         risk_debate_state["history"] = (
             risk_debate_state.get("history", "") + "\n" + argument
-        )
+        ).strip()
         risk_debate_state["safe_history"] = (
             risk_debate_state.get("safe_history", "") + "\n" + argument
-        )
+        ).strip()
         risk_debate_state["latest_speaker"] = "Safe"
         risk_debate_state["current_safe_response"] = argument
         risk_debate_state["count"] = risk_debate_state.get("count", 0) + 1
 
-        self.shared_document["risk_debate_state"] = risk_debate_state
-        self.shared_document["conservative_analysis"] = conservative_analysis
+        shared_document["risk_debate_state"] = risk_debate_state
+        shared_document["conservative_analysis"] = report
 
-        # Save to memory for learning
-        self.memory_service.add_memory(
-            text=f"Conservative Analysis: {conservative_analysis}",
-            metadata={
-                "ticker": self.shared_document.get("ticker"),
-                "date": self.shared_document.get("current_date"),
-                "type": "conservative_risk_analysis",
-            },
-        )
-
-        # Save shared state to file
-        os.makedirs("data", exist_ok=True)
-        with open(self.state_file, "w") as f:
-            json.dump(self.shared_document, f, indent=2)
+        with open(self.shared_document_file, "w") as f:
+            json.dump(shared_document, f, indent=2)
