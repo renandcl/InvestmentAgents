@@ -77,24 +77,15 @@ class RiskManager(Agent):
         conservative_debator = ConservativeDebator()
         neutral_debator = NeutralDebator()
         self.tools = [
-            aggressive_debator.provide_aggressive_analysis,
-            conservative_debator.provide_conservative_analysis,
-            neutral_debator.provide_neutral_analysis,
+            aggressive_debator.get_aggressive_analysis,
+            conservative_debator.get_conservative_analysis,
+            neutral_debator.get_neutral_analysis,
         ]
 
     @tool
     async def evaluate_risk_and_decide(self, query: str) -> AgentResult:
         """
-        Evaluates risk perspectives and makes final trading decision.
-
-        Coordinates three risk analysts to debate, then synthesizes their
-        arguments into a final risk-adjusted recommendation.
-
-        Args:
-            query: Request for risk evaluation and decision
-
-        Returns:
-            Final risk-adjusted trading decision (BUY/SELL/HOLD) with rationale
+        Evaluates risk perspectives and makes final trading decision. Coordinates three risk analysts to debate, then synthesizes their arguments into a final risk-adjusted recommendation.
         """
         return await self.invoke_async(query)
 

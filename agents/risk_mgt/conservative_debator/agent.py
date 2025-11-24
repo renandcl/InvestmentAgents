@@ -25,7 +25,7 @@ class ConservativeDebator(Agent):
 
         super().__init__(
             name="ConservativeDebator",
-            agent_id="conservative_debator",
+            agent_id="conservative_risk_analyst",
             description="Conservative Risk Analyst that prioritizes asset protection, stability, and risk mitigation strategies",
             system_prompt=self.system_prompt,
             model=self.openai_model,
@@ -57,8 +57,8 @@ class ConservativeDebator(Agent):
         self.shared_document_handler_hook = SharedDocument(shared_document_file)
 
     @tool
-    async def provide_conservative_analysis(self, message: str) -> AgentResult:
-        """Provide conservative risk analysis."""
+    async def get_conservative_analysis(self, message: str) -> AgentResult:
+        """Get conservative risk analysis for debate. Make a query for conservative analyst."""
         return await self.invoke_async(message)
 
 
