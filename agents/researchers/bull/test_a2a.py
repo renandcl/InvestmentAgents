@@ -1,5 +1,5 @@
-import asyncio
 import logging
+from datetime import datetime
 from uuid import uuid4
 
 import httpx
@@ -13,11 +13,13 @@ DEFAULT_TIMEOUT = 300  # set request timeout to 5 minutes
 
 
 def create_message(*, role: Role = Role.user, text: str) -> Message:
+    date_str = datetime.now().strftime("%Y%m%d%H%M%S")
+    message_id = f"a2amsg-{date_str}{uuid4().hex[:8]}"
     return Message(
         kind="message",
         role=role,
         parts=[Part(TextPart(kind="text", text=text))],
-        message_id=uuid4().hex,
+        message_id=message_id,
     )
 
 
@@ -61,13 +63,7 @@ async def send_sync_message(message: str, base_url: str = "http://localhost:9905
 
 
 if __name__ == "__main__":
-    import json
+    import asyncio
 
-    ticker = "AAPL"
-    date = "2025-08-01"
-
-    with open("data/shared_document.json", "w") as f:
-        json.dump({"ticker": ticker, "current_date": date}, f)
-
-    test_message = "Provide the analysis"
+    test_message = "Provide bull market analysis."
     asyncio.run(send_sync_message(test_message))

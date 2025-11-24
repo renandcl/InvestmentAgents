@@ -9,7 +9,7 @@ from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
-from agents.researchers.manager.hook import SharedDocument
+from agents.researchers.manager.hook import SharedDocument, StoreMemoryHook
 from agents.researchers.manager.memory import MemoryService
 
 # Enables Strands debug log level
@@ -40,9 +40,9 @@ class ResearchManager(Agent):
             description="Critically evaluates research from both bull and bear analysts and makes an informed investment plan.",
             system_prompt=self.system_prompt,
             tools=self.tools,
-            model=self.openai_model,
+            model=self.model,
             session_manager=self.session_manager,
-            hooks=[self.shared_document_handler_hook],
+            hooks=self.hooks,
         )
 
     def _init_system_prompt(self):
@@ -50,7 +50,7 @@ class ResearchManager(Agent):
             self.system_prompt = f.read()
 
     def _init_model(self, model_id, base_url, api_key):
-        self.openai_model = OpenAIModel(
+        self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,
                 "api_key": api_key,
@@ -59,15 +59,17 @@ class ResearchManager(Agent):
         )
 
     def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
         self.session_manager = FileSessionManager(
-            session_id=f"{current_date}_{uuid.uuid4()}",
+            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
             storage_dir=storage_dir,
         )
 
     def _init_hooks(self, shared_document_file: str):
         memory = MemoryService(agent_id="research_manager")
-        self.shared_document_handler_hook = SharedDocument(shared_document_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
+        store_memory_hook = StoreMemoryHook(memory)
+        self.hooks = [shared_document_handler_hook, store_memory_hook]
 
     def _init_tools(self):
         # A2A client tool providers for remote researchers

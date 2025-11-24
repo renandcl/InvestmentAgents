@@ -17,7 +17,7 @@ class SharedDocument(HookProvider):
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
-        registry.add_callback(BeforeModelCallEvent, self.add_prompt_reports)
+        registry.add_callback(BeforeModelCallEvent, self.add_prompt_arguments)
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
@@ -58,11 +58,9 @@ class SharedDocument(HookProvider):
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
 
-    def add_prompt_reports(self, event: BeforeModelCallEvent):
+    def add_prompt_arguments(self, event: BeforeModelCallEvent):
         system_prompt = event.agent.state.get("system_prompt")
         event.agent.system_prompt = system_prompt.format(
-            ticker=event.agent.state.get("ticker"),
-            date=event.agent.state.get("current_date"),
             fundamentals_analyst_report=event.agent.state.get(
                 "fundamentals_analyst_report"
             ),
@@ -80,11 +78,11 @@ class SharedDocument(HookProvider):
         report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
         if report_match:
             report = report_match.group(2).strip()
-            event.agent.state.set(f"{event.agent.agent_id}_report", report)
-            shared_document[f"{event.agent.agent_id}_report"] = report
         else:
-            event.agent.state.set(f"{event.agent.agent_id}_report", message)
-            shared_document[f"{event.agent.agent_id}_report"] = message
+            report = message
+
+        event.agent.state.set(f"{event.agent.agent_id}_report", report)
+        shared_document[f"{event.agent.agent_id}_report"] = report
 
         with open(self.shared_document_file, "w") as f:
             json.dump(shared_document, f)
@@ -109,12 +107,32 @@ Company Fundamentals Report: {shared_document.get('fundamentals_analyst_report')
 
         if records:
             past_memory_str = ""
-            for rec in records:
+            for i, rec in enumerate(records, 1):
                 memory_text = rec.get("memory") or rec.get("text")
                 if not memory_text:
                     continue
-                past_memory_str += memory_text + "\n\n"
-            if past_memory_str:
-                return past_memory_str
+                past_memory_str += f"Memory {i}:\n{memory_text}\n\n"
+            return past_memory_str
 
         return "No relevant past memories found."
+
+
+class StoreMemoryHook(HookProvider):
+    def __init__(self, memory_service):
+        self.memory = memory_service
+
+    def register_hooks(self, registry: HookRegistry) -> None:
+        registry.add_callback(AfterInvocationEvent, self.save_memory)
+
+    def save_memory(self, event: AfterInvocationEvent):
+        message = event.agent.messages[-1]["content"][0]["text"]
+        report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
+        if report_match:
+            report = report_match.group(2).strip()
+        else:
+            report = message
+
+        self.memory.add_memory(
+            memory=f"Bull Researcher analysis for {event.agent.state.get('ticker')} on {event.agent.state.get('current_date')}: {report}",
+            ticker=event.agent.state.get("ticker"),
+        )

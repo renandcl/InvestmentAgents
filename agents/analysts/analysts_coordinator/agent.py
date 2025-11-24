@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import uuid
@@ -40,9 +39,9 @@ class AnalystCoordinator(Agent):
             description="Coordinates the analysis of market, news, and fundamentals data to provide insights and recommendations.",
             system_prompt=self.system_prompt,
             tools=self.tools,
-            model=self.openai_model,
+            model=self.model,
             session_manager=self.session_manager,
-            hooks=[self.shared_document_handler_hook],
+            hooks=self.hooks,
         )
 
     def _init_system_prompt(self):
@@ -50,7 +49,7 @@ class AnalystCoordinator(Agent):
             self.system_prompt = f.read()
 
     def _init_model(self, model_id, base_url, api_key):
-        self.openai_model = OpenAIModel(
+        self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,
                 "api_key": api_key,
@@ -70,22 +69,24 @@ class AnalystCoordinator(Agent):
         ]
 
     def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
         self.session_manager = FileSessionManager(
-            session_id=f"{current_date}_{uuid.uuid4()}",
+            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
             storage_dir=storage_dir,
         )
 
     def _init_hooks(self, shared_document_file: str):
-        self.shared_document_handler_hook = SharedDocument(shared_document_file)
+        shared_document_handler_hook = SharedDocument(shared_document_file)
+        self.hooks = [shared_document_handler_hook]
 
     @tool
-    async def get_analysts_insights(self, message: str) -> AgentResult:
+    async def get_analyst_coordinator_insights(self, message: str) -> AgentResult:
         """Get insights and recommendations from market, news, and fundamentals analysts for a specific ticker and date"""
         return await self.invoke_async(message)
 
 
 if __name__ == "__main__":
+    import asyncio
     import json
 
     ticker = "AAPL"
@@ -96,5 +97,5 @@ if __name__ == "__main__":
     test_message = "Provide the analysis"
 
     agent = AnalystCoordinator()
-    response = asyncio.run(agent.get_analysts_insights(test_message))
+    response = asyncio.run(agent.get_analyst_coordinator_insights(test_message))
     print(f"Response: {response}")

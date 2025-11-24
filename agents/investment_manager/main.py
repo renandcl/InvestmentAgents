@@ -1,31 +1,35 @@
-"""
-Investment Manager Main - A2A Server
-
-HTTP server for Investment Manager coordination.
-Port: 9912
-"""
-
 import logging
-import os
 
-from strands.a2a.a2a_http_server import serve_agent
+import uvicorn
+from a2a.types import AgentSkill
+from agent import InvestmentManager
+from strands.multiagent.a2a import A2AServer
 
-# Enable debug logs
-logging.getLogger("strands").setLevel(logging.DEBUG)
+# Enables Strands debug log level
+logging.getLogger("strands").setLevel(logging.INFO)
 logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s", handlers=[logging.StreamHandler()]
+    format="%(levelname)s | %(name)s | %(message)s",
 )
 
+
+def a2a_agent_app():
+    """Factory to create the FastAPI app for the investment manager agent."""
+    investment_manager = InvestmentManager()
+    skill = AgentSkill(
+        description=investment_manager.description,
+        name=investment_manager.name,
+        id=investment_manager.agent_id,
+        tags=[],
+        examples=["Execute complete investment workflow for AAPL on 2025-10-12."],
+    )
+    a2a_server = A2AServer(
+        agent=investment_manager,
+        host="0.0.0.0",
+        port=9912,
+        skills=[skill],
+    )
+    return a2a_server.to_fastapi_app()
+
+
 if __name__ == "__main__":
-    # Import after logging setup
-    from a2a_agent import create_agent
-
-    agent = create_agent()
-
-    port = int(os.getenv("INVESTMENT_MANAGER_PORT", "9912"))
-
-    print(f"\n{'='*60}")
-    print(f"Starting Investment Manager A2A Server on port {port}")
-    print(f"{'='*60}\n")
-
-    serve_agent(agent, port=port)
+    uvicorn.run(a2a_agent_app(), host="0.0.0.0", port=9912, log_level="info")

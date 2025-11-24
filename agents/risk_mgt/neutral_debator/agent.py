@@ -1,4 +1,3 @@
-import asyncio
 import os
 import uuid
 from datetime import datetime
@@ -28,9 +27,9 @@ class NeutralDebator(Agent):
             agent_id="neutral_risk_analyst",
             description="Neutral Risk Analyst that prioritizes asset protection, stability, and risk mitigation strategies",
             system_prompt=self.system_prompt,
-            model=self.openai_model,
+            model=self.model,
             session_manager=self.session_manager,
-            hooks=[self.shared_document_handler_hook],
+            hooks=self.hooks,
         )
 
     def _init_system_prompt(self):
@@ -38,7 +37,7 @@ class NeutralDebator(Agent):
             self.system_prompt = f.read()
 
     def _init_model(self, model_id, base_url, api_key):
-        self.openai_model = OpenAIModel(
+        self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,
                 "api_key": api_key,
@@ -47,14 +46,15 @@ class NeutralDebator(Agent):
         )
 
     def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
         self.session_manager = FileSessionManager(
-            session_id=f"{current_date}_{uuid.uuid4()}",
+            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
             storage_dir=storage_dir,
         )
 
     def _init_hooks(self, shared_document_file: str):
-        self.shared_document_handler_hook = SharedDocument(shared_document_file)
+        shared_document_handler_hook = SharedDocument(shared_document_file)
+        self.hooks = [shared_document_handler_hook]
 
     @tool
     async def get_neutral_analysis(self, message: str) -> AgentResult:
@@ -63,21 +63,9 @@ class NeutralDebator(Agent):
 
 
 if __name__ == "__main__":
-    import json
-
-    # state = {
-    #     "ticker": "AAPL",
-    #     "current_date": "2025-10-12",
-    #     "trader_investment_plan": "BUY recommendation...",
-    # }
-    # with open("data/shared_document.json", "w") as f:
-    #     json.dump(state, f)
-
-    if os.path.exists("data/shared_document.json"):
-        with open("data/shared_document.json", "r") as f:
-            state = json.load(f)
+    import asyncio
 
     agent = NeutralDebator()
     test_message = "Provide your neutral risk analysis of the trader's decision."
-    response = asyncio.run(agent.provide_neutral_analysis(test_message))
+    response = asyncio.run(agent.get_neutral_analysis(test_message))
     print(f"Response: {response}")

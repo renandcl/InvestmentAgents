@@ -1,119 +1,101 @@
-"""
-Investment Manager A2A Agent (HTTP Coordination)
-
-Uses A2AClientToolProvider to coordinate major workflow phases via HTTP.
-"""
-
 import logging
 import os
 import uuid
 from datetime import datetime
 
-from hook import SharedDocument
-from memory import MemoryService
-from strands import Agent
-from strands.a2a.a2a_client_tool_provider import A2AClientToolProvider
-from strands.models.ollama import OllamaModel
+from strands import Agent, tool
+from strands.agent import AgentResult
+from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
+from strands_tools.a2a_client import A2AClientToolProvider
 
-# Enable debug logs
-logging.getLogger("strands").setLevel(logging.DEBUG)
+from agents.investment_manager.hook import SharedDocument
+
+# Enables Strands debug log level
+logging.getLogger("strands").setLevel(logging.INFO)
 logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s", handlers=[logging.StreamHandler()]
+    format="%(levelname)s | %(name)s | %(message)s",
 )
 
 
-def create_agent() -> Agent:
+class InvestmentManager(Agent):
     """
-    Create Investment Manager A2A agent for HTTP-based coordination.
+    Investment Manager - Main System Orchestrator
 
-    Coordinates workflow by calling major component coordinators via HTTP:
-    - Port 9903: Analysts Coordinator
-    - Port 9906: Research Manager
-    - Port 9907: Trader
-    - Port 9911: Risk Manager
+    Coordinates the complete investment decision workflow:
+    1. Analysis Phase: Analysts Coordinator gathers market intelligence
+    2. Research Phase: Research Manager evaluates bull/bear perspectives
+    3. Trading Phase: Trader develops execution plan
+    4. Risk Phase: Risk Manager evaluates and makes final decision
+    5. Execution: Investment Manager approves/rejects execution
     """
-    model_id = os.getenv("OLLAMA_MODEL_ID", "qwen2.5:7b")
-    host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
-    ollama_model = OllamaModel(host=host, model_id=model_id)
+    def __init__(
+        self,
+        model_id="qwen3:8b",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+    ):
+        self._init_system_prompt()
+        self._init_model(model_id, base_url, api_key)
+        self._init_tools()
+        self._init_session_manager("data/agents_sessions/investment_manager")
+        self._init_hooks(shared_document_file="data/shared_document.json")
 
-    # Load system prompt
-    with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
-        system_prompt = f.read()
+        super().__init__(
+            name="InvestmentManagerAgent",
+            agent_id="investment_manager",
+            description="Main orchestrator that coordinates the complete investment decision workflow across all agents",
+            system_prompt=self.system_prompt,
+            tools=self.tools,
+            model=self.model,
+            session_manager=self.session_manager,
+            hooks=[self.shared_document_handler_hook],
+        )
 
-    current_date = datetime.now().strftime("%Y-%m-%d-%H-%M")
-    session_manager = FileSessionManager(
-        session_id=f"{current_date}_{uuid.uuid4()}",
-        storage_dir="data/agents_sessions/investment_manager",
-    )
+    def _init_system_prompt(self):
+        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+            self.system_prompt = f.read()
 
-    shared_document_file = "data/shared_document.json"
-    memory = MemoryService(agent_id="investment_manager")
-    shared_document_handler_hook = SharedDocument(shared_document_file, memory)
+    def _init_model(self, model_id, base_url, api_key):
+        self.model = OpenAIModel(
+            client_args={
+                "base_url": base_url,
+                "api_key": api_key,
+            },
+            model_id=model_id,
+        )
 
-    # Configure A2A client to coordinate major components
-    a2a_client_tool_provider = A2AClientToolProvider(
-        agent_urls=[
-            "http://localhost:9903/a2a",  # Analysts Coordinator
-            "http://localhost:9906/a2a",  # Research Manager
-            "http://localhost:9907/a2a",  # Trader
-            "http://localhost:9911/a2a",  # Risk Manager
-        ],
-        llm=ollama_model,
-    )
+    def _init_tools(self):
+        # A2A client tool providers for remote agents
+        analyst_coordinator_url = "http://localhost:9903"
+        research_manager_url = "http://localhost:9906"
+        trader_url = "http://localhost:9907"
+        risk_manager_url = "http://localhost:9911"
 
-    agent = Agent(
-        name="InvestmentManagerA2AAgent",
-        agent_id="investment_manager_a2a",
-        description="""Main orchestrator that coordinates the complete investment decision workflow.
+        provider = A2AClientToolProvider(
+            known_agent_urls=[
+                analyst_coordinator_url,
+                research_manager_url,
+                trader_url,
+                risk_manager_url,
+            ]
+        )
+        self.tools = provider.tools
 
-        Sequentially executes phases:
-        1. Analysis: Calls Analysts Coordinator (port 9903) for market intelligence
-        2. Research: Calls Research Manager (port 9906) for bull/bear evaluation
-        3. Trading: Calls Trader (port 9907) for execution plan
-        4. Risk: Calls Risk Manager (port 9911) for risk evaluation and final decision
-        5. Execution: Makes GO/NO-GO decision for actual execution
+    def _init_session_manager(self, storage_dir: str):
+        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.session_manager = FileSessionManager(
+            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
+            storage_dir=storage_dir,
+        )
 
-        Monitors shared state between phases to ensure proper sequencing.
-        """,
-        system_prompt=system_prompt,
-        model=ollama_model,
-        tool_providers=[a2a_client_tool_provider],
-        session_manager=session_manager,
-        hooks=[
-            shared_document_handler_hook.get_shared_document,
-            shared_document_handler_hook.add_prompt_reports,
-            shared_document_handler_hook.save_shared_document,
-        ],
-    )
+    def _init_hooks(self, shared_document_file: str):
+        self.shared_document_handler_hook = SharedDocument(
+            shared_document_file=shared_document_file
+        )
 
-    return agent
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    async def test():
-        agent = create_agent()
-
-        # Test complete workflow
-        workflow_request = """
-        Execute complete investment workflow for AAPL on 2025-10-12:
-
-        1. First, coordinate market analysis with Analysts Coordinator
-        2. Then, coordinate research evaluation with Research Manager
-        3. Next, coordinate trading plan with Trader
-        4. Then, coordinate risk evaluation with Risk Manager
-        5. Finally, make execution decision
-
-        Ensure each phase completes before starting the next.
-        """
-
-        result = await agent.invoke(workflow_request)
-        print("\n" + "=" * 60)
-        print("INVESTMENT MANAGER A2A TEST RESULT:")
-        print("=" * 60)
-        print(result.text)
-
-    asyncio.run(test())
+    @tool
+    async def execute_complete_workflow(self, message: str) -> AgentResult:
+        """Execute the complete investment decision workflow."""
+        return await self.invoke_async(message)

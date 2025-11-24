@@ -1,5 +1,5 @@
-import asyncio
 import logging
+from datetime import datetime
 from uuid import uuid4
 
 import httpx
@@ -13,11 +13,13 @@ DEFAULT_TIMEOUT = 300  # set request timeout to 5 minutes
 
 
 def create_message(*, role: Role = Role.user, text: str) -> Message:
+    date_str = datetime.now().strftime("%Y%m%d%H%M%S")
+    message_id = f"a2amsg-{date_str}{uuid4().hex[:8]}"
     return Message(
         kind="message",
         role=role,
         parts=[Part(TextPart(kind="text", text=text))],
-        message_id=uuid4().hex,
+        message_id=message_id,
     )
 
 
@@ -61,26 +63,7 @@ async def send_sync_message(message: str, base_url: str = "http://localhost:9906
 
 
 if __name__ == "__main__":
-    import json
-
-    ticker = "AAPL"
-    date = "2025-10-12"
-
-    # Create a complete test state with bull and bear reports
-    state = {
-        "ticker": ticker,
-        "current_date": date,
-        "market_analyst_report": "Strong upward trend with high volume. RSI at 65, indicating bullish sentiment.",
-        "news_analyst_report": "Company announces new product line with strong pre-orders. Positive analyst coverage.",
-        "fundamentals_analyst_report": "P/E ratio: 28.5, Revenue growth: 12% YoY, Strong balance sheet with $50B cash.",
-        "bull_researcher_report": "Strong buy signals based on: 1) New product momentum, 2) Growing market opportunity, 3) Solid fundamentals. Recommend BUY.",
-        "bear_researcher_report": "Concerns about: 1) High valuation vs sector, 2) Competition in AI space, 3) Supply chain risks. Recommend HOLD.",
-        "bull_history": "Bull argued for strong growth potential and market positioning.",
-        "bear_history": "Bear highlighted valuation concerns and competitive risks.",
-    }
-
-    with open("data/shared_document.json", "w") as f:
-        json.dump(state, f)
+    import asyncio
 
     test_message = "Provide your final investment recommendation based on the bull and bear analyses."
     asyncio.run(send_sync_message(test_message))

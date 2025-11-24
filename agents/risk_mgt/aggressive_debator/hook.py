@@ -1,5 +1,4 @@
 import json
-import os
 import re
 
 from strands.hooks import (
@@ -17,17 +16,13 @@ class SharedDocument(HookProvider):
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
-        registry.add_callback(BeforeModelCallEvent, self.add_prompt_reports)
+        registry.add_callback(BeforeModelCallEvent, self.add_prompt_arguments)
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
         event.agent.state.set("system_prompt", event.agent.system_prompt)
-
-        if os.path.exists(self.shared_document_file):
-            with open(self.shared_document_file, "r") as f:
-                shared_document = json.load(f)
-        else:
-            shared_document = {}
+        with open(self.shared_document_file, "r") as f:
+            shared_document = json.load(f)
 
         event.agent.state.set("current_date", shared_document.get("current_date"))
         event.agent.state.set("ticker", shared_document.get("ticker"))
@@ -83,12 +78,10 @@ class SharedDocument(HookProvider):
             ),
         )
 
-    def add_prompt_reports(self, event: BeforeModelCallEvent):
+    def add_prompt_arguments(self, event: BeforeModelCallEvent):
         system_prompt = event.agent.state.get("system_prompt")
 
         event.agent.system_prompt = system_prompt.format(
-            ticker=event.agent.state.get("ticker"),
-            current_date=event.agent.state.get("current_date"),
             market_analyst_report=event.agent.state.get("market_analyst_report"),
             social_analyst_report=event.agent.state.get("social_analyst_report"),
             news_analyst_report=event.agent.state.get("news_analyst_report"),
@@ -106,11 +99,8 @@ class SharedDocument(HookProvider):
         )
 
     def save_shared_document(self, event: AfterInvocationEvent):
-        if os.path.exists(self.shared_document_file):
-            with open(self.shared_document_file, "r") as f:
-                shared_document = json.load(f)
-        else:
-            shared_document = {}
+        with open(self.shared_document_file, "r") as f:
+            shared_document = json.load(f)
 
         message = event.agent.messages[-1]["content"][0]["text"]
         report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
@@ -120,6 +110,7 @@ class SharedDocument(HookProvider):
             report = message
 
         event.agent.state.set(f"{event.agent.agent_id}_report", report)
+        shared_document[f"{event.agent.agent_id}_report"] = report
 
         with open(self.shared_document_file, "w") as f:
-            json.dump(shared_document, f, indent=2)
+            json.dump(shared_document, f)

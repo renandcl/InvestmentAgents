@@ -1,4 +1,3 @@
-import asyncio
 import os
 import uuid
 from datetime import datetime
@@ -32,9 +31,9 @@ class MarketAnalyst(Agent):
             description="Analyzes market data and technical indicators to produce nuanced trading insights by providing ticker and date.",
             system_prompt=self.system_prompt,
             tools=self.tools,
-            model=self.openai_model,
+            model=self.model,
             session_manager=self.session_manager,
-            hooks=[self.shared_document_handler_hook],
+            hooks=self.hooks,
         )
 
     def _init_system_prompt(self):
@@ -42,7 +41,7 @@ class MarketAnalyst(Agent):
             self.system_prompt = f.read()
 
     def _init_model(self, model_id, base_url, api_key):
-        self.openai_model = OpenAIModel(
+        self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,
                 "api_key": api_key,
@@ -80,9 +79,9 @@ class MarketAnalyst(Agent):
         self.stdio_mcp_stockstats_client.start()
 
     def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
         self.session_manager = FileSessionManager(
-            session_id=f"{current_date}_{uuid.uuid4()}",
+            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
             storage_dir=storage_dir,
         )
 
@@ -93,7 +92,8 @@ class MarketAnalyst(Agent):
         )
 
     def _init_hooks(self, shared_document_file: str):
-        self.shared_document_handler_hook = SharedDocument(shared_document_file)
+        shared_document_handler_hook = SharedDocument(shared_document_file)
+        self.hooks = [shared_document_handler_hook]
 
     @tool
     async def get_market_analyst_insights(self, message: str) -> AgentResult:
@@ -102,6 +102,7 @@ class MarketAnalyst(Agent):
 
 
 if __name__ == "__main__":
+    import asyncio
     import json
 
     state = {
