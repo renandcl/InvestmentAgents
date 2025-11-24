@@ -2,10 +2,12 @@ import json
 import os
 import re
 
-from strands.experimental.hooks import BeforeModelInvocationEvent
 from strands.hooks import (
     AfterInvocationEvent,
+    AfterModelCallEvent,
+    AfterToolCallEvent,
     BeforeInvocationEvent,
+    BeforeModelCallEvent,
     HookProvider,
     HookRegistry,
 )
@@ -18,8 +20,10 @@ class SharedDocument(HookProvider):
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
-        registry.add_callback(BeforeModelInvocationEvent, self.add_prompt_reports)
+        registry.add_callback(BeforeModelCallEvent, self.add_prompt_reports)
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
+        registry.add_callback(AfterModelCallEvent, self.risk_debate_history_after_model)
+        registry.add_callback(AfterToolCallEvent, self.risk_debate_history_after_tool)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
         event.agent.state.set("system_prompt", event.agent.system_prompt)
@@ -51,12 +55,6 @@ class SharedDocument(HookProvider):
         )
         event.agent.state.set("trader_investment_plan", trader_investment_plan)
 
-        # Get risk debate history
-        # The prompt expects {history}, so we map risk_debate_state['history'] to it.
-        risk_debate = shared_document.get("risk_debate_state", {})
-        risk_debate_history = risk_debate.get("history", "No debate history yet")
-        event.agent.state.set("history", risk_debate_history)
-
         event.agent.state.set("debate_rounds", shared_document.get("debate_rounds", 0))
         event.agent.state.set(
             "debate_action",
@@ -69,12 +67,12 @@ class SharedDocument(HookProvider):
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
 
-    def add_prompt_reports(self, event: BeforeModelInvocationEvent):
+    def add_prompt_reports(self, event: BeforeModelCallEvent):
         system_prompt = event.agent.state.get("system_prompt")
 
         event.agent.system_prompt = system_prompt.format(
             trader_investment_plan=event.agent.state.get("trader_investment_plan"),
-            history=event.agent.state.get("history"),
+            risk_debate_history=event.agent.state.get("risk_debate_history"),
             past_memories=event.agent.state.get("past_memories"),
             debate_rounds=event.agent.state.get("debate_rounds"),
             debate_action=event.agent.state.get("debate_action"),
@@ -150,3 +148,10 @@ Company Fundamentals Report: {shared_document.get('fundamentals_analyst_report')
             return past_memory_str
 
         return "No relevant past memories found."
+
+    def risk_debate_history_after_model(self, event: AfterModelCallEvent):
+        # Get risk debate history
+        event.agent.state.set("risk_debate_history", event.agent.messages)
+
+    def risk_debate_history_after_tool(self, event: AfterToolCallEvent):
+        event.agent.state.set("risk_debate_history", event.agent.messages)

@@ -2,10 +2,10 @@ import json
 import os
 import re
 
-from strands.experimental.hooks import BeforeModelInvocationEvent
 from strands.hooks import (
     AfterInvocationEvent,
     BeforeInvocationEvent,
+    BeforeModelCallEvent,
     HookProvider,
     HookRegistry,
 )
@@ -17,7 +17,7 @@ class SharedDocument(HookProvider):
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
-        registry.add_callback(BeforeModelInvocationEvent, self.add_prompt_reports)
+        registry.add_callback(BeforeModelCallEvent, self.add_prompt_reports)
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
@@ -35,21 +35,15 @@ class SharedDocument(HookProvider):
 
         # Load reports
         event.agent.state.set(
-            "market_research_report",
+            "market_analyst_report",
             shared_document.get(
-                "market_research_report",
-                shared_document.get(
-                    "market_analyst_report", "No market research report available."
-                ),
+                "market_analyst_report", "No market analyst report available."
             ),
         )
         event.agent.state.set(
-            "sentiment_report",
+            "social_analyst_report",
             shared_document.get(
-                "sentiment_report",
-                shared_document.get(
-                    "social_sentiment_report", "No sentiment report available."
-                ),
+                "social_analyst_report", "No social analyst report available."
             ),
         )
         event.agent.state.set(
@@ -65,22 +59,16 @@ class SharedDocument(HookProvider):
 
         # Trader decision
         event.agent.state.set(
-            "trader_decision",
+            "trader_investment_plan",
             shared_document.get(
-                "trader_investment_plan",
-                shared_document.get(
-                    "trader_decision",
-                    shared_document.get(
-                        "trader_report", "No trader decision available."
-                    ),
-                ),
+                "trader_investment_plan", "No trader decision available."
             ),
         )
 
         # Risk debate state
-        risk_debate = shared_document.get("risk_debate_state", {})
         event.agent.state.set(
-            "history", risk_debate.get("history", "No debate history yet.")
+            "risk_debate_history",
+            shared_document.get("risk_debate_history", "No debate history yet."),
         )
         event.agent.state.set(
             "aggressive_risk_analyst_report",
@@ -88,23 +76,25 @@ class SharedDocument(HookProvider):
         )
         event.agent.state.set(
             "neutral_risk_analyst_report",
-            shared_document.get("neutral_analysis", "No neutral analysis yet."),
+            shared_document.get(
+                "neutral_risk_analyst_report", "No neutral analysis yet."
+            ),
         )
 
-    def add_prompt_reports(self, event: BeforeModelInvocationEvent):
+    def add_prompt_reports(self, event: BeforeModelCallEvent):
         system_prompt = event.agent.state.get("system_prompt")
 
         event.agent.system_prompt = system_prompt.format(
-            ticker=event.agent.state.get("ticker", "UNKNOWN"),
-            current_date=event.agent.state.get("current_date", "UNKNOWN"),
-            market_research_report=event.agent.state.get("market_research_report"),
-            sentiment_report=event.agent.state.get("sentiment_report"),
+            ticker=event.agent.state.get("ticker"),
+            current_date=event.agent.state.get("current_date"),
+            market_analyst_report=event.agent.state.get("market_analyst_report"),
+            social_analyst_report=event.agent.state.get("social_analyst_report"),
             news_analyst_report=event.agent.state.get("news_analyst_report"),
             fundamentals_analyst_report=event.agent.state.get(
                 "fundamentals_analyst_report"
             ),
-            trader_decision=event.agent.state.get("trader_decision"),
-            history=event.agent.state.get("history"),
+            trader_investment_plan=event.agent.state.get("trader_investment_plan"),
+            risk_debate_history=event.agent.state.get("risk_debate_history"),
             aggressive_risk_analyst_report=event.agent.state.get(
                 "aggressive_risk_analyst_report"
             ),

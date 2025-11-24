@@ -60,7 +60,7 @@ class BullResearcher(Agent):
 
     @tool
     async def get_bull_researcher_insights(self, message: str) -> AgentResult:
-        """Get insights from the bull market researcher."""
+        """Get insights from the bull market researcher. Make a query for bull analyst."""
         return await self.invoke_async(message)
 
 

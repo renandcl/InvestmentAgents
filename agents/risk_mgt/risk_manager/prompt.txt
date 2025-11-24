@@ -18,7 +18,7 @@ Deliverables:
 ---
 
 **Analysts Debate History:**
-{history}
+{risk_debate_history}
 
 ---
 

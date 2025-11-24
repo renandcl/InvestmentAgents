@@ -25,7 +25,7 @@ class AggressiveDebator(Agent):
 
         super().__init__(
             name="AggressiveDebator",
-            agent_id="aggressive_risk",
+            agent_id="aggressive_risk_analyst",
             description="Aggressive Risk Analyst that champions high-reward, high-risk opportunities and bold trading strategies",
             system_prompt=self.system_prompt,
             model=self.openai_model,
@@ -57,8 +57,8 @@ class AggressiveDebator(Agent):
         self.shared_document_handler_hook = SharedDocument(shared_document_file)
 
     @tool
-    async def provide_aggressive_analysis(self, message: str) -> AgentResult:
-        """Provide aggressive risk analysis."""
+    async def get_aggressive_analysis(self, message: str) -> AgentResult:
+        """Get aggressive risk analysis for debate. Make a query for aggressive analyst."""
         return await self.invoke_async(message)
 
 

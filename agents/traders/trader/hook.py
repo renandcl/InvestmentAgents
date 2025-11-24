@@ -84,7 +84,7 @@ Ticker: {shared_document.get("ticker")}
 Market Research Report: {shared_document.get("market_analyst_report")}
 Latest World Affairs News: {shared_document.get("news_analyst_report")}
 Company Fundamentals Report: {shared_document.get("fundamentals_analyst_report")}
-Investment Plan: {shared_document.get("investment_plan")}
+Investment Plan: {shared_document.get("trader_investment_plan")}
         """.strip()
         past_memories = self.memory.search_memories(
             current_situation, ticker=shared_document.get("ticker"), n_matches=2

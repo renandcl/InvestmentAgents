@@ -25,7 +25,7 @@ class NeutralDebator(Agent):
 
         super().__init__(
             name="NeutralDebator",
-            agent_id="neutral_debator",
+            agent_id="neutral_risk_analyst",
             description="Neutral Risk Analyst that prioritizes asset protection, stability, and risk mitigation strategies",
             system_prompt=self.system_prompt,
             model=self.openai_model,
@@ -57,8 +57,8 @@ class NeutralDebator(Agent):
         self.shared_document_handler_hook = SharedDocument(shared_document_file)
 
     @tool
-    async def provide_neutral_analysis(self, message: str) -> AgentResult:
-        """Provide neutral risk analysis."""
+    async def get_neutral_analysis(self, message: str) -> AgentResult:
+        """Get neutral risk analysis for debate. Make a query for neutral analyst."""
         return await self.invoke_async(message)
 
 
