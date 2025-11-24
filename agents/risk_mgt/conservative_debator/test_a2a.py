@@ -1,5 +1,5 @@
-import asyncio
 import logging
+from datetime import datetime
 from uuid import uuid4
 
 import httpx
@@ -13,11 +13,13 @@ DEFAULT_TIMEOUT = 300  # set request timeout to 5 minutes
 
 
 def create_message(*, role: Role = Role.user, text: str) -> Message:
+    date_str = datetime.now().strftime("%Y%m%d%H%M%S")
+    message_id = f"a2amsg-{date_str}{uuid4().hex[:8]}"
     return Message(
         kind="message",
         role=role,
         parts=[Part(TextPart(kind="text", text=text))],
-        message_id=uuid4().hex,
+        message_id=message_id,
     )
 
 
@@ -61,30 +63,9 @@ async def send_sync_message(message: str, base_url: str = "http://localhost:9909
 
 
 if __name__ == "__main__":
-    import json
+    import asyncio
 
-    ticker = "AAPL"
-    date = "2025-10-12"
-
-    # Create test state
-    state = {
-        "ticker": ticker,
-        "current_date": date,
-        "market_analyst_report": "Strong bullish momentum with RSI at 68. High volume breakout above resistance at $175.",
-        "news_analyst_report": "Company announces breakthrough AI chip with 300% performance improvement. Analyst upgrades across the board.",
-        "fundamentals_analyst_report": "P/E ratio: 28, Revenue growth: 15% YoY, Strong cash position: $60B, ROE: 18%.",
-        "trader_decision": "BUY recommendation. Entry at $180, target $210 (16% upside), stop-loss at $170.",
-        "risk_debate": {
-            "history": "",
-            "aggressive_last": "",
-            "conservative_last": "",
-            "neutral_last": "",
-            "count": 0,
-        },
-    }
-
-    with open("data/shared_document.json", "w") as f:
-        json.dump(state, f)
-
-    test_message = "Provide your aggressive risk analysis of this trading opportunity."
+    test_message = (
+        "Provide your conservative risk analysis of this trading opportunity."
+    )
     asyncio.run(send_sync_message(test_message))

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import uuid
@@ -11,7 +10,7 @@ from strands.session.file_session_manager import FileSessionManager
 
 from agents.researchers.bear.agent import BearResearcher
 from agents.researchers.bull.agent import BullResearcher
-from agents.researchers.manager.hook import SharedDocument
+from agents.researchers.manager.hook import SharedDocument, StoreMemoryHook
 from agents.researchers.manager.memory import MemoryService
 
 # Enable debug logs and print them to stderr
@@ -40,9 +39,9 @@ class ResearchManager(Agent):
             description="Critically evaluates research from both bull and bear analysts and makes an informed investment plan.",
             system_prompt=self.system_prompt,
             tools=self.tools,
-            model=self.openai_model,
+            model=self.model,
             session_manager=self.session_manager,
-            hooks=[self.shared_document_handler_hook],
+            hooks=self.hooks,
         )
 
     def _init_system_prompt(self):
@@ -50,7 +49,7 @@ class ResearchManager(Agent):
             self.system_prompt = f.read()
 
     def _init_model(self, model_id, base_url, api_key):
-        self.openai_model = OpenAIModel(
+        self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,
                 "api_key": api_key,
@@ -59,15 +58,17 @@ class ResearchManager(Agent):
         )
 
     def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y-%m-%d-%H-%M")
+        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
         self.session_manager = FileSessionManager(
-            session_id=f"{current_date}_{uuid.uuid4()}",
+            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
             storage_dir=storage_dir,
         )
 
     def _init_hooks(self, shared_document_file: str):
         memory = MemoryService(agent_id="research_manager")
-        self.shared_document_handler_hook = SharedDocument(shared_document_file, memory)
+        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
+        store_memory_hook = StoreMemoryHook(memory)
+        self.hooks = [shared_document_handler_hook, store_memory_hook]
 
     def _init_tools(self):
         bear_researcher = BearResearcher()
@@ -84,19 +85,9 @@ class ResearchManager(Agent):
 
 
 if __name__ == "__main__":
-    import json
+    import asyncio
 
-    # state = {
-    #     "ticker": "AAPL",
-    #     "current_date": "2025-08-01",
-    #     "bull_researcher_report": "Strong buy signal...",
-    #     "bear_researcher_report": "High risk concerns...",
-    # }
-    with open("data/shared_document.json", "r") as f:
-        state = json.load(f)
     agent = ResearchManager()
-
     test_message = "Coordinate a debate between bull and bear researchers and provide your final investment recommendation."
-
     response = asyncio.run(agent.get_research_manager_investment_plan(test_message))
     print(f"Response: {response}")

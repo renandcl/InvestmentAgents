@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import uuid
@@ -12,7 +11,7 @@ from strands.session.file_session_manager import FileSessionManager
 from agents.risk_mgt.aggressive_debator.agent import AggressiveDebator
 from agents.risk_mgt.conservative_debator.agent import ConservativeDebator
 from agents.risk_mgt.neutral_debator.agent import NeutralDebator
-from agents.risk_mgt.risk_manager.hook import SharedDocument
+from agents.risk_mgt.risk_manager.hook import SharedDocument, StoreMemoryHook
 from agents.risk_mgt.risk_manager.memory import MemoryService
 
 # Enable debug logs
@@ -41,9 +40,9 @@ class RiskManager(Agent):
             description="Evaluates risk debate between aggressive, conservative, and neutral analysts to make final risk-adjusted trading decisions.",
             system_prompt=self.system_prompt,
             tools=self.tools,
-            model=self.openai_model,
+            model=self.model,
             session_manager=self.session_manager,
-            hooks=[self.shared_document_handler_hook],
+            hooks=self.hooks,
         )
 
     def _init_system_prompt(self):
@@ -51,7 +50,7 @@ class RiskManager(Agent):
             self.system_prompt = f.read()
 
     def _init_model(self, model_id, base_url, api_key):
-        self.openai_model = OpenAIModel(
+        self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,
                 "api_key": api_key,
@@ -60,17 +59,19 @@ class RiskManager(Agent):
         )
 
     def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
         self.session_manager = FileSessionManager(
-            session_id=f"{current_date}_{uuid.uuid4()}",
+            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
             storage_dir=storage_dir,
         )
 
     def _init_hooks(self, shared_document_file: str):
-        self.memory_service = MemoryService(agent_id="risk_manager")
-        self.shared_document_handler_hook = SharedDocument(
-            shared_document_json_file=shared_document_file, memory=self.memory_service
+        memory_service = MemoryService(agent_id="risk_manager")
+        shared_document_handler_hook = SharedDocument(
+            shared_document_file=shared_document_file, memory=memory_service
         )
+        store_memory_hook = StoreMemoryHook(memory_service=memory_service)
+        self.hooks = [shared_document_handler_hook, store_memory_hook]
 
     def _init_tools(self):
         aggressive_debator = AggressiveDebator()
@@ -83,21 +84,20 @@ class RiskManager(Agent):
         ]
 
     @tool
-    async def evaluate_risk_and_decide(self, query: str) -> AgentResult:
+    async def get_risk_manager_evaluation_and_decision(self, query: str) -> AgentResult:
         """
-        Evaluates risk perspectives and makes final trading decision. Coordinates three risk analysts to debate, then synthesizes their arguments into a final risk-adjusted recommendation.
+        Evaluates risk perspectives. Coordinates three risk analysts to debate, then synthesizes their arguments into a final risk-adjusted recommendation.
         """
         return await self.invoke_async(query)
 
 
-# For testing
-async def main():
+if __name__ == "__main__":
+    import asyncio
+
     risk_manager = RiskManager()
-    result = await risk_manager.evaluate_risk_and_decide(
-        "Coordinate a debate between the aggressive, conservative, and neutral analysts to make a final risk-adjusted trading decision."
+    result = asyncio.run(
+        risk_manager.get_risk_manager_evaluation_and_decision(
+            "Coordinate a debate between the aggressive, conservative, and neutral analysts to make a final risk-adjusted trading decision."
+        )
     )
     print(result)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

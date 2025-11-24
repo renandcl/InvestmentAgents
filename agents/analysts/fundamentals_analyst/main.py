@@ -14,16 +14,16 @@ logging.basicConfig(
 
 def a2a_agent_app():
     """Factory to create the FastAPI app for the fundamentals analyst agent."""
-    fundamental_analyst = FundamentalsAnalyst()
+    fundamentals_analyst = FundamentalsAnalyst()
     skill = AgentSkill(
-        description=fundamental_analyst.description,
-        name=fundamental_analyst.name,
-        id=fundamental_analyst.agent_id,
+        description=fundamentals_analyst.description,
+        name=fundamentals_analyst.name,
+        id=fundamentals_analyst.agent_id,
         tags=[],
         examples=["Provide the fundamentals analysis."],
     )
     a2a_server = A2AServer(
-        agent=fundamental_analyst,
+        agent=fundamentals_analyst,
         host="0.0.0.0",
         port=9900,
         skills=[skill],

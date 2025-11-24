@@ -44,11 +44,11 @@ class SharedDocument(HookProvider):
         report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
         if report_match:
             report = report_match.group(2).strip()
-            event.agent.state.set(f"{event.agent.agent_id}_report", report)
-            shared_document[f"{event.agent.agent_id}_report"] = report
         else:
-            event.agent.state.set(f"{event.agent.agent_id}_report", message)
-            shared_document[f"{event.agent.agent_id}_report"] = message
+            report = message
+
+        event.agent.state.set(f"{event.agent.agent_id}_report", report)
+        shared_document[f"{event.agent.agent_id}_report"] = report
 
         with open(self.shared_document_file, "w") as f:
             json.dump(shared_document, f)

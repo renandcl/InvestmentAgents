@@ -1,5 +1,4 @@
 import json
-import os
 import re
 
 from strands.hooks import (
@@ -14,25 +13,21 @@ from strands.hooks import (
 
 
 class SharedDocument(HookProvider):
-    def __init__(self, shared_document_json_file: str, memory):
-        self.shared_document_file = shared_document_json_file
+    def __init__(self, shared_document_file: str, memory):
+        self.shared_document_file = shared_document_file
         self.memory = memory
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
-        registry.add_callback(BeforeModelCallEvent, self.add_prompt_reports)
+        registry.add_callback(BeforeModelCallEvent, self.add_prompt_arguments)
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
         registry.add_callback(AfterModelCallEvent, self.risk_debate_history_after_model)
         registry.add_callback(AfterToolCallEvent, self.risk_debate_history_after_tool)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
         event.agent.state.set("system_prompt", event.agent.system_prompt)
-
-        if os.path.exists(self.shared_document_file):
-            with open(self.shared_document_file, "r") as f:
-                shared_document = json.load(f)
-        else:
-            shared_document = {}
+        with open(self.shared_document_file, "r") as f:
+            shared_document = json.load(f)
 
         event.agent.state.set("current_date", shared_document.get("current_date"))
         event.agent.state.set("ticker", shared_document.get("ticker"))
@@ -67,7 +62,7 @@ class SharedDocument(HookProvider):
         past_memory_str = self._get_past_memories(shared_document)
         event.agent.state.set("past_memories", past_memory_str)
 
-    def add_prompt_reports(self, event: BeforeModelCallEvent):
+    def add_prompt_arguments(self, event: BeforeModelCallEvent):
         system_prompt = event.agent.state.get("system_prompt")
 
         event.agent.system_prompt = system_prompt.format(
@@ -94,11 +89,8 @@ class SharedDocument(HookProvider):
                 )
 
     def save_shared_document(self, event: AfterInvocationEvent):
-        if os.path.exists(self.shared_document_file):
-            with open(self.shared_document_file, "r") as f:
-                shared_document = json.load(f)
-        else:
-            shared_document = {}
+        with open(self.shared_document_file, "r") as f:
+            shared_document = json.load(f)
 
         message = event.agent.messages[-1]["content"][0]["text"]
         report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
@@ -107,18 +99,12 @@ class SharedDocument(HookProvider):
         else:
             report = message
 
-        event.agent.state.set(f"{event.agent.agent_id}_decision", report)
-        shared_document[f"{event.agent.agent_id}_decision"] = report
+        event.agent.state.set(f"{event.agent.agent_id}_report", report)
+        shared_document[f"{event.agent.agent_id}_report"] = report
         shared_document["final_trade_decision"] = report
 
-        # Save to memory
-        self.memory.add_memory(
-            memory=f"Risk Manager Decision for {shared_document.get('ticker')}: {report}",
-            ticker=shared_document.get("ticker"),
-        )
-
         with open(self.shared_document_file, "w") as f:
-            json.dump(shared_document, f, indent=2)
+            json.dump(shared_document, f)
 
     def _get_past_memories(self, shared_document):
         current_situation = f"""
@@ -155,3 +141,24 @@ Company Fundamentals Report: {shared_document.get('fundamentals_analyst_report')
 
     def risk_debate_history_after_tool(self, event: AfterToolCallEvent):
         event.agent.state.set("risk_debate_history", event.agent.messages)
+
+
+class StoreMemoryHook(HookProvider):
+    def __init__(self, memory_service):
+        self.memory = memory_service
+
+    def register_hooks(self, registry: HookRegistry) -> None:
+        registry.add_callback(AfterInvocationEvent, self.save_memory)
+
+    def save_memory(self, event: AfterInvocationEvent):
+        message = event.agent.messages[-1]["content"][0]["text"]
+        report_match = re.search(r"<think>(.*?)</think>(.*)", message, re.DOTALL)
+        if report_match:
+            report = report_match.group(2).strip()
+        else:
+            report = message
+
+        self.memory.add_memory(
+            memory=f"Risk Manager Decision for {event.agent.state.get('ticker')} on {event.agent.state.get('current_date')}: {report}",
+            ticker=event.agent.state.get("ticker"),
+        )
