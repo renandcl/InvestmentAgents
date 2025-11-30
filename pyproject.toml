@@ -29,7 +29,5 @@ members = [
 dev = [
     "arize-phoenix>=12.16.0",
     "pre-commit>=4.2.0",
-]   
+]
 
-[tool.pytest.ini_options]
-anyio_backends = ["asyncio"]
