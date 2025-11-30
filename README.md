@@ -5,9 +5,58 @@ This project implements a multi-agent system for investment analysis. It orchest
 ## Features
 
 - **Multi-Agent Architecture**: Coordinates specialized agents for fundamental analysis, market analysis, research, trading strategies, and risk management.
-- **Automated Workflow**: Runs a complete investment decision workflow from data gathering to final decision.
+- **Automated Workflow**: Runs a complete investment decision from data gathering to final decision.
 - **Report Generation**: Generates detailed Markdown reports for each analysis session.
-- **Flexible Scheduling**: Supports weekly, bi-weekly, and monthly analysis periods.
+- **Agent-to-Agent (A2A) Communication**: Utilizes A2A protocols for seamless interaction and task delegation between agents.
+- **Model Context Protocol (MCP) Integration**: Leverages MCP servers for data retrieval from various sources (e.g., Finnhub, SimFin).
+
+## Architecture
+
+```mermaid
+flowchart LR
+ subgraph subGraph0["Data Analysis"]
+    direction TB
+        AC["Analysts Coordinator"]
+        MA["Market Analyst"]
+        NA["News Analyst"]
+        FA["Fundamentals Analyst"]
+        SA["Social Media Analyst"]
+  end
+ subgraph subGraph1["Researchers Discussion"]
+        BR["Bull Reseacher"]
+        BER["Bear Researcher"]
+        RM["Research Manager"]
+  end
+ subgraph subGraph2["Investment Plan Decision"]
+        TR["Trader"]
+  end
+ subgraph subGraph3["Risk Discussion"]
+        AD["Aggressive Debator"]
+        CD["Conservative Debator"]
+        ND["Neutral Debator"]
+        RMG["Risk Manager"]
+  end
+    Init(["Ticker, Date"]) -- Start Analysis --> IM["Investment Manager"]
+    IM <-- Phase 1 --> AC
+    AC <--> MA & NA & FA & SA
+    IM <-- Phase 2 --> RM
+    RM <--> BR & BER
+    IM <-- Phase 3 --> TR
+    IM <-- Phase 4 --> RMG
+    RMG <--> AD & CD & ND
+    MA -. Market Report .- State["Document"]
+    NA -. News Report .- State
+    FA -. Fundamentals Report .- State
+    SA -. Social Media Report .- State
+    RM -. Investment Plan .- State
+    TR -. Investment Plan Report .- State
+    RMG -. Risk Assessment .- State
+    IM -. Final Trade Decision .- State
+    State@{ shape: db}
+    Memory["Past Memory"]
+    Memory@{ shape: db}
+    Memory -.- subGraph1 & subGraph2 & subGraph3
+```
 
 ## Prerequisites
 
