@@ -2,13 +2,14 @@ import os
 import uuid
 from datetime import datetime
 
-from hook import SharedDocument
 from mcp import StdioServerParameters, stdio_client
 from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 from strands.tools.mcp import MCPClient
+
+from agents.analysts.news_analyst.hook import SharedDocument
 
 
 class NewsAnalyst(Agent):

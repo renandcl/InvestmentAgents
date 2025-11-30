@@ -36,7 +36,7 @@ flowchart LR
     MA -. Market Report .- State["Document"]
     NA -. News Report .- State
     FA -. Fundamentals Report .- State
-    SA -. Social Media Report .- State 
+    SA -. Social Media Report .- State
     RM -. Investment Plan .- State
     TR -. Investment Plan Report .- State
     IM -. Final Trade Decision .- State
