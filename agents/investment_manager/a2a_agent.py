@@ -32,12 +32,9 @@ class InvestmentManager(Agent):
 
     def __init__(
         self,
-        model_id="qwen3:8b",
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",
     ):
         self._init_system_prompt()
-        self._init_model(model_id, base_url, api_key)
+        self._init_model()
         self._init_tools()
         self._init_session_manager("data/agents_sessions/investment_manager")
         self._init_hooks(shared_document_file="data/shared_document.json")
@@ -57,7 +54,10 @@ class InvestmentManager(Agent):
         with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
             self.system_prompt = f.read()
 
-    def _init_model(self, model_id, base_url, api_key):
+    def _init_model(self):
+        base_url = os.getenv("INVESTMENT_MANAGER_BASE_URL", "http://localhost:11434/v1")
+        api_key = os.getenv("INVESTMENT_MANAGER_API_KEY", "ollama")
+        model_id = os.getenv("INVESTMENT_MANAGER_MODEL_ID", "qwen3:8b")
         self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,
