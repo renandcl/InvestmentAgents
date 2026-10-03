@@ -42,15 +42,18 @@ class RedditNewsService:
         file_path = f"data/news_data/reddit_news_{ticker}_{before.strftime('%Y-%m-%d')}_{curr_date}.json"
 
         if os.path.exists(file_path):
-            json_data = json.load(open(file_path, "r"))
+            with open(file_path, "r") as f:
+                json_data = json.load(f)
             # subreddit : List[Submission] = json_data["data"]
             subreddit = []
             for item in json_data["data"]:
                 item["id"] = None
                 subreddit.append(Submission(self.reddit, _data=item))
         else:
-            subreddit = self.reddit.subreddit("all").search(
-                f"{ticker} financial performance analysis"
+            subreddit = list(
+                self.reddit.subreddit("all").search(
+                    f"{ticker} financial performance analysis"
+                )
             )
 
             os.makedirs("data/news_data", exist_ok=True)
@@ -64,7 +67,8 @@ class RedditNewsService:
                         "created_utc": submission.created_utc,
                     }
                 )
-                json.dump(json_data, open(file_path, "w"))
+            with open(file_path, "w") as f:
+                json.dump(json_data, f)
 
         combined_result = ""
         count_submissions = 0
@@ -94,33 +98,3 @@ class RedditNewsService:
 if __name__ == "__main__":
     service = RedditNewsService()
     print(service.get_news("AAPL", "2025-08-20", 30))
-
-
-# reddit = praw.Reddit(
-#     client_id="REMOVED_REDDIT_CLIENT_ID",
-#     client_secret="REMOVED_REDDIT_CLIENT_SECRET",
-#     redirect_uri="http://localhost/auth-response",
-#     user_agent="testscript by u/fakebot3",
-# )
-# print(reddit.auth.url(scopes=["identity"], state="...", duration="permanent"))
-# print(reddit.user.me())
-
-# subreddit = reddit.subreddit("AAPL").best(time_filter="month",limit=10) # Get the top 10 posts of the month from the AAPL subreddit
-# for submission in subreddit: # Get the top 10 hot posts
-#     print(f"Title: {submission.title}")
-#     print(f"URL: {submission.url}")
-#     print(f"Score: {submission.score}")
-#     print(f"Body: {submission.selftext}")
-#     print("-" * 20)
-
-# subreddit = reddit.subreddit("AAPL") # Get the top 10 posts of the month from the AAPL subreddit
-# filter = reddit.subreddit("all").search("AMZN financial performance analysis", sort="relevance", limit=10)
-# for submission in filter: # Get the top 10 hot posts
-#     if submission.created_utc < datetime.datetime(2024, 6, 1).timestamp():
-#         print(f"Title: {submission.title}")
-#         print(f"URL: {submission.url}")
-#         print(f"Score: {submission.score}")
-#         print(f"Body: {submission.selftext}")
-#         # print(f"Created: {submission.created_utc}")
-#         print(f"Created: {datetime.datetime.fromtimestamp(submission.created_utc)}")
-#         print("-" * 20)

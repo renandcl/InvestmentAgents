@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 from strands.hooks import (
     AfterInvocationEvent,
@@ -13,6 +14,9 @@ from strands.hooks import (
 class SharedDocument(HookProvider):
     def __init__(self, shared_document_file: str, memory):
         self.shared_document_file = shared_document_file
+        self.system_prompt_template = (
+            Path(__file__).with_name("prompt.txt").read_text(encoding="utf-8")
+        )
         self.memory = memory
 
     def register_hooks(self, registry: HookRegistry) -> None:
@@ -21,7 +25,7 @@ class SharedDocument(HookProvider):
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
-        event.agent.state.set("system_prompt", event.agent.system_prompt)
+        event.agent.state.set("system_prompt", self.system_prompt_template)
         with open(self.shared_document_file, "r") as f:
             shared_document = json.load(f)
 
@@ -43,7 +47,7 @@ class SharedDocument(HookProvider):
 
         # Get research outputs
         investment_plan = shared_document.get(
-            "investment_plan", "No investment plan provided"
+            "research_manager_report", "No investment plan provided"
         )
         event.agent.state.set("investment_plan", investment_plan)
 
@@ -84,7 +88,7 @@ Ticker: {shared_document.get("ticker")}
 Market Research Report: {shared_document.get("market_analyst_report")}
 Latest World Affairs News: {shared_document.get("news_analyst_report")}
 Company Fundamentals Report: {shared_document.get("fundamentals_analyst_report")}
-Investment Plan: {shared_document.get("trader_investment_plan")}
+Investment Plan: {shared_document.get("research_manager_report")}
         """.strip()
         past_memories = self.memory.search_memories(
             current_situation, ticker=shared_document.get("ticker"), n_matches=2

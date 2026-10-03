@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 from strands.hooks import (
     AfterInvocationEvent,
@@ -13,6 +14,9 @@ from strands.hooks import (
 class SharedDocument(HookProvider):
     def __init__(self, shared_document_file: str):
         self.shared_document_file = shared_document_file
+        self.system_prompt_template = (
+            Path(__file__).with_name("prompt.txt").read_text(encoding="utf-8")
+        )
 
     def register_hooks(self, registry: HookRegistry) -> None:
         registry.add_callback(BeforeInvocationEvent, self.get_shared_document)
@@ -20,7 +24,7 @@ class SharedDocument(HookProvider):
         registry.add_callback(AfterInvocationEvent, self.save_shared_document)
 
     def get_shared_document(self, event: BeforeInvocationEvent):
-        event.agent.state.set("system_prompt", event.agent.system_prompt)
+        event.agent.state.set("system_prompt", self.system_prompt_template)
         with open(self.shared_document_file, "r") as f:
             shared_document = json.load(f)
 
