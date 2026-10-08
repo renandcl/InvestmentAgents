@@ -11,7 +11,7 @@ from strands.session.file_session_manager import FileSessionManager
 from agents.risk_mgt.aggressive_debator.agent import AggressiveDebator
 from agents.risk_mgt.conservative_debator.agent import ConservativeDebator
 from agents.risk_mgt.neutral_debator.agent import NeutralDebator
-from agents.risk_mgt.risk_manager.hook import SharedDocument, StoreMemoryHook
+from agents.risk_mgt.risk_manager.hook import SharedDocument
 from agents.risk_mgt.risk_manager.memory import MemoryService
 
 # Enable debug logs
@@ -70,8 +70,7 @@ class RiskManager(Agent):
         shared_document_handler_hook = SharedDocument(
             shared_document_file=shared_document_file, memory=memory_service
         )
-        store_memory_hook = StoreMemoryHook(memory_service=memory_service)
-        self.hooks = [shared_document_handler_hook, store_memory_hook]
+        self.hooks = [shared_document_handler_hook]
 
     def _init_tools(self):
         aggressive_debator = AggressiveDebator()

@@ -58,6 +58,33 @@ flowchart LR
     Memory -.- subGraph1 & subGraph2 & subGraph3
 ```
 
+## Agent hook contracts
+
+Each agent's `hook.py` selects an immutable contract from
+`agents/hooks/specs.py`. Contracts declare input keys, missing-value defaults,
+refresh timing, prompt bindings, output keys/aliases, memory queries and workflow
+policy. Update the contract together with `prompt.txt` when changing an agent.
+The shared provider validates placeholders before execution and requires nonempty
+`ticker` and `current_date`; upstream reports remain optional for standalone use.
+
+`agents/hooks/lifecycle.py` loads invocation inputs, prepares workflow state,
+renders the original template and finalizes successful assistant results. Report
+text is extracted once, persisted to JSON, then passed to memory. Failed or
+incomplete invocations cannot reuse an older report from message history.
+
+The explicit `ToolResultTurnPolicy` preserves existing debate behavior: one new
+successful tool-result turn advances one round, with synthesis after three
+rounds. It does not enforce participation by every debator. Phase sequencing and
+risk history sharing remain future workflow changes. JSON replacement is atomic
+but does not provide cross-process coordination or run isolation.
+
+See [the implementation specification](specs/002-agent-hook-contracts/spec.md).
+Run offline checks from the repository root:
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
+
 ## Prerequisites
 
 - Python >= 3.13

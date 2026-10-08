@@ -9,7 +9,7 @@ from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 from strands_tools.a2a_client import A2AClientToolProvider
 
-from agents.risk_mgt.risk_manager.hook import SharedDocument, StoreMemoryHook
+from agents.risk_mgt.risk_manager.hook import SharedDocument
 from agents.risk_mgt.risk_manager.memory import MemoryService
 
 # Enables Strands debug log level
@@ -85,8 +85,7 @@ class RiskManager(Agent):
         shared_document_handler_hook = SharedDocument(
             shared_document_file=shared_document_file, memory=memory_service
         )
-        store_memory_hook = StoreMemoryHook(memory_service=memory_service)
-        self.hooks = [shared_document_handler_hook, store_memory_hook]
+        self.hooks = [shared_document_handler_hook]
 
     @tool
     async def evaluate_risk_and_decide(self, message: str) -> AgentResult:

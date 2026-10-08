@@ -10,7 +10,7 @@ from strands.session.file_session_manager import FileSessionManager
 
 from agents.researchers.bear.agent import BearResearcher
 from agents.researchers.bull.agent import BullResearcher
-from agents.researchers.manager.hook import SharedDocument, StoreMemoryHook
+from agents.researchers.manager.hook import SharedDocument
 from agents.researchers.manager.memory import MemoryService
 
 # Enable debug logs and print them to stderr
@@ -67,8 +67,7 @@ class ResearchManager(Agent):
     def _init_hooks(self, shared_document_file: str):
         memory = MemoryService(agent_id="research_manager")
         shared_document_handler_hook = SharedDocument(shared_document_file, memory)
-        store_memory_hook = StoreMemoryHook(memory)
-        self.hooks = [shared_document_handler_hook, store_memory_hook]
+        self.hooks = [shared_document_handler_hook]
 
     def _init_tools(self):
         bear_researcher = BearResearcher()

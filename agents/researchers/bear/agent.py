@@ -7,7 +7,7 @@ from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 
-from agents.researchers.bear.hook import SharedDocument, StoreMemoryHook
+from agents.researchers.bear.hook import SharedDocument
 from agents.researchers.bear.memory import MemoryService
 
 
@@ -56,8 +56,7 @@ class BearResearcher(Agent):
     def _init_hooks(self, shared_document_file: str):
         memory = MemoryService(agent_id="bear_researcher")
         shared_document_handler_hook = SharedDocument(shared_document_file, memory)
-        store_memory_hook = StoreMemoryHook(memory)
-        self.hooks = [shared_document_handler_hook, store_memory_hook]
+        self.hooks = [shared_document_handler_hook]
 
     @tool
     async def get_bear_researcher_insights(self, message: str) -> AgentResult:

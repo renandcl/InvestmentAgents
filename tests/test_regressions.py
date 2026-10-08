@@ -50,7 +50,7 @@ class HookTests(unittest.TestCase):
             system_prompt=(ROOT / folder / "prompt.txt").read_text(encoding="utf-8"),
             state=State(),
             messages=[{"role": "user", "content": [{"text": "Analyze"}]}],
-            agent_id="research_manager",
+            agent_id=hook.spec.agent_id,
         )
         return hook, SimpleNamespace(agent=agent)
 
@@ -83,6 +83,9 @@ class HookTests(unittest.TestCase):
         event.agent.messages = [
             {"role": "assistant", "content": [{"text": "Buy ten shares"}]}
         ]
+        event.result = SimpleNamespace(
+            stop_reason="end_turn", message=event.agent.messages[-1]
+        )
         hook.save_shared_document(event)
         trader, event = self.make_hook(Path("agents/traders/trader"))
         trader.get_shared_document(event)
@@ -97,10 +100,10 @@ class HookTests(unittest.TestCase):
             with self.subTest(manager=folder):
                 hook, event = self.make_hook(Path(folder))
                 hook.get_shared_document(event)
-                hook.add_prompt_arguments(event)
+                hook.prepare_model_call(event)
                 self.assertEqual(event.agent.state["debate_rounds"], 0)
                 event.agent.messages = []
-                hook.add_prompt_arguments(event)
+                hook.prepare_model_call(event)
                 for round_number in range(1, 4):
                     event.agent.messages.append(
                         {
@@ -122,8 +125,8 @@ class HookTests(unittest.TestCase):
                             ],
                         }
                     )
-                    hook.add_prompt_arguments(event)
-                    hook.add_prompt_arguments(event)
+                    hook.prepare_model_call(event)
+                    hook.prepare_model_call(event)
                     self.assertEqual(event.agent.state["debate_rounds"], round_number)
                     self.assertIn(
                         f"Number of Debate Rounds: {round_number}",
@@ -138,7 +141,7 @@ class HookTests(unittest.TestCase):
                         ],
                     }
                 )
-                hook.add_prompt_arguments(event)
+                hook.prepare_model_call(event)
                 self.assertEqual(event.agent.state["debate_rounds"], 3)
                 hook.get_shared_document(event)
                 self.assertEqual(event.agent.state["debate_rounds"], 0)

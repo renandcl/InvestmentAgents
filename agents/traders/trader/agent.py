@@ -7,7 +7,7 @@ from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 
-from agents.traders.trader.hook import SharedDocument, StoreMemoryHook
+from agents.traders.trader.hook import SharedDocument
 from agents.traders.trader.memory import MemoryService
 
 
@@ -56,8 +56,7 @@ class Trader(Agent):
     def _init_hooks(self, shared_document_file: str):
         memory = MemoryService(agent_id="trader")
         shared_document_handler_hook = SharedDocument(shared_document_file, memory)
-        store_memory_hook = StoreMemoryHook(memory_service=memory)
-        self.hooks = [shared_document_handler_hook, store_memory_hook]
+        self.hooks = [shared_document_handler_hook]
 
     @tool
     async def get_trader_investment_plan_decision(self, message: str) -> AgentResult:
