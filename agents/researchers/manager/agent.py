@@ -46,9 +46,9 @@ class ResearchManager(Agent):
             self.system_prompt = f.read()
 
     def _init_model(self):
-        base_url = os.getenv("RESEARCHERS_BASE_URL", "http://localhost:11434/v1")
-        api_key = os.getenv("RESEARCHERS_API_KEY", "ollama")
-        model_id = os.getenv("RESEARCHERS_MODEL_ID", "qwen3:8b")
+        base_url = os.getenv("RESEARCHERS_BASE_URL") or "http://localhost:11434/v1"
+        api_key = os.getenv("RESEARCHERS_API_KEY") or "ollama"
+        model_id = os.getenv("RESEARCHERS_MODEL_ID") or "qwen3:8b"
         self.model = OpenAIModel(
             client_args={
                 "base_url": base_url,

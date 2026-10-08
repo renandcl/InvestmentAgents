@@ -5,12 +5,12 @@ description = "MCP server providing Google News scraping data."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-	"mcp>=1.22.0",
-	"pydantic>=2.12.4",
+	"mcp>=1.30.0",
+	"pydantic>=2.13.5",
 	"python-dateutil>=2.9.0.post0",
-	"requests>=2.31.0",
-	"beautifulsoup4>=4.12.3",
-	"tenacity>=8.2.3",
+	"requests>=2.34.2",
+	"beautifulsoup4>=4.15.0",
+	"tenacity>=9.1.4",
 ]
 
 [tool.setuptools]

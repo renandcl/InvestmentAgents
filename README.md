@@ -76,6 +76,59 @@ flowchart LR
     uv sync --all-packages
     ```
 
+## Code Quality
+
+Run these commands from the repository root after installing dependencies:
+
+```bash
+uv run pre-commit install --install-hooks
+uv run pre-commit run --all-files
+```
+
+Each new clone needs to install the hooks once. Before each commit, the hooks
+check staged files using pinned tool versions in isolated environments.
+
+- **Ruff** checks Python errors and unused imports, sorts imports, and applies
+  safe fixes.
+- **Black** formats Python for Python 3.13 with an 88-character line length.
+- **detect-secrets** checks credential patterns, hardcoded secret assignments,
+  and high-entropy strings. It runs offline with `--no-verify`. No baseline
+  suppresses existing findings.
+- Additional checks catch private keys, conflict markers, case-conflicting
+  filenames, newly added files larger than 1 MiB, invalid TOML/YAML/JSON, and
+  whitespace issues.
+
+If a formatter changes files, review and stage the changes, then retry the commit.
+Remove credentials identified by the secret scanner and use environment variables;
+rotate any real exposed credential. Only confirmed harmless false positives
+should use the inline `# pragma: allowlist secret` annotation. See the
+[detect-secrets documentation](https://github.com/Yelp/detect-secrets#inline-allowlisting).
+The hooks check file contents rather than Git history.
+
+Run the offline regression suite separately:
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
+
+## Dependency Updates
+
+The root `uv.lock` pins dependencies for the entire workspace, including all MCP
+servers. Run dependency commands from the repository root:
+
+```bash
+uv lock --upgrade
+uv sync --all-packages --locked
+uv run python -m unittest discover -s tests -v
+uv run pre-commit run --all-files
+```
+
+Review major-version changes and update the minimum versions in each affected
+`pyproject.toml` after validating compatibility. Keep explicit upper bounds when
+required by a service; DuckDuckGo news currently stays on `ddgs` 9.x.
+The pre-commit runner stays on 4.5.x for compatibility with Git 2.25 in the
+WSL environment; newer runner versions require a newer Git for full-repo scans.
+
 ## Configuration
 
 ### Environment Variables

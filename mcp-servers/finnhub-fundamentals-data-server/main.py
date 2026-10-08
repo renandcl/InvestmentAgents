@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+
 from models import InsiderSentimentParameters, InsiderTransactionsParameters
 from services import FinnhubInsiderSentimentService, FinnhubInsiderTransactionsService
 

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from mcp.server.fastmcp import FastMCP
+
 from models import FinnhubNewsParameters
 from services import FinnhubNewsService
 

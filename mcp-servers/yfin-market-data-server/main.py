@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+
 from models import YFinDataParameters
 from services import YFinMarketDataService
 

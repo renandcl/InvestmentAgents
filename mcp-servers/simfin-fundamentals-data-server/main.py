@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+
 from models import SimfinFinancialsParameters
 from services import (
     get_simfin_balance_sheet,

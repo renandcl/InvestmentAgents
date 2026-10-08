@@ -1,6 +1,7 @@
 import os
 
 from mcp.server.fastmcp import FastMCP
+
 from models import MemoryParameters
 from services import MemoryService
 
