@@ -52,7 +52,7 @@ class HookContractTests(unittest.TestCase):
         )
         registry = HookRegistry()
         hook.register_hooks(registry)
-        registry.invoke_callbacks(BeforeInvocationEvent(agent=agent))
+        hook.get_shared_document(BeforeInvocationEvent(agent=agent))
         return hook, agent, registry
 
     def finish(self, agent, registry, text="Buy ten shares", stop_reason="end_turn"):
@@ -153,9 +153,9 @@ class HookContractTests(unittest.TestCase):
         hook.add_prompt_arguments(event)
         self.assertEqual(agent.state, before)
         registry.invoke_callbacks(event)
-        self.assertEqual(agent.state["debate_rounds"], 1)
+        self.assertEqual(agent.state["debate_rounds"], 0)
         registry.invoke_callbacks(event)
-        self.assertEqual(agent.state["debate_rounds"], 1)
+        self.assertEqual(agent.state["debate_rounds"], 0)
 
     def test_risk_peers_use_canonical_reports_and_clear_stale_inputs(self):
         peers = (
@@ -291,6 +291,18 @@ class HookContractTests(unittest.TestCase):
                     source = path.read_text(encoding="utf-8")
                     self.assertNotIn("StoreMemoryHook", source)
                     tree = ast.parse(source)
+                    if path.name == "a2a_agent.py" and path.parent.name in (
+                        "manager",
+                        "risk_manager",
+                    ):
+                        constructors = [
+                            node
+                            for node in ast.walk(tree)
+                            if isinstance(node, ast.FunctionDef)
+                            and node.name == "__init__"
+                        ]
+                        self.assertIsInstance(constructors[0].body[0], ast.Raise)
+                        continue
                     hooks = [
                         node
                         for node in ast.walk(tree)

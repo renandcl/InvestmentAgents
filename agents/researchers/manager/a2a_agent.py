@@ -7,8 +7,8 @@ from strands import Agent, tool
 from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
-from strands_tools.a2a_client import A2AClientToolProvider
 
+from agents.hooks.contracts import ContractError
 from agents.researchers.manager.hook import SharedDocument
 from agents.researchers.manager.memory import MemoryService
 
@@ -20,26 +20,12 @@ logging.basicConfig(
 
 
 class ResearchManager(Agent):
-    """Research Manager agent that coordinates bull and bear researchers via A2A HTTP interfaces."""
+    """Distributed variant reserved until HTTP round-context propagation is supported."""
 
-    def __init__(
-        self,
-    ):
-        self._init_system_prompt()
-        self._init_model()
-        self._init_session_manager("data/agents_sessions/researchers/research_manager")
-        self._init_hooks(shared_document_file="data/shared_document.json")
-        self._init_tools()
-
-        super().__init__(
-            name="ResearchManagerAgent",
-            agent_id="research_manager",
-            description="Critically evaluates research from both bull and bear analysts and makes an informed investment plan.",
-            system_prompt=self.system_prompt,
-            tools=self.tools,
-            model=self.model,
-            session_manager=self.session_manager,
-            hooks=self.hooks,
+    def __init__(self):
+        raise ContractError(
+            "Distributed research debates require HTTP round-context propagation; "
+            "use the in-process manager from agent.py."
         )
 
     def _init_system_prompt(self):
@@ -71,16 +57,7 @@ class ResearchManager(Agent):
         self.hooks = [shared_document_handler_hook]
 
     def _init_tools(self):
-        # A2A client tool providers for remote researchers
-        bear_researcher_url = "http://localhost:9904"
-        bull_researcher_url = "http://localhost:9905"
-        provider = A2AClientToolProvider(
-            known_agent_urls=[
-                bear_researcher_url,
-                bull_researcher_url,
-            ]
-        )
-        self.tools = provider.tools
+        self.tools = []
 
     @tool
     async def get_research_manager_investment_plan(self, message: str) -> AgentResult:

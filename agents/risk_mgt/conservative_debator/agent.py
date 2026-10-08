@@ -54,6 +54,7 @@ class ConservativeDebator(Agent):
 
     def _init_hooks(self, shared_document_file: str):
         shared_document_handler_hook = SharedDocument(shared_document_file)
+        self.lifecycle_hooks = shared_document_handler_hook
         self.hooks = [shared_document_handler_hook]
 
     @tool

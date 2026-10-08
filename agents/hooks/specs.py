@@ -4,9 +4,10 @@ from pathlib import Path
 
 from agents.hooks.contracts import (
     AgentSpec,
+    DebatePolicy,
     MemoryPolicy,
+    ParticipantSpec,
     StateField,
-    ToolResultTurnPolicy,
 )
 
 AGENTS_ROOT = Path(__file__).resolve().parents[1]
@@ -74,13 +75,17 @@ AGENT_SPECS = {
         prompt_path=AGENTS_ROOT / "researchers/bull/prompt.txt",
         inputs=IDENTITY
         + ANALYST_REPORTS
-        + (StateField("bear_researcher_report", default="No report"),),
+        + (
+            StateField("bear_researcher_report", default="No report"),
+            StateField("research_debate_history", default="No debate history yet."),
+        ),
         prompt_bindings=bindings(
             "fundamentals_analyst_report",
             "market_analyst_report",
             "news_analyst_report",
             "bear_researcher_report",
             "past_memories",
+            "research_debate_history",
         ),
         output_keys=("bull_researcher_report",),
         memory=MemoryPolicy(SITUATION, "Bull Researcher analysis"),
@@ -90,13 +95,17 @@ AGENT_SPECS = {
         prompt_path=AGENTS_ROOT / "researchers/bear/prompt.txt",
         inputs=IDENTITY
         + ANALYST_REPORTS
-        + (StateField("bull_researcher_report", default="No report"),),
+        + (
+            StateField("bull_researcher_report", default="No report"),
+            StateField("research_debate_history", default="No debate history yet."),
+        ),
         prompt_bindings=bindings(
             "fundamentals_analyst_report",
             "market_analyst_report",
             "news_analyst_report",
             "bull_researcher_report",
             "past_memories",
+            "research_debate_history",
         ),
         output_keys=("bear_researcher_report",),
         memory=MemoryPolicy(SITUATION, "Bear Researcher analysis"),
@@ -109,6 +118,11 @@ AGENT_SPECS = {
         + (
             StateField("bull_researcher_report", default="No report", refresh=True),
             StateField("bear_researcher_report", default="No report", refresh=True),
+            StateField(
+                "research_debate_history",
+                default="No debate history yet.",
+                refresh=True,
+            ),
         ),
         prompt_bindings=IDENTITY_BINDINGS
         + bindings(
@@ -120,6 +134,8 @@ AGENT_SPECS = {
             "past_memories",
             "debate_rounds",
             "debate_action",
+            "debate_phase",
+            "research_debate_history",
         ),
         output_keys=("research_manager_report",),
         memory=MemoryPolicy(
@@ -130,9 +146,12 @@ AGENT_SPECS = {
             ),
             "Researcher Manager Decision",
         ),
-        workflow=ToolResultTurnPolicy(
-            opening_action="Call Bull and Bear Researchers to provide their analysis.",
-            debate_action="Call Bull and Bear Researchers to debate on each other's analysis.",
+        workflow=DebatePolicy(
+            participants=(
+                ParticipantSpec("bull_researcher", "bull_researcher_report"),
+                ParticipantSpec("bear_researcher", "bear_researcher_report"),
+            ),
+            history_key="research_debate_history",
             final_action="Make final investment decision based on the analyses provided.",
         ),
     ),
@@ -161,21 +180,34 @@ AGENT_SPECS = {
         prompt_path=AGENTS_ROOT / "risk_mgt/risk_manager/prompt.txt",
         inputs=IDENTITY
         + ANALYST_REPORTS
-        + (StateField("trader_investment_plan", default="No trader plan available"),),
+        + (
+            StateField("trader_investment_plan", default="No trader plan available"),
+            StateField(
+                "risk_debate_history", default="No debate history yet.", refresh=True
+            ),
+        ),
         prompt_bindings=bindings(
             "trader_investment_plan",
             "risk_debate_history",
             "past_memories",
             "debate_rounds",
             "debate_action",
+            "debate_phase",
         ),
         output_keys=("risk_manager_report", "final_trade_decision"),
         memory=MemoryPolicy(SITUATION, "Risk Manager Decision"),
-        workflow=ToolResultTurnPolicy(
-            opening_action="Call Aggressive, Neutral and Conservative Analysts to provide their analysis.",
-            debate_action="Call Aggressive, Neutral and Conservative Analysts to debate on each other's analysis.",
+        workflow=DebatePolicy(
+            participants=(
+                ParticipantSpec(
+                    "aggressive_risk_analyst", "aggressive_risk_analyst_report"
+                ),
+                ParticipantSpec(
+                    "conservative_risk_analyst", "conservative_risk_analyst_report"
+                ),
+                ParticipantSpec("neutral_risk_analyst", "neutral_risk_analyst_report"),
+            ),
+            history_key="risk_debate_history",
             final_action="Make final risk-adjusted trading decision based on the analyses provided.",
-            track_history=True,
         ),
     ),
 }

@@ -8,6 +8,7 @@ from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 
+from agents.debates.runner import DebateRunner
 from agents.risk_mgt.aggressive_debator.agent import AggressiveDebator
 from agents.risk_mgt.conservative_debator.agent import ConservativeDebator
 from agents.risk_mgt.neutral_debator.agent import NeutralDebator
@@ -70,17 +71,23 @@ class RiskManager(Agent):
         shared_document_handler_hook = SharedDocument(
             shared_document_file=shared_document_file, memory=memory_service
         )
+        self.lifecycle_hooks = shared_document_handler_hook
         self.hooks = [shared_document_handler_hook]
 
     def _init_tools(self):
         aggressive_debator = AggressiveDebator()
         conservative_debator = ConservativeDebator()
         neutral_debator = NeutralDebator()
-        self.tools = [
-            aggressive_debator.get_aggressive_analysis,
-            conservative_debator.get_conservative_analysis,
-            neutral_debator.get_neutral_analysis,
-        ]
+        self.lifecycle_hooks.debate_runner = DebateRunner(
+            self.lifecycle_hooks.spec.workflow,
+            {
+                "aggressive_risk_analyst": aggressive_debator,
+                "conservative_risk_analyst": conservative_debator,
+                "neutral_risk_analyst": neutral_debator,
+            },
+            self.lifecycle_hooks.store,
+        )
+        self.tools = []
 
     @tool
     async def get_risk_manager_evaluation_and_decision(self, query: str) -> AgentResult:

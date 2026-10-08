@@ -39,33 +39,33 @@ class MemoryPolicy:
 
 
 @dataclass(frozen=True)
-class ToolResultTurnPolicy:
-    """Legacy policy: a successful tool-result turn is one round, not a quorum."""
+class ParticipantSpec:
+    agent_id: str
+    report_key: str
 
-    opening_action: str
-    debate_action: str
+
+@dataclass(frozen=True)
+class DebatePolicy:
+    participants: tuple[ParticipantSpec, ...]
+    history_key: str
     final_action: str
-    max_rounds: int = 3
-    track_history: bool = False
+    phases: tuple[str, ...] = ("opening", "rebuttal", "clarification")
 
-    def advance(
-        self, rounds: int, processed: list[str], last_message: dict[str, Any]
-    ) -> tuple[int, list[str], str | None]:
-        seen = set(processed)
-        results = {
-            result["toolUseId"]
-            for block in last_message.get("content", [])
-            if (result := block.get("toolResult"))
-            and result.get("status") == "success"
-            and result.get("toolUseId")
-        }
-        action = None
-        if results - seen:
-            rounds += 1
-            action = (
-                self.final_action if rounds >= self.max_rounds else self.debate_action
-            )
-        return rounds, sorted(seen | results), action
+    @property
+    def max_rounds(self) -> int:
+        return len(self.phases)
+
+    def validate(self) -> None:
+        ids = [participant.agent_id for participant in self.participants]
+        keys = [participant.report_key for participant in self.participants]
+        if (
+            not ids
+            or len(ids) != len(set(ids))
+            or len(keys) != len(set(keys))
+            or any(key != f"{agent_id}_report" for agent_id, key in zip(ids, keys))
+            or self.phases != ("opening", "rebuttal", "clarification")
+        ):
+            raise ContractError("Invalid debate participants or phases")
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,7 @@ class AgentSpec:
     prompt_bindings: tuple[tuple[str, str], ...]
     output_keys: tuple[str, ...]
     memory: MemoryPolicy | None = None
-    workflow: ToolResultTurnPolicy | None = None
+    workflow: DebatePolicy | None = None
 
     def validate(self) -> None:
         names = [field.name for field in self.inputs]
@@ -90,11 +90,10 @@ class AgentSpec:
                     f"{self.agent_id}: memory n_matches must be positive"
                 )
         if self.workflow:
-            computed.update(("debate_rounds", "debate_action"))
-            if self.workflow.track_history:
-                computed.add("risk_debate_history")
-            if self.workflow.max_rounds < 1:
-                raise ContractError(f"{self.agent_id}: max_rounds must be positive")
+            self.workflow.validate()
+            computed.update(("debate_rounds", "debate_action", "debate_phase"))
+            if self.workflow.history_key not in names:
+                raise ContractError(f"{self.agent_id}: undeclared debate history input")
         available = set(names) | computed
         if (
             not self.agent_id

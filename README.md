@@ -72,13 +72,23 @@ renders the original template and finalizes successful assistant results. Report
 text is extracted once, persisted to JSON, then passed to memory. Failed or
 incomplete invocations cannot reuse an older report from message history.
 
-The explicit `ToolResultTurnPolicy` preserves existing debate behavior: one new
-successful tool-result turn advances one round, with synthesis after three
-rounds. It does not enforce participation by every debator. Phase sequencing and
-risk history sharing remain future workflow changes. JSON replacement is atomic
-but does not provide cross-process coordination or run isolation.
+Research and risk managers use a deterministic `DebateRunner`: opening,
+rebuttal and clarification each require every configured participant once.
+Participants receive the same snapshot of prior completed rounds. Contributions
+are staged, published together after a complete round, then stored in memory.
+The manager synthesizes the full accepted history with no participant tools.
+Failed or cancelled rounds cannot publish partial arguments or trigger synthesis.
+
+The in-process managers also run this scheduler through `invoke_async` and
+`stream_async`, including when served through their A2A entry points. Distributed
+manager variants in `a2a_agent.py` reject construction until HTTP round-context
+propagation is implemented. Top-level investment phase sequencing stays
+prompt-driven. JSON replacement is atomic but does not provide cross-process
+coordination or run isolation.
 
 See [the implementation specification](specs/002-agent-hook-contracts/spec.md).
+The debate behavior change is specified separately in
+[003 - Participant-aware debates](specs/003-participant-debates/spec.md).
 Run offline checks from the repository root:
 
 ```bash

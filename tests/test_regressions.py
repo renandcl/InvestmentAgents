@@ -86,6 +86,8 @@ class HookTests(unittest.TestCase):
         event.result = SimpleNamespace(
             stop_reason="end_turn", message=event.agent.messages[-1]
         )
+        event.agent.state.set("debate_rounds", 3)
+        event.agent.state.set("debate_phase", "synthesis")
         hook.save_shared_document(event)
         trader, event = self.make_hook(Path("agents/traders/trader"))
         trader.get_shared_document(event)
@@ -95,56 +97,27 @@ class HookTests(unittest.TestCase):
         )
         self.assertIn("Buy ten shares", trader.memory.search_memories.call_args.args[0])
 
-    def test_managers_count_results_before_rendering_without_counting_retries(self):
+    def test_tool_result_turns_and_model_retries_do_not_advance_rounds(self):
         for folder in ("agents/researchers/manager", "agents/risk_mgt/risk_manager"):
             with self.subTest(manager=folder):
                 hook, event = self.make_hook(Path(folder))
                 hook.get_shared_document(event)
-                hook.prepare_model_call(event)
-                self.assertEqual(event.agent.state["debate_rounds"], 0)
-                event.agent.messages = []
-                hook.prepare_model_call(event)
-                for round_number in range(1, 4):
-                    event.agent.messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {"text": "Tool results"},
-                                {
-                                    "toolResult": {
-                                        "toolUseId": f"round-{round_number}-a",
-                                        "status": "success",
-                                    }
-                                },
-                                {
-                                    "toolResult": {
-                                        "toolUseId": f"round-{round_number}-b",
-                                        "status": "success",
-                                    }
-                                },
-                            ],
-                        }
-                    )
-                    hook.prepare_model_call(event)
-                    hook.prepare_model_call(event)
-                    self.assertEqual(event.agent.state["debate_rounds"], round_number)
-                    self.assertIn(
-                        f"Number of Debate Rounds: {round_number}",
-                        event.agent.system_prompt,
-                    )
-                self.assertIn("Debate Action: Make final", event.agent.system_prompt)
-                event.agent.messages.append(
+                event.agent.messages = [
                     {
-                        "role": "user",
                         "content": [
-                            {"toolResult": {"toolUseId": "failed", "status": "error"}},
-                        ],
+                            {
+                                "toolResult": {
+                                    "toolUseId": "unrelated",
+                                    "status": "success",
+                                }
+                            }
+                        ]
                     }
-                )
+                ]
                 hook.prepare_model_call(event)
-                self.assertEqual(event.agent.state["debate_rounds"], 3)
-                hook.get_shared_document(event)
+                hook.prepare_model_call(event)
                 self.assertEqual(event.agent.state["debate_rounds"], 0)
+                self.assertIn("Number of Debate Rounds: 0", event.agent.system_prompt)
 
     def test_manager_refreshes_research_reports_between_tool_turns(self):
         hook, event = self.make_hook(Path("agents/researchers/manager"))

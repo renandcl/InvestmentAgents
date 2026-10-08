@@ -50,8 +50,12 @@ class JsonReportStore:
             raise ContractError("Shared document must be a JSON object")
         return snapshot
 
-    def patch(self, changes: dict[str, str]) -> None:
+    def patch(
+        self, changes: dict[str, str], *, remove_keys: tuple[str, ...] = ()
+    ) -> None:
         snapshot = self.read()
+        for key in remove_keys:
+            snapshot.pop(key, None)
         snapshot.update(changes)
         temporary = None
         try:

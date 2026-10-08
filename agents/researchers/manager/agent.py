@@ -8,6 +8,7 @@ from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
 
+from agents.debates.runner import DebateRunner
 from agents.researchers.bear.agent import BearResearcher
 from agents.researchers.bull.agent import BullResearcher
 from agents.researchers.manager.hook import SharedDocument
@@ -67,15 +68,18 @@ class ResearchManager(Agent):
     def _init_hooks(self, shared_document_file: str):
         memory = MemoryService(agent_id="research_manager")
         shared_document_handler_hook = SharedDocument(shared_document_file, memory)
+        self.lifecycle_hooks = shared_document_handler_hook
         self.hooks = [shared_document_handler_hook]
 
     def _init_tools(self):
         bear_researcher = BearResearcher()
         bull_researcher = BullResearcher()
-        self.tools = [
-            bear_researcher.get_bear_researcher_insights,
-            bull_researcher.get_bull_researcher_insights,
-        ]
+        self.lifecycle_hooks.debate_runner = DebateRunner(
+            self.lifecycle_hooks.spec.workflow,
+            {"bull_researcher": bull_researcher, "bear_researcher": bear_researcher},
+            self.lifecycle_hooks.store,
+        )
+        self.tools = []
 
     @tool
     async def get_research_manager_investment_plan(self, message: str) -> AgentResult:
