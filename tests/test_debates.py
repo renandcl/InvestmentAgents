@@ -2,7 +2,6 @@
 
 import asyncio
 import importlib
-import json
 import logging
 import tempfile
 import unittest
@@ -12,15 +11,15 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from strands import Agent
+from isolation_helpers import fixture_replace, new_runtime, values
 from strands.models.model import Model
 
 from agents.debates.runner import DebateRunner
 from agents.debates.state import DebateState
 from agents.hooks.contracts import ContractError
 from agents.hooks.lifecycle import AgentLifecycleHooks
-from agents.hooks.services import JsonReportStore
 from agents.hooks.specs import AGENT_SPECS
+from runtime.agent import RunAgent as Agent
 
 
 class DebateStateTests(unittest.TestCase):
@@ -103,8 +102,8 @@ class ScriptedModel(Model):
             {
                 "agent_id": self.agent_id,
                 "round": round_number,
-                "snapshot": deepcopy(context.snapshot) if context else None,
-                "published": self.store.read(),
+                "snapshot": deepcopy(context.snapshot.values) if context else None,
+                "published": values(self.store),
                 "prompt": system_prompt,
                 "messages": deepcopy(messages),
                 "tool_specs": tool_specs,
@@ -139,7 +138,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        self.shared = Path(self.directory.name) / "shared.json"
+        self.runtime = new_runtime(Path(self.directory.name))
         self.initial = {
             "ticker": "AAPL",
             "current_date": "2025-08-01",
@@ -148,7 +147,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
             "news_analyst_report": "News",
             "trader_investment_plan": "Trade plan",
         }
-        self.shared.write_text(json.dumps(self.initial), encoding="utf-8")
+        fixture_replace(self.runtime, self.initial)
         self.calls = []
         strands_logger = logging.getLogger("strands")
         previous = strands_logger.level
@@ -166,7 +165,9 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 ),
             )
         hook = AgentLifecycleHooks(
-            spec, str(self.shared), Mock(search_memories=Mock(return_value=[]))
+            spec,
+            runtime=self.runtime,
+            memory=Mock(search_memories=Mock(return_value=[])),
         )
         participants = {}
         for number, participant in enumerate(spec.workflow.participants):
@@ -176,7 +177,9 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 if child_spec.memory
                 else None
             )
-            child_hook = AgentLifecycleHooks(child_spec, str(self.shared), memory)
+            child_hook = AgentLifecycleHooks(
+                child_spec, runtime=self.runtime, memory=memory
+            )
             model = ScriptedModel(
                 participant.agent_id,
                 self.calls,
@@ -184,6 +187,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 failure if number == 1 else None,
             )
             child = Agent(
+                runtime=self.runtime,
                 agent_id=participant.agent_id,
                 model=model,
                 hooks=[child_hook],
@@ -193,12 +197,14 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
             participants[participant.agent_id] = child
         hook.debate_runner = DebateRunner(spec.workflow, participants, hook.store)
         manager = Agent(
+            runtime=self.runtime,
             agent_id=manager_id,
             model=ScriptedModel(manager_id, self.calls, hook.store),
             hooks=[hook],
             tools=[],
             callback_handler=None,
         )
+        manager.lifecycle_hooks = hook
         return manager, hook, participants
 
     async def test_research_and_risk_complete_all_participants_before_synthesis(self):
@@ -237,14 +243,16 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                                 call["snapshot"][hook.spec.workflow.history_key],
                             )
                         self.assertIn(
-                            call["snapshot"][hook.spec.workflow.history_key],
+                            call["snapshot"].get(
+                                hook.spec.workflow.history_key, "No debate history yet."
+                            ),
                             call["prompt"],
                         )
                 synthesis = self.calls[-1]
                 self.assertFalse(synthesis["tool_specs"])
                 self.assertIn("Debate Phase: synthesis", synthesis["prompt"])
                 self.assertIn("Round 3 (clarification)", synthesis["prompt"])
-                snapshot = hook.store.read()
+                snapshot = values(hook.store)
                 self.assertTrue(
                     all(
                         snapshot[key] == str(result).strip()
@@ -262,19 +270,19 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
         manager, hook, _ = self.build()
         await manager.invoke_async("Evaluate")
         forward = {(c["round"], c["agent_id"]): c["snapshot"] for c in self.calls[:-1]}
-        transcript = hook.store.read()[hook.spec.workflow.history_key]
-        self.shared.write_text(json.dumps(self.initial), encoding="utf-8")
+        transcript = values(hook.store)[hook.spec.workflow.history_key]
+        fixture_replace(self.runtime, self.initial)
         self.calls.clear()
         manager, hook, _ = self.build(reverse=True)
         await manager.invoke_async("Evaluate")
         reverse = {(c["round"], c["agent_id"]): c["snapshot"] for c in self.calls[:-1]}
         self.assertEqual(forward, reverse)
-        self.assertEqual(transcript, hook.store.read()[hook.spec.workflow.history_key])
+        self.assertEqual(transcript, values(hook.store)[hook.spec.workflow.history_key])
 
     async def test_failures_do_not_publish_partial_round_or_synthesize(self):
         for action in ("error", "empty", "cancel"):
             with self.subTest(action=action):
-                self.shared.write_text(json.dumps(self.initial), encoding="utf-8")
+                fixture_replace(self.runtime, self.initial)
                 self.calls.clear()
                 manager, hook, participants = self.build(failure=(1, action))
                 exception = (
@@ -284,7 +292,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 )
                 with self.assertRaises(exception):
                     await manager.invoke_async("Evaluate")
-                snapshot = hook.store.read()
+                snapshot = values(hook.store)
                 self.assertEqual(snapshot, self.initial)
                 self.assertFalse(
                     any(call["agent_id"] == "research_manager" for call in self.calls)
@@ -297,7 +305,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
         manager, hook, participants = self.build(failure=(2, "error"))
         with self.assertRaises(RuntimeError):
             await manager.invoke_async("Evaluate")
-        snapshot = hook.store.read()
+        snapshot = values(hook.store)
         self.assertIn("Round 1 (opening)", snapshot[hook.spec.workflow.history_key])
         self.assertNotIn("Round 2", snapshot[hook.spec.workflow.history_key])
         self.assertNotIn("research_manager_report", snapshot)
@@ -306,21 +314,16 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 participant.lifecycle_hooks.memory.add_memory.call_count, 1
             )
 
-    async def test_json_failure_prevents_round_memory_and_synthesis(self):
+    async def test_store_failure_prevents_round_memory_and_synthesis(self):
         manager, hook, participants = self.build()
-        original = hook.store.patch
-
-        def commit(changes, **kwargs):
-            if changes:
-                raise OSError("Cannot publish round")
-            return original(changes, **kwargs)
-
         with (
-            patch.object(hook.store, "patch", side_effect=commit),
+            patch.object(
+                hook.store, "commit_round", side_effect=OSError("Cannot publish round")
+            ),
             self.assertRaises(OSError),
         ):
             await manager.invoke_async("Evaluate")
-        self.assertEqual(hook.store.read(), self.initial)
+        self.assertEqual(values(hook.store), self.initial)
         hook.memory.add_memory.assert_not_called()
         for participant in participants.values():
             participant.lifecycle_hooks.memory.add_memory.assert_not_called()
@@ -333,7 +336,8 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
         for call in self.calls[:3]:
             self.assertNotIn("final_trade_decision", call["published"])
             self.assertEqual(
-                call["snapshot"]["risk_debate_history"], "No debate history yet."
+                call["snapshot"].get("risk_debate_history", "No debate history yet."),
+                "No debate history yet.",
             )
             for participant in hook.spec.workflow.participants:
                 self.assertNotIn(participant.report_key, call["snapshot"])
@@ -343,7 +347,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
         events = [event async for event in manager.stream_async("Evaluate")]
         self.assertTrue(any("result" in event for event in events))
         self.assertEqual(len(self.calls), 7)
-        self.assertIn("research_manager_report", hook.store.read())
+        self.assertIn("research_manager_report", values(hook.store))
 
     async def test_public_manager_tools_bind_and_run_the_scheduler(self):
         for manager_id, module_name, class_name, tool_name in (
@@ -376,22 +380,6 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         + ".agent"
                     )
                     module = importlib.import_module(module_path)
-                    original_hook = module.SharedDocument
-
-                    def make_hook(*args, _original=original_hook, **kwargs):
-                        memory = args[1] if len(args) > 1 else kwargs.get("memory")
-                        return (
-                            _original(str(self.shared), memory)
-                            if memory is not None
-                            else _original(str(self.shared))
-                        )
-
-                    stack.enter_context(
-                        patch.object(module, "SharedDocument", side_effect=make_hook)
-                    )
-                    stack.enter_context(
-                        patch.object(module, "FileSessionManager", return_value=None)
-                    )
                     stack.enter_context(
                         patch.object(
                             module,
@@ -399,23 +387,22 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             return_value=ScriptedModel(
                                 spec.agent_id,
                                 self.calls,
-                                JsonReportStore(str(self.shared)),
+                                self.runtime.store,
                             ),
                         )
                     )
-                    if hasattr(module, "MemoryService"):
-                        stack.enter_context(
-                            patch.object(
-                                module,
-                                "MemoryService",
-                                side_effect=lambda **_: Mock(
-                                    search_memories=Mock(return_value=[])
-                                ),
-                            )
-                        )
+                stack.enter_context(
+                    patch.object(
+                        self.runtime,
+                        "memory_for",
+                        side_effect=lambda _: Mock(
+                            search_memories=Mock(return_value=[])
+                        ),
+                    )
+                )
                 manager_module = importlib.import_module(module_name)
                 logging.getLogger("strands").setLevel(logging.CRITICAL)
-                manager = getattr(manager_module, class_name)()
+                manager = getattr(manager_module, class_name)(runtime=self.runtime)
                 manager.callback_handler = lambda **_: None
                 for (
                     child
@@ -435,7 +422,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
         for participant in participants.values():
 
             def observe(*, memory, ticker):
-                snapshot = hook.store.read()
+                snapshot = values(hook.store)
                 phase = memory.rsplit(" ", 1)[-1]
                 for peer in hook.spec.workflow.participants:
                     self.assertEqual(
@@ -454,7 +441,7 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
         hook.memory.search_memories.side_effect = RuntimeError("Memory unavailable")
         with self.assertRaises(RuntimeError):
             await manager.invoke_async("Evaluate again")
-        self.assertNotIn("research_manager_report", hook.store.read())
+        self.assertNotIn("research_manager_report", values(hook.store))
         self.assertFalse(
             any(call["agent_id"] == "research_manager" for call in self.calls)
         )
@@ -466,8 +453,8 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
         ):
             module = importlib.import_module(module_name)
             with (
-                patch.object(module, "OpenAIModel") as model,
-                patch.object(module, "MemoryService") as memory,
+                patch("strands.models.openai.OpenAIModel") as model,
+                patch("runtime.memory.RunMemory") as memory,
             ):
                 with self.assertRaisesRegex(
                     ContractError, "HTTP round-context propagation"

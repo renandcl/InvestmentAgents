@@ -1,15 +1,17 @@
-import json
 import os
 from datetime import datetime
 
 import finnhub
 from dateutil.relativedelta import relativedelta
 
+from runtime.cache import service_cache
+
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 
 
 class FinnhubInsiderTransactionsService:
-    def __init__(self):
+    def __init__(self, *, cache=None):
+        self.cache = service_cache("finnhub-fundamentals-data-server", cache)
         self.client = finnhub.Client(api_key=FINNHUB_API_KEY)
 
     def get_insider_transactions(
@@ -22,19 +24,19 @@ class FinnhubInsiderTransactionsService:
         before = date_obj - relativedelta(days=look_back_days)
         before = before.strftime("%Y-%m-%d")
 
-        file_path = f"data/fundamentals_data/finnhub_insider_transactions_{ticker}_{before}_{curr_date}.json"
-
-        if os.path.exists(file_path):
-            json_data = json.load(open(file_path, "r"))
-        else:
+        key = self.cache.key(
+            "insider_transactions",
+            {"ticker": ticker, "before": before, "current_date": curr_date},
+        )
+        json_data = self.cache.read_json(key)
+        if json_data is None:
             json_data = self.client.stock_insider_transactions(
                 ticker,
                 before,
                 curr_date,
             )
 
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            json.dump(json_data, open(file_path, "w"))
+            self.cache.write_json(key, json_data)
 
         if len(json_data.get("data", [])) == 0:
             return "No insider transaction data available for this company."

@@ -1,75 +1,19 @@
-from mem0 import Memory
+"""Run-bound compatibility adapter; never import Mem0 in the parent process."""
+
+from runtime.agent import require_runtime
+from runtime.errors import RunContextMismatch
 
 
 class MemoryService:
-    def __init__(self, agent_id: str = "risk_manager"):
-        self.agent_id = agent_id
-        config = {
-            "vector_store": {
-                "provider": "chroma",
-                "config": {
-                    "collection_name": f"{agent_id}_memories",
-                    "path": "data/chroma_memories",
-                },
-            },
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "qwen3:8b",
-                    "openai_base_url": "http://localhost:11434/v1",
-                    "api_key": "ollama",  # pragma: allowlist secret
-                },
-            },
-            "embedder": {
-                "provider": "openai",
-                "config": {
-                    "model": "embeddinggemma:latest",
-                    "openai_base_url": "http://localhost:11434/v1",
-                    "api_key": "ollama",  # pragma: allowlist secret
-                    "embedding_dims": 768,
-                },
-            },
-        }
-        self.initialize_memory(config)
-
-    def initialize_memory(self, config: dict):
-        self.memory = Memory.from_config(config)
-
-    def add_memory(self, memory, ticker: str):
-        self.memory.add(memory, user_id=ticker, agent_id=self.agent_id)
-
-    def get_memories(self):
-        return self.memory.get_all(filters={"agent_id": self.agent_id})
-
-    def search_memories(self, current_situation: str, ticker: str, n_matches: int = 2):
-        return self.memory.search(
-            current_situation,
-            filters={"user_id": ticker, "agent_id": self.agent_id},
-            top_k=n_matches,
-        )
+    def __new__(cls, *, runtime, agent_id="risk_manager"):
+        require_runtime(runtime)
+        if agent_id != "risk_manager":
+            raise RunContextMismatch("Memory adapter belongs to another agent")
+        return runtime.memory_for(agent_id)
 
 
 if __name__ == "__main__":
-    m = MemoryService(agent_id="research_manager")
-    # Add a memory
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a portfolio manager and debate facilitator.",
-        },
-        {
-            "role": "user",
-            "content": "Based on the debate between bull and bear analysts, what's your recommendation?",
-        },
-        {
-            "role": "assistant",
-            "content": "After analyzing both perspectives, I recommend BUY because the bull's arguments about growth potential outweigh the bear's concerns about short-term risks.",
-        },
-    ]
+    from agents.risk_mgt.risk_manager.agent import RiskManager
+    from runtime.examples import run_example
 
-    result = m.add_memory(messages)
-    print("Add memory result:", result)
-
-    # Retrieve memories
-    memories = m.get_memories()
-    print("Memories for agent 'research_manager':", memories)
+    run_example(RiskManager, "risk_manager_report")

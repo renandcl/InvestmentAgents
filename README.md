@@ -7,7 +7,7 @@ This project implements a multi-agent system for investment analysis. It orchest
 - **Multi-Agent Architecture**: Coordinates specialized agents for fundamental analysis, market analysis, research, trading strategies, and risk management.
 - **Automated Workflow**: Runs a complete investment decision from data gathering to final decision.
 - **Report Generation**: Generates detailed Markdown reports for each analysis session.
-- **Agent-to-Agent (A2A) Communication**: Utilizes A2A protocols for seamless interaction and task delegation between agents.
+- **Run isolation**: Each execution owns its SQLite state, sessions, optional memory, caches and reports. In-process agents call children as tools; A2A entry points are currently disabled.
 - **Model Context Protocol (MCP) Integration**: Leverages MCP servers for data retrieval from various sources (e.g., Finnhub, SimFin).
 
 ## Architecture
@@ -20,7 +20,6 @@ flowchart LR
         MA["Market Analyst"]
         NA["News Analyst"]
         FA["Fundamentals Analyst"]
-        SA["Social Media Analyst"]
   end
  subgraph subGraph1["Researchers Discussion"]
         BR["Bull Reseacher"]
@@ -38,22 +37,21 @@ flowchart LR
   end
     Init(["Ticker, Date"]) -- Start Analysis --> IM["Investment Manager"]
     IM <-- Phase 1 --> AC
-    AC <--> MA & NA & FA & SA
+    AC <--> MA & NA & FA
     IM <-- Phase 2 --> RM
     RM <--> BR & BER
     IM <-- Phase 3 --> TR
     IM <-- Phase 4 --> RMG
     RMG <--> AD & CD & ND
-    MA -. Market Report .- State["Document"]
+    MA -. Market Report .- State["Per-run SQLite"]
     NA -. News Report .- State
     FA -. Fundamentals Report .- State
-    SA -. Social Media Report .- State
     RM -. Investment Plan .- State
     TR -. Investment Plan Report .- State
     RMG -. Risk Assessment .- State
     IM -. Final Trade Decision .- State
     State@{ shape: db}
-    Memory["Past Memory"]
+    Memory["Run-only Memory (OFF by default)"]
     Memory@{ shape: db}
     Memory -.- subGraph1 & subGraph2 & subGraph3
 ```
@@ -69,7 +67,7 @@ The shared provider validates placeholders before execution and requires nonempt
 
 `agents/hooks/lifecycle.py` loads invocation inputs, prepares workflow state,
 renders the original template and finalizes successful assistant results. Report
-text is extracted once, persisted to JSON, then passed to memory. Failed or
+text is extracted once, committed to the run's SQLite store, then passed to memory. Failed or
 incomplete invocations cannot reuse an older report from message history.
 
 Research and risk managers use a deterministic `DebateRunner`: opening,
@@ -79,12 +77,17 @@ are staged, published together after a complete round, then stored in memory.
 The manager synthesizes the full accepted history with no participant tools.
 Failed or cancelled rounds cannot publish partial arguments or trigger synthesis.
 
-The in-process managers also run this scheduler through `invoke_async` and
-`stream_async`, including when served through their A2A entry points. Distributed
-manager variants in `a2a_agent.py` reject construction until HTTP round-context
-propagation is implemented. Top-level investment phase sequencing stays
-prompt-driven. JSON replacement is atomic but does not provide cross-process
-coordination or run isolation.
+The in-process managers run this scheduler through `invoke_async`, `stream_async`
+and their public tools. Same-agent calls serialize the whole lifecycle, including
+conversation resets. All A2A constructors, server factories and manual clients
+reject execution before side effects until distributed run ownership is specified.
+This includes servers that previously wrapped local participants; ports are reserved
+unchanged. Top-level investment phase sequencing stays prompt-driven.
+
+SQLite transactions publish complete rounds and aliases, fence stale debate
+generations and reject conflicting writes. Memory runs only after commit. An
+owned-agent failure prevents run success even when the parent model continues
+after an SDK tool error. Committed reports remain available for diagnosis.
 
 See [the implementation specification](specs/002-agent-hook-contracts/spec.md).
 The debate behavior change is specified separately in
@@ -94,6 +97,9 @@ Run offline checks from the repository root:
 ```bash
 uv run python -m unittest discover -s tests -v
 ```
+
+The isolation contract and acceptance matrix are in
+[001 - Run isolation](specs/001-run-isolation/README.md).
 
 ## Prerequisites
 
@@ -197,18 +203,72 @@ The main entry point is `main.py`. You can configure the assets, date range, and
 
 2.  Run the analysis using `uv`:
     ```bash
-    uv run main.py
+    uv run --env-file .env main.py
     ```
 
 ### Output
 
-- **Reports**: Generated Markdown reports are saved in the `reports/` directory. The filename format is `report_{ticker}_{date}.md`.
-- **Shared State**: The intermediate state and agent outputs are stored in `data/shared_document.json`.
+Every analysis receives a fresh UUID, including repeated ticker/date inputs:
+
+```text
+data/runs/<run_id>/
+  run.sqlite3                # authoritative state, lifecycle and artifact hashes
+  manifest.json              # derived inspection view
+  shared_document.json       # final export, never live coordination
+  report.md
+  sessions/<agent_id>/...
+  memory/<agent_id>/...       # RUN_ONLY only; vector, history and vendor stores
+  cache/<provider_id>/...
+```
+
+The database is authoritative: successful files require a committed SUCCEEDED
+record and matching artifact hashes. Construction, invocation, cleanup and export
+failures propagate with run identity; a batch exits nonzero if any analysis fails.
+Cancellation closes owned resources and remains cancellation. A hard kill may
+leave CREATED/RUNNING; there is no automatic resume or takeover. Legacy global
+state, memories, sessions and reports are not read, migrated or deleted.
+
+### Single run and memory policy
+
+```python
+import asyncio
+from main import run_analysis
+from runtime.context import MemoryMode
+
+result = asyncio.run(run_analysis("AAPL", "2025-08-01", memory_mode=MemoryMode.OFF))
+print(result.run_id, result.report_path)
+```
+
+`OFF` is the default and never initializes Mem0 or an embedder. Opt in with
+`MemoryMode.RUN_ONLY` to use private per-agent Mem0 workers. Their Ollama-compatible
+defaults remain `qwen3:8b` and `embeddinggemma:latest` (768 dimensions); agent-group
+model environment overrides do not configure memory. Retrieval is bound to both
+run and agent. Cross-run learning and temporal evidence validation are outside
+this feature.
+
+All agent classes require `runtime=`. For custom orchestration, create a
+`RunConfig`, call `create_run(config)`, then await
+`runtime.execute(AgentClass, message, required_report_key)`; the runtime constructs
+the tree inside its managed lifecycle. Standalone examples use the same factory:
+
+```bash
+uv run --env-file .env python -m agents.traders.trader.agent --ticker AAPL --date 2025-08-01 --memory-mode OFF
+```
+
+`RunConfig` accepts a local `output_root`, a bounded SQLite busy timeout (default
+5 seconds), and a cleanup deadline (default 30 seconds). Concurrent independent
+runs are supported on a local filesystem; network filesystems are unsupported.
+The parent process does not switch CWD or environment to route runs. MCP children
+receive private cache roots and retain their provider `.env` credential delivery.
+Run identity/cache keys in those files must not conflict with host context.
+Shared SimFin datasets are read-only during analysis. Direct MCP startup requires
+host context; unused Google News and Mem0 MCP servers reject startup.
 
 ## Project Structure
 
 - `agents/`: Contains the implementation of various agents (Investment Manager, Analysts, Researchers, etc.).
-- `data/`: Stores shared state, session data, and market/fundamental data.
+- `runtime/`: Run context, SQLite store, lifecycle, sessions, memory workers, MCP resources and artifact publication.
+- `data/runs/`: Per-run mutable state and artifacts; legacy files remain untouched.
 - `mcp-servers/`: Model Context Protocol servers for data retrieval.
 - `utils/`: Utility scripts (e.g., report generation).
 - `main.py`: Main script to run the investment analysis workflow.

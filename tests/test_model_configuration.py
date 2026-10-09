@@ -4,9 +4,12 @@ import importlib
 import os
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from strands import Agent
+
+from runtime.context import RunConfig
 
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = ("ANALYSTS", "RESEARCHERS", "TRADERS", "RISK_MANAGERS", "INVESTMENT_MANAGER")
@@ -16,9 +19,7 @@ class ModelConfigurationTests(unittest.TestCase):
     def check_configuration(
         self, settings, expected_base, expected_key, expected_model
     ):
-        paths = sorted((ROOT / "agents").rglob("agent.py")) + sorted(
-            (ROOT / "agents").rglob("a2a_agent.py")
-        )
+        paths = sorted((ROOT / "agents").rglob("agent.py"))
         with patch.dict(os.environ, settings):
             for path in paths:
                 name = ".".join(path.relative_to(ROOT).with_suffix("").parts)
@@ -36,6 +37,9 @@ class ModelConfigurationTests(unittest.TestCase):
                     patch.object(module, "OpenAIModel") as model,
                 ):
                     instance = classes[0].__new__(classes[0])
+                    instance.runtime = SimpleNamespace(
+                        config=RunConfig("AAPL", "2025-08-01")
+                    )
                     instance._init_model()
                     kwargs = model.call_args.kwargs
                     self.assertEqual(kwargs["client_args"]["base_url"], expected_base)

@@ -1,32 +1,10 @@
-from datetime import datetime
+import sys
+from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from models import GoogleNewsParameters
-from services import GoogleNewsService
+from runtime.errors import UnsupportedExecutionMode
 
-mcp = FastMCP("google-news-data")
-google_news_service = GoogleNewsService()
-
-
-@mcp.tool()
-def get_google_news(payload: GoogleNewsParameters) -> str:
-    """
-    Retrieve Google News articles for a query within a date range.
-
-    Returns:
-        str: A formatted markdown string with top news articles.
-    """
-    query = payload.query
-    start_date = payload.start_date
-    end_date = payload.end_date
-
-    end_date_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    start_date_dt = datetime.strptime(start_date, "%Y-%m-%d")
-    look_back_days = (end_date_dt - start_date_dt).days
-
-    return google_news_service.get_news(query, end_date, look_back_days)
-
-
-if __name__ == "__main__":
-    mcp.run(transport="stdio")
+raise UnsupportedExecutionMode(
+    "This unused provider is disabled for the run-isolation milestone."
+)

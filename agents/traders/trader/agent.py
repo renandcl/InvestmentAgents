@@ -1,26 +1,24 @@
 import os
-import uuid
-from datetime import datetime
 
-from strands import Agent, tool
+from strands import tool
 from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
-from strands.session.file_session_manager import FileSessionManager
 
 from agents.traders.trader.hook import SharedDocument
-from agents.traders.trader.memory import MemoryService
+from runtime.agent import RunAgent as Agent
+from runtime.agent import require_runtime
 
 
 class Trader(Agent):
-    def __init__(
-        self,
-    ):
+    def __init__(self, *, runtime):
+        self.runtime = require_runtime(runtime)
         self._init_system_prompt()
         self._init_model()
-        self._init_session_manager("data/agents_sessions/traders/trader")
-        self._init_hooks(shared_document_file="data/shared_document.json")
+        self._init_session_manager()
+        self._init_hooks()
 
         super().__init__(
+            runtime=self.runtime,
             name="TraderAgent",
             agent_id="trader",
             description="Analyzes market data to make informed and strategic investment plans.",
@@ -31,32 +29,26 @@ class Trader(Agent):
         )
 
     def _init_system_prompt(self):
-        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+        with open(
+            os.path.join(os.path.dirname(__file__), "prompt.txt"), "r", encoding="utf-8"
+        ) as f:
             self.system_prompt = f.read()
 
     def _init_model(self):
-        base_url = os.getenv("TRADERS_BASE_URL") or "http://localhost:11434/v1"
-        api_key = os.getenv("TRADERS_API_KEY") or "ollama"
-        model_id = os.getenv("TRADERS_MODEL_ID") or "qwen3:8b"
+        settings = self.runtime.config.model_for("TRADERS")
         self.model = OpenAIModel(
-            client_args={
-                "base_url": base_url,
-                "api_key": api_key,
-            },
-            model_id=model_id,
+            client_args={"base_url": settings.base_url, "api_key": settings.api_key},
+            model_id=settings.model_id,
         )
 
-    def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
-        self.session_manager = FileSessionManager(
-            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
-            storage_dir=storage_dir,
-        )
+    def _init_session_manager(self):
+        self.session_manager = self.runtime.session_for("trader")
 
-    def _init_hooks(self, shared_document_file: str):
-        memory = MemoryService(agent_id="trader")
-        shared_document_handler_hook = SharedDocument(shared_document_file, memory)
-        self.hooks = [shared_document_handler_hook]
+    def _init_hooks(self):
+        self.lifecycle_hooks = SharedDocument(
+            runtime=self.runtime, memory=self.runtime.memory_for("trader")
+        )
+        self.hooks = [self.lifecycle_hooks]
 
     @tool
     async def get_trader_investment_plan_decision(self, message: str) -> AgentResult:
@@ -65,9 +57,6 @@ class Trader(Agent):
 
 
 if __name__ == "__main__":
-    import asyncio
+    from runtime.examples import run_example
 
-    agent = Trader()
-    test_message = "Execute the investment decision based on the plan."
-    response = asyncio.run(agent.get_trader_investment_plan_decision(test_message))
-    print(f"Response: {response}")
+    run_example(Trader, "trader_report")
