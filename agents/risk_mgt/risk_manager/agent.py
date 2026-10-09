@@ -1,19 +1,17 @@
 import logging
 import os
-import uuid
-from datetime import datetime
 
-from strands import Agent, tool
+from strands import tool
 from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
-from strands.session.file_session_manager import FileSessionManager
 
 from agents.debates.runner import DebateRunner
 from agents.risk_mgt.aggressive_debator.agent import AggressiveDebator
 from agents.risk_mgt.conservative_debator.agent import ConservativeDebator
 from agents.risk_mgt.neutral_debator.agent import NeutralDebator
 from agents.risk_mgt.risk_manager.hook import SharedDocument
-from agents.risk_mgt.risk_manager.memory import MemoryService
+from runtime.agent import RunAgent as Agent
+from runtime.agent import require_runtime
 
 # Enable debug logs
 logging.getLogger("strands").setLevel(logging.DEBUG)
@@ -23,16 +21,16 @@ logging.basicConfig(
 
 
 class RiskManager(Agent):
-    def __init__(
-        self,
-    ):
+    def __init__(self, *, runtime):
+        self.runtime = require_runtime(runtime)
         self._init_system_prompt()
         self._init_model()
-        self._init_session_manager("data/agents_sessions/risk_mgt/risk_manager")
-        self._init_hooks(shared_document_file="data/shared_document.json")
+        self._init_session_manager()
+        self._init_hooks()
         self._init_tools()
 
         super().__init__(
+            runtime=self.runtime,
             name="RiskManagerAgent",
             agent_id="risk_manager",
             description="Evaluates risk debate between aggressive, conservative, and neutral analysts to make final risk-adjusted trading decisions.",
@@ -44,40 +42,31 @@ class RiskManager(Agent):
         )
 
     def _init_system_prompt(self):
-        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+        with open(
+            os.path.join(os.path.dirname(__file__), "prompt.txt"), "r", encoding="utf-8"
+        ) as f:
             self.system_prompt = f.read()
 
     def _init_model(self):
-        base_url = os.getenv("RISK_MANAGERS_BASE_URL") or "http://localhost:11434/v1"
-        api_key = os.getenv("RISK_MANAGERS_API_KEY") or "ollama"
-        model_id = os.getenv("RISK_MANAGERS_MODEL_ID") or "qwen3:8b"
+        settings = self.runtime.config.model_for("RISK_MANAGERS")
         self.model = OpenAIModel(
-            client_args={
-                "base_url": base_url,
-                "api_key": api_key,
-            },
-            model_id=model_id,
+            client_args={"base_url": settings.base_url, "api_key": settings.api_key},
+            model_id=settings.model_id,
         )
 
-    def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
-        self.session_manager = FileSessionManager(
-            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
-            storage_dir=storage_dir,
-        )
+    def _init_session_manager(self):
+        self.session_manager = self.runtime.session_for("risk_manager")
 
-    def _init_hooks(self, shared_document_file: str):
-        memory_service = MemoryService(agent_id="risk_manager")
-        shared_document_handler_hook = SharedDocument(
-            shared_document_file=shared_document_file, memory=memory_service
+    def _init_hooks(self):
+        self.lifecycle_hooks = SharedDocument(
+            runtime=self.runtime, memory=self.runtime.memory_for("risk_manager")
         )
-        self.lifecycle_hooks = shared_document_handler_hook
-        self.hooks = [shared_document_handler_hook]
+        self.hooks = [self.lifecycle_hooks]
 
     def _init_tools(self):
-        aggressive_debator = AggressiveDebator()
-        conservative_debator = ConservativeDebator()
-        neutral_debator = NeutralDebator()
+        aggressive_debator = AggressiveDebator(runtime=self.runtime)
+        conservative_debator = ConservativeDebator(runtime=self.runtime)
+        neutral_debator = NeutralDebator(runtime=self.runtime)
         self.lifecycle_hooks.debate_runner = DebateRunner(
             self.lifecycle_hooks.spec.workflow,
             {
@@ -98,12 +87,6 @@ class RiskManager(Agent):
 
 
 if __name__ == "__main__":
-    import asyncio
+    from runtime.examples import run_example
 
-    risk_manager = RiskManager()
-    result = asyncio.run(
-        risk_manager.get_risk_manager_evaluation_and_decision(
-            "Coordinate a debate between the aggressive, conservative, and neutral analysts to make a final risk-adjusted trading decision."
-        )
-    )
-    print(result)
+    run_example(RiskManager, "risk_manager_report")

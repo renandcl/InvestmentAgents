@@ -1,12 +1,16 @@
-import json
-import os
 from datetime import datetime
 from typing import Dict, List, Literal
 
 import yfinance as yf
 
+from runtime.cache import configure_yfinance, service_cache
+
 
 class YFinMarketDataService:
+    def __init__(self, *, cache=None):
+        self.cache = service_cache("yfin-market-data-server", cache)
+        configure_yfinance(self.cache)
+
     def get_data(
         self,
         symbol: str,
@@ -15,28 +19,18 @@ class YFinMarketDataService:
         adjust: bool = True,
         output_format: Literal["markdown", "csv"] = "markdown",
     ) -> str:
-        """Fetch OHLCV data, caching results to data/market_data.
-
-        Cache file naming: data/market_data/yfin_{symbol}_{start}_{end}_{adj|raw}.json
-        Subsequent identical requests reuse the stored file to avoid repeated network calls.
-        """
+        """Fetch OHLCV data using the run-owned provider cache."""
         # validate dates (raises ValueError if malformed)
         datetime.strptime(start_date, "%Y-%m-%d")
         datetime.strptime(end_date, "%Y-%m-%d")
 
         sym_up = symbol.upper()
-        os.makedirs("data/market_data", exist_ok=True)
-        cache_file = f"data/market_data/yfin_{sym_up}_{start_date}_{end_date}_{'adj' if adjust else 'raw'}.json"
-
-        if os.path.exists(cache_file):
-            try:
-                with open(cache_file, "r") as f:
-                    cached = json.load(f)
-                records: List[Dict] = cached.get("data", [])
-            except Exception:
-                records = []  # fall through to refetch
-        else:
-            records = []
+        key = self.cache.key(
+            "ohlcv",
+            {"symbol": sym_up, "start": start_date, "end": end_date, "adjust": adjust},
+        )
+        cached = self.cache.read_json(key)
+        records: List[Dict] = cached["data"] if cached else []
 
         if not records:
             ticker = yf.Ticker(sym_up)
@@ -71,11 +65,7 @@ class YFinMarketDataService:
                 "columns": cols,
                 "data": records,
             }
-            try:
-                with open(cache_file, "w") as f:
-                    json.dump(payload, f)
-            except Exception:
-                pass  # non-fatal
+            self.cache.write_json(key, payload)
         else:
             # columns infer from first record ordering (preserve typical order)
             exemplar = records[0]

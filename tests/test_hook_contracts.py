@@ -1,7 +1,6 @@
 """Offline acceptance tests for explicit contracts and the registered lifecycle."""
 
 import ast
-import inspect
 import json
 import runpy
 import tempfile
@@ -12,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from isolation_helpers import fixture_replace, new_runtime, unit_agent, values
 from strands.hooks import (
     AfterInvocationEvent,
     BeforeInvocationEvent,
@@ -21,7 +21,7 @@ from strands.hooks import (
 
 from agents.hooks.contracts import ContractError
 from agents.hooks.lifecycle import AgentLifecycleHooks
-from agents.hooks.services import PromptRenderer, extract_report
+from agents.hooks.services import JsonReportStore, PromptRenderer, extract_report
 from agents.hooks.specs import AGENT_SPECS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,19 +37,18 @@ class HookContractTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.shared = Path(self.directory.name) / "shared.json"
+        self.runtime = new_runtime(Path(self.directory.name))
         self.snapshot = {"ticker": "AAPL", "current_date": "2025-08-01"}
         self.write_snapshot()
 
     def write_snapshot(self):
-        self.shared.write_text(json.dumps(self.snapshot), encoding="utf-8")
+        fixture_replace(self.runtime, self.snapshot)
 
     def make_agent(self, agent_id="trader"):
         spec = AGENT_SPECS[agent_id]
         memory = Mock(search_memories=Mock(return_value=[])) if spec.memory else None
-        hook = AgentLifecycleHooks(spec, str(self.shared), memory)
-        agent = SimpleNamespace(
-            agent_id=agent_id, state=State(), messages=[], system_prompt=""
-        )
+        hook = AgentLifecycleHooks(spec, runtime=self.runtime, memory=memory)
+        agent = unit_agent(self.runtime, agent_id)
         registry = HookRegistry()
         hook.register_hooks(registry)
         hook.get_shared_document(BeforeInvocationEvent(agent=agent))
@@ -69,11 +68,7 @@ class HookContractTests(unittest.TestCase):
         outputs = set()
         for path in adapters:
             cls = runpy.run_path(str(path))["SharedDocument"]
-            # Both historical constructor signatures remain usable.
-            kwargs = {"shared_document_file": str(self.shared)}
-            if "memory" in inspect.signature(cls).parameters:
-                kwargs["memory"] = Mock()
-            hook = cls(**kwargs)
+            hook = cls(runtime=self.runtime, memory=Mock())
             spec = hook.spec
             with self.subTest(agent=spec.agent_id):
                 self.assertIsInstance(hook, AgentLifecycleHooks)
@@ -104,21 +99,25 @@ class HookContractTests(unittest.TestCase):
         for name in ("ticker", "current_date"):
             for value in (None, "", " ", 123):
                 with self.subTest(field=name, value=value):
-                    self.snapshot[name] = value
-                    self.write_snapshot()
                     memory = Mock()
                     hook = AgentLifecycleHooks(
-                        AGENT_SPECS["trader"], str(self.shared), memory
+                        AGENT_SPECS["trader"], runtime=self.runtime, memory=memory
                     )
-                    agent = SimpleNamespace(agent_id="trader", state=State())
-                    with self.assertRaisesRegex(ContractError, name):
+                    agent = unit_agent(self.runtime, "trader")
+                    snapshot = self.runtime.store.read_snapshot()
+                    broken = replace(
+                        snapshot, values=dict(snapshot.values, **{name: value})
+                    )
+                    with (
+                        patch.object(hook.store, "read_snapshot", return_value=broken),
+                        self.assertRaisesRegex(ContractError, name),
+                    ):
                         hook.get_shared_document(BeforeInvocationEvent(agent=agent))
                     memory.search_memories.assert_not_called()
                     self.assertEqual(agent.state, {})
-            self.snapshot[name] = "AAPL" if name == "ticker" else "2025-08-01"
 
     def test_wrong_agent_is_rejected(self):
-        hook = AgentLifecycleHooks(AGENT_SPECS["market_analyst"], str(self.shared))
+        hook = AgentLifecycleHooks(AGENT_SPECS["market_analyst"], runtime=self.runtime)
         agent = SimpleNamespace(agent_id="news_analyst")
         with self.assertRaisesRegex(ContractError, "wrong agent"):
             hook.get_shared_document(BeforeInvocationEvent(agent=agent))
@@ -173,9 +172,8 @@ class HookContractTests(unittest.TestCase):
                 registry.invoke_callbacks(BeforeModelCallEvent(agent=agent))
                 for other in set(peers) - {peer}:
                     self.assertIn(f"Argument from {other}", agent.system_prompt)
-                self.shared.write_text(
-                    json.dumps({"ticker": "MSFT", "current_date": "2025-08-02"}),
-                    encoding="utf-8",
+                fixture_replace(
+                    self.runtime, {"ticker": "AAPL", "current_date": "2025-08-01"}
                 )
                 registry.invoke_callbacks(BeforeInvocationEvent(agent=agent))
                 registry.invoke_callbacks(BeforeModelCallEvent(agent=agent))
@@ -197,7 +195,7 @@ class HookContractTests(unittest.TestCase):
         hook, agent, registry = self.make_agent()
 
         def observe_commit(*, memory, ticker):
-            snapshot = json.loads(self.shared.read_text(encoding="utf-8"))
+            snapshot = values(self.runtime.store)
             for key in hook.spec.output_keys:
                 self.assertEqual(snapshot[key], 'Buy\n{"shares": 10}')
             self.assertEqual(ticker, "AAPL")
@@ -244,8 +242,20 @@ class HookContractTests(unittest.TestCase):
                     )
                 else:
                     self.finish(agent, registry, stop_reason=reason)
-                self.assertEqual(json.loads(self.shared.read_text()), self.snapshot)
+                self.assertEqual(values(self.runtime.store), self.snapshot)
                 hook.memory.add_memory.assert_not_called()
+
+    def test_receipt_replay_never_retries_external_memory(self):
+        hook, agent, registry = self.make_agent()
+        hook.memory.add_memory.side_effect = RuntimeError("Memory unavailable")
+        with self.assertRaises(RuntimeError):
+            self.finish(agent, registry, "Committed report")
+        committed = self.runtime.store.read_snapshot()
+        # Simulate a repeated callback with the original operation identity.
+        agent.state.set("hook_finalized", False)
+        self.finish(agent, registry, "Committed report")
+        self.assertEqual(self.runtime.store.read_snapshot(), committed)
+        hook.memory.add_memory.assert_called_once()
 
     def test_empty_and_invalid_reports_are_not_persisted(self):
         for text in ("", "<think>hidden</think>", "<think>unfinished"):
@@ -254,11 +264,13 @@ class HookContractTests(unittest.TestCase):
                 with self.assertRaises(ContractError):
                     self.finish(agent, registry, text)
                 hook.memory.add_memory.assert_not_called()
-                self.assertEqual(json.loads(self.shared.read_text()), self.snapshot)
+                self.assertEqual(values(self.runtime.store), self.snapshot)
 
-    def test_json_failure_prevents_memory_write(self):
+    def test_store_failure_prevents_memory_write(self):
         hook, agent, registry = self.make_agent()
-        with patch.object(hook.store, "patch", side_effect=OSError("unavailable")):
+        with patch.object(
+            hook.store, "patch_reports", side_effect=OSError("unavailable")
+        ):
             with self.assertRaises(OSError):
                 self.finish(agent, registry)
         hook.memory.add_memory.assert_not_called()
@@ -269,20 +281,19 @@ class HookContractTests(unittest.TestCase):
         hook.memory.add_memory.side_effect = RuntimeError("memory unavailable")
         with self.assertRaises(RuntimeError):
             self.finish(agent, registry)
-        self.assertEqual(
-            json.loads(self.shared.read_text())["trader_report"], "Buy ten shares"
-        )
+        self.assertEqual(values(self.runtime.store)["trader_report"], "Buy ten shares")
 
     def test_replacement_failure_preserves_json_and_cleans_temporary_file(self):
-        hook, agent, registry = self.make_agent()
+        # Legacy adapter test remains separate from the isolated application path.
+        self.shared.write_text(json.dumps(self.snapshot), encoding="utf-8")
+        store = JsonReportStore(str(self.shared))
         with patch(
             "agents.hooks.services.os.replace", side_effect=OSError("unavailable")
         ):
             with self.assertRaises(OSError):
-                self.finish(agent, registry)
+                store.patch({"trader_report": "new"})
         self.assertEqual(json.loads(self.shared.read_text()), self.snapshot)
-        self.assertEqual(list(self.shared.parent.iterdir()), [self.shared])
-        hook.memory.add_memory.assert_not_called()
+        self.assertEqual(list(self.shared.parent.glob("*.json")), [self.shared])
 
     def test_both_constructor_paths_register_one_lifecycle_provider(self):
         for pattern in ("agent.py", "a2a_agent.py"):
@@ -291,10 +302,7 @@ class HookContractTests(unittest.TestCase):
                     source = path.read_text(encoding="utf-8")
                     self.assertNotIn("StoreMemoryHook", source)
                     tree = ast.parse(source)
-                    if path.name == "a2a_agent.py" and path.parent.name in (
-                        "manager",
-                        "risk_manager",
-                    ):
+                    if path.name == "a2a_agent.py":
                         constructors = [
                             node
                             for node in ast.walk(tree)

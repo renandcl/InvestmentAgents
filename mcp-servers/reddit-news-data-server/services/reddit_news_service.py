@@ -1,16 +1,18 @@
 import datetime
-import json
 import os
 
 import praw
 from praw.models import Submission
+
+from runtime.cache import service_cache
 
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 
 
 class RedditNewsService:
-    def __init__(self):
+    def __init__(self, *, cache=None):
+        self.cache = service_cache("reddit-news-data-server", cache)
         self.reddit = praw.Reddit(
             client_id=REDDIT_CLIENT_ID,
             client_secret=REDDIT_CLIENT_SECRET,
@@ -39,11 +41,16 @@ class RedditNewsService:
         start_date = datetime.datetime.strptime(curr_date, "%Y-%m-%d")
         before = start_date - datetime.timedelta(days=look_back_days)
 
-        file_path = f"data/news_data/reddit_news_{ticker}_{before.strftime('%Y-%m-%d')}_{curr_date}.json"
-
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                json_data = json.load(f)
+        key = self.cache.key(
+            "news",
+            {
+                "ticker": ticker,
+                "current_date": curr_date,
+                "look_back_days": look_back_days,
+            },
+        )
+        json_data = self.cache.read_json(key)
+        if json_data is not None:
             # subreddit : List[Submission] = json_data["data"]
             subreddit = []
             for item in json_data["data"]:
@@ -56,7 +63,6 @@ class RedditNewsService:
                 )
             )
 
-            os.makedirs("data/news_data", exist_ok=True)
             json_data = {"data": []}
 
             for submission in subreddit:
@@ -67,8 +73,7 @@ class RedditNewsService:
                         "created_utc": submission.created_utc,
                     }
                 )
-            with open(file_path, "w") as f:
-                json.dump(json_data, f)
+            self.cache.write_json(key, json_data)
 
         combined_result = ""
         count_submissions = 0

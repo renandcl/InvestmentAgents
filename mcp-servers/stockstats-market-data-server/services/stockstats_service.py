@@ -1,17 +1,17 @@
-import os
 from datetime import datetime, timedelta
 
-import yfinance as yf
 from dateutil.relativedelta import relativedelta
 from stockstats import wrap
+
+from runtime.cache import configure_yfinance, service_cache
 
 from .stockstats_utils import StockstatsUtils
 
 
 class StockstatsService:
-    def __init__(self, cache_dir: str = "data/market_data/price_data"):
-        self.cache_dir = cache_dir
-        os.makedirs(self.cache_dir, exist_ok=True)
+    def __init__(self, *, cache=None):
+        self.cache = service_cache("stockstats-market-data-server", cache)
+        configure_yfinance(self.cache)
 
     def get_stock_stats_indicators_window(
         self,
@@ -25,7 +25,12 @@ class StockstatsService:
         # Download window of data (always online for now)
         end_dt = datetime.strptime(curr_date, "%Y-%m-%d")
         start_dt = end_dt - timedelta(days=look_back_days)
-        data = yf.download(symbol, start=start_dt, end=end_dt, progress=False)
+        data = StockstatsUtils.price_data(
+            self.cache,
+            symbol,
+            start_dt.strftime("%Y-%m-%d"),
+            end_dt.strftime("%Y-%m-%d"),
+        )
         data = wrap(data)
 
         best_ind_params = {
@@ -75,11 +80,10 @@ class StockstatsService:
         curr_str = curr_dt.strftime("%Y-%m-%d")
         try:
             indicator_value = StockstatsUtils.get_stock_stats(
-                symbol, indicator, curr_str, end_date
+                symbol, indicator, curr_str, end_date, cache=self.cache
             )
-        except Exception as e:  # noqa: BLE001
-            print(f"Error getting stockstats indicator {indicator} for {curr_str}: {e}")
-            return ""
+        except Exception:
+            raise
         return str(indicator_value)
 
 
