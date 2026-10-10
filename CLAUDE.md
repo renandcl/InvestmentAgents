@@ -52,15 +52,21 @@ Every agent directory follows the same layout. When you add or change an agent, 
 
 ### A2A ports
 
-| Port | Agent | Port | Agent |
-|---|---|---|---|
-| 9900 | fundamentals_analyst | 9906 | research_manager |
-| 9901 | news_analyst | 9907 | trader |
-| 9902 | market_analyst | 9908 | aggressive_debator |
-| 9903 | analysts_coordinator | 9909 | conservative_debator |
-| 9904 | bear researcher | 9910 | neutral_debator |
-| 9905 | bull researcher | 9911 | risk_manager |
-| | | 9912 | investment_manager |
+| Port | Agent |
+|---|---|
+| 9900 | fundamentals_analyst |
+| 9901 | news_analyst |
+| 9902 | market_analyst |
+| 9903 | analysts_coordinator |
+| 9904 | bear researcher |
+| 9905 | bull researcher |
+| 9906 | research_manager |
+| 9907 | trader |
+| 9908 | aggressive_debator |
+| 9909 | conservative_debator |
+| 9910 | neutral_debator |
+| 9911 | risk_manager |
+| 9912 | investment_manager |
 
 If you change a port, update `main.py`, `test_a2a.py`, and the parent's `a2a_agent.py`.
 
