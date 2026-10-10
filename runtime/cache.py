@@ -135,13 +135,11 @@ def service_cache(provider_id, cache=None):
     return cache
 
 
-def configure_yfinance(cache):
+def configure_yfinance(cache, *, yfinance):
     # yfinance's process-level singleton caches are safe only inside its owned
     # one-run provider process; never switch them in the application process.
     if provider_context(cache.context.provider_id) != cache.context:
         raise RunContextMismatch("YFinance must run in its owned provider process")
-    import yfinance
-
     path = cache.context.path("vendor", "yfinance")
     path.mkdir(parents=True, exist_ok=True)
     yfinance.set_tz_cache_location(str(path))

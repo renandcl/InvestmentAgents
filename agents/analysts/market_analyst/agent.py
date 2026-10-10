@@ -7,6 +7,7 @@ from strands.models.openai import OpenAIModel
 from agents.analysts.market_analyst.hook import SharedDocument
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
+from runtime.examples import run_example
 from runtime.mcp import start_mcp
 
 
@@ -73,6 +74,4 @@ class MarketAnalyst(Agent):
 
 
 if __name__ == "__main__":
-    from runtime.examples import run_example
-
     run_example(MarketAnalyst, "market_analyst_report")

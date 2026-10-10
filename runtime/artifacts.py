@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import time
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from agents.hooks.specs import AGENT_SPECS
@@ -69,8 +70,6 @@ def atomic_write(context, name, data):
                 time.sleep(0.005)
     finally:
         if temporary is not None:
-            from pathlib import Path
-
             Path(temporary).unlink(missing_ok=True)
     return path
 

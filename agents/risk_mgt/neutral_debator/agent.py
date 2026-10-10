@@ -7,6 +7,7 @@ from strands.models.openai import OpenAIModel
 from agents.risk_mgt.neutral_debator.hook import SharedDocument
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
+from runtime.examples import run_example
 
 
 class NeutralDebator(Agent):
@@ -55,6 +56,4 @@ class NeutralDebator(Agent):
 
 
 if __name__ == "__main__":
-    from runtime.examples import run_example
-
     run_example(NeutralDebator, "neutral_risk_analyst_report")

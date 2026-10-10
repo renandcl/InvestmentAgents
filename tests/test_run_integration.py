@@ -21,18 +21,22 @@ from isolation_helpers import new_runtime
 from strands import tool
 from strands.models.model import Model
 
+import main
 from agents.debates.state import RoundContext
 from agents.hooks.lifecycle import AgentLifecycleHooks
 from agents.hooks.specs import AGENT_SPECS
+from agents.traders.trader import agent as trader_agent
 from runtime.agent import RunAgent
 from runtime.cache import RunCache
 from runtime.context import REPO_ROOT, RunConfig, resolve_models
 from runtime.errors import (
     RunContextMismatch,
     RunExecutionError,
+    SafeError,
     StateConflict,
     UnsupportedExecutionMode,
 )
+from runtime.examples import run_example
 from runtime.lifecycle import create_run
 from runtime.memory import NullMemory
 from runtime.store import RunStore
@@ -274,8 +278,6 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
     async def test_all_real_agents_complete_with_isolated_sessions_and_no_legacy_access(
         self,
     ):
-        import main
-
         calls = []
         clients = []
         real_open = builtins.open
@@ -440,8 +442,6 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
     async def test_credentials_reach_model_but_not_manifest_or_database_diagnostics(
         self,
     ):
-        from agents.traders.trader import agent as module
-
         credentials = {
             "TRADERS_API_KEY": "fixture-credential-for-isolation",  # pragma: allowlist secret
             "TRADERS_BASE_URL": "https://fixture-user:fixture-password@example.invalid/v1?secret=fixture-query#fixture-fragment",  # pragma: allowlist secret
@@ -455,9 +455,9 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
         )
         runtime = create_run(config)
         with patch.object(
-            module, "OpenAIModel", return_value=WorkflowModel("trader")
+            trader_agent, "OpenAIModel", return_value=WorkflowModel("trader")
         ) as model:
-            await runtime.execute(module.Trader, "Analyze", "trader_report")
+            await runtime.execute(trader_agent.Trader, "Analyze", "trader_report")
         self.assertEqual(
             model.call_args.kwargs["client_args"],
             {
@@ -616,8 +616,6 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
     async def test_standalone_factory_allocates_fresh_run_and_batch_returns_failure(
         self,
     ):
-        from runtime.examples import run_example
-
         # run_example owns asyncio.run, so run it outside this test's event loop.
         def factory(*, runtime):
             return simple_agent(runtime)
@@ -633,14 +631,11 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
                 run_example, factory, "market_analyst_report"
             )
         self.assertNotEqual(first.run_id, second.run_id)
-        import main
 
         error = RunExecutionError(
             self.runtime.context,
             "FAILED",
-            __import__("runtime.errors", fromlist=["SafeError"]).SafeError(
-                "ExecutionFailure", "invocation"
-            ),
+            SafeError("ExecutionFailure", "invocation"),
         )
 
         async def fail(*args):

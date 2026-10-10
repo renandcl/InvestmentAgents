@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+import yfinance as yf
 from dateutil.relativedelta import relativedelta
 from stockstats import wrap
 
@@ -11,7 +12,7 @@ from .stockstats_utils import StockstatsUtils
 class StockstatsService:
     def __init__(self, *, cache=None):
         self.cache = service_cache("stockstats-market-data-server", cache)
-        configure_yfinance(self.cache)
+        configure_yfinance(self.cache, yfinance=yf)
 
     def get_stock_stats_indicators_window(
         self,

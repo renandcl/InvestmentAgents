@@ -1,7 +1,9 @@
 """Run-bound compatibility adapter; never import Mem0 in the parent process."""
 
+from agents.risk_mgt.risk_manager.agent import RiskManager
 from runtime.agent import require_runtime
 from runtime.errors import RunContextMismatch
+from runtime.examples import run_example
 
 
 class MemoryService:
@@ -13,7 +15,4 @@ class MemoryService:
 
 
 if __name__ == "__main__":
-    from agents.risk_mgt.risk_manager.agent import RiskManager
-    from runtime.examples import run_example
-
     run_example(RiskManager, "risk_manager_report")

@@ -11,6 +11,7 @@ from agents.analysts.market_analyst.agent import MarketAnalyst
 from agents.analysts.news_analyst.agent import NewsAnalyst
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
+from runtime.examples import run_example
 
 # Enable debug logs and print them to stderr
 logging.getLogger("strands").setLevel(logging.DEBUG)
@@ -78,6 +79,4 @@ class AnalystCoordinator(Agent):
 
 
 if __name__ == "__main__":
-    from runtime.examples import run_example
-
     run_example(AnalystCoordinator, "analyst_coordinator_report")

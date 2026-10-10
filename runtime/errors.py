@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 
 from agents.hooks.contracts import ContractError
+from agents.hooks.specs import AGENT_SPECS
 
 
 class InvalidRunConfig(ContractError):
@@ -59,8 +60,6 @@ class SafeError:
 
     def __post_init__(self):
         if self.agent_id is not None:
-            from agents.hooks.specs import AGENT_SPECS
-
             if self.agent_id not in AGENT_SPECS:
                 raise ContractError("Unknown failure owner")
         if self.invocation_id is not None and not re.fullmatch(

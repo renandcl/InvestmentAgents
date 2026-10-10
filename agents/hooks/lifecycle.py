@@ -20,13 +20,13 @@ from agents.hooks.services import (
     format_memories,
     memory_query,
 )
+from runtime.agent import require_runtime
+from runtime.errors import RunContextMismatch
 
 
 class AgentLifecycleHooks(HookProvider):
     def __init__(self, spec: AgentSpec, *, runtime, memory: Any = None):
         self.spec = spec
-        from runtime.agent import require_runtime
-
         self.runtime = require_runtime(runtime)
         self.shared_document_file = str(runtime.context.path("shared_document.json"))
         self.renderer = PromptRenderer(spec)
@@ -80,8 +80,6 @@ class AgentLifecycleHooks(HookProvider):
         self.retrieve_memories(snapshot, event)
 
     def _invocation(self, event):
-        from runtime.errors import RunContextMismatch
-
         if event.agent.agent_id != self.spec.agent_id:
             raise ContractError(f"{self.spec.agent_id}: hook attached to wrong agent")
         if getattr(event.agent, "runtime", None) is not self.runtime:

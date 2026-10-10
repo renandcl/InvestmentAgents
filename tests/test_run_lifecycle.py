@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 from test_run_store import publish
 
-from runtime.artifacts import export_final
+from runtime.artifacts import export_final, refresh_manifest
 from runtime.context import MemoryMode, RunConfig
 from runtime.errors import RunExecutionError, RunNotWritable
 from runtime.lifecycle import create_run
@@ -197,7 +197,6 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_manifest_failure_after_commit_is_only_a_warning(self):
         runtime = self.runtime()
-        from runtime.artifacts import refresh_manifest
 
         def refresh(store):
             if store.inspect()["status"] == "SUCCEEDED":

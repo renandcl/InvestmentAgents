@@ -33,6 +33,8 @@ def serve(root, agent_id):
             with contextlib.redirect_stdout(sys.stderr):
                 method = request["method"]
                 if method == "initialize" and memory is None:
+                    # Mem0 has import-time persistence side effects. Import only
+                    # after validating the private worker environment above.
                     from mem0 import Memory
 
                     memory = Memory.from_config(memory_config(memory_root))

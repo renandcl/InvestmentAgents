@@ -1,7 +1,9 @@
 """Run-bound compatibility adapter; never import Mem0 in the parent process."""
 
+from agents.traders.trader.agent import Trader
 from runtime.agent import require_runtime
 from runtime.errors import RunContextMismatch
+from runtime.examples import run_example
 
 
 class MemoryService:
@@ -13,7 +15,4 @@ class MemoryService:
 
 
 if __name__ == "__main__":
-    from agents.traders.trader.agent import Trader
-    from runtime.examples import run_example
-
     run_example(Trader, "trader_report")

@@ -9,7 +9,7 @@ from runtime.cache import configure_yfinance, service_cache
 class YFinMarketDataService:
     def __init__(self, *, cache=None):
         self.cache = service_cache("yfin-market-data-server", cache)
-        configure_yfinance(self.cache)
+        configure_yfinance(self.cache, yfinance=yf)
 
     def get_data(
         self,

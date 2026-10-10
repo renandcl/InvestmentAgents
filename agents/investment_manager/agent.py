@@ -12,6 +12,7 @@ from agents.risk_mgt.risk_manager.agent import RiskManager
 from agents.traders.trader.agent import Trader
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
+from runtime.examples import run_example
 
 # Enables Strands debug log level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -91,6 +92,4 @@ class InvestmentManager(Agent):
 
 
 if __name__ == "__main__":
-    from runtime.examples import run_example
-
     run_example(InvestmentManager, "investment_manager_report")

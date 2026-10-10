@@ -11,16 +11,25 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
+import pandas as pd
+import yfinance
 from isolation_helpers import new_runtime
 
-from runtime.cache import CacheCorruption, RunCache, provider_context
-from runtime.context import REPO_ROOT
+from runtime.cache import (
+    CacheCorruption,
+    RunCache,
+    configure_yfinance,
+    provider_context,
+)
+from runtime.context import REPO_ROOT, RunConfig
 from runtime.errors import (
     RunContextMismatch,
     RunContextRequired,
+    RunExecutionError,
     UnsafeRunPath,
     UnsupportedExecutionMode,
 )
+from runtime.lifecycle import create_run
 from runtime.mcp import server_parameters, start_mcp
 
 
@@ -260,10 +269,6 @@ class CacheTests(unittest.TestCase):
         client.news.assert_called_once()
 
     def test_yfinance_cookie_timezone_and_isin_roots_are_private(self):
-        import yfinance
-
-        from runtime.cache import configure_yfinance
-
         cache = RunCache.for_run(self.runtime, "yfin-market-data-server")
         with (
             patch.dict(
@@ -275,17 +280,15 @@ class CacheTests(unittest.TestCase):
             ),
             patch.object(yfinance, "set_tz_cache_location") as configure,
         ):
-            configure_yfinance(cache)
+            configure_yfinance(cache, yfinance=yfinance)
         configure.assert_called_once_with(str(cache.context.path("vendor", "yfinance")))
         with patch.dict(
             os.environ, {"INVESTMENT_RUN_ID": "", "INVESTMENT_CACHE_ROOT": ""}
         ):
             with self.assertRaises(RunContextRequired):
-                configure_yfinance(cache)
+                configure_yfinance(cache, yfinance=yfinance)
 
     def test_stockstats_both_paths_use_private_atomic_csv(self):
-        import pandas as pd
-
         directory = (
             REPO_ROOT / "mcp-servers" / "stockstats-market-data-server" / "services"
         )
@@ -385,10 +388,6 @@ class MCPTests(unittest.IsolatedAsyncioTestCase):
             second.stop.assert_called_once_with(None, None, None)
 
     async def test_partial_second_start_fails_run_without_closing_other_run(self):
-        from runtime.context import RunConfig
-        from runtime.errors import RunExecutionError
-        from runtime.lifecycle import create_run
-
         with TemporaryDirectory() as tmp:
             other_runtime = new_runtime(Path(tmp))
             failing_runtime = create_run(

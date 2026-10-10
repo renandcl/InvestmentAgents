@@ -7,6 +7,7 @@ from strands.models.openai import OpenAIModel
 from agents.researchers.bear.hook import SharedDocument
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
+from runtime.examples import run_example
 
 
 class BearResearcher(Agent):
@@ -57,6 +58,4 @@ class BearResearcher(Agent):
 
 
 if __name__ == "__main__":
-    from runtime.examples import run_example
-
     run_example(BearResearcher, "bear_researcher_report")

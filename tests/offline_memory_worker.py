@@ -8,12 +8,12 @@ import os
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from runtime.memory_worker import main as serve
+
 
 def main():
     # Import only after RunMemory has installed its private child environment.
     from mem0 import Memory
-
-    from runtime.memory_worker import main as serve
 
     marker = "sentinel-" + os.environ["INVESTMENT_RUN_ID"] + "-trader"
 

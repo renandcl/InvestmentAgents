@@ -5,6 +5,7 @@ import hashlib
 import multiprocessing
 import os
 import sqlite3
+import subprocess
 import threading
 import unittest
 from contextlib import closing
@@ -135,7 +136,6 @@ class ContextTests(unittest.TestCase):
                 link.symlink_to(target, target_is_directory=True)
             except OSError:
                 # Windows junctions do not require developer mode or symlink privileges.
-                import subprocess
 
                 completed = subprocess.run(
                     [

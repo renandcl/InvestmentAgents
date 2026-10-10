@@ -11,6 +11,7 @@ from agents.researchers.bull.agent import BullResearcher
 from agents.researchers.manager.hook import SharedDocument
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
+from runtime.examples import run_example
 
 # Enable debug logs and print them to stderr
 logging.getLogger("strands").setLevel(logging.DEBUG)
@@ -79,6 +80,4 @@ class ResearchManager(Agent):
 
 
 if __name__ == "__main__":
-    from runtime.examples import run_example
-
     run_example(ResearchManager, "research_manager_report")
