@@ -32,6 +32,8 @@
 | AT-26 | Run direct invocation, stream_async and public manager tools through the isolated boundary. The same-agent lock includes conversation clear and before/after hooks; phases/quorum and one synthesis remain unchanged, with no advancement from retries/tool turns. | FR-007, FR-019, FR-020 |
 | AT-27 | Preserve blank-env model defaults and explicit overrides. RUN_ONLY search/get_all use Mem0 2.2.1 filters/top_k and cannot omit run/agent scope; current early distributed guards remain side-effect-free when broader A2A guards are added. | FR-003, FR-008, FR-013, FR-019 |
 
+| AT-28 | Run the fourteen-agent tree offline with disjoint news/sentiment providers. Publish both sentiment aliases atomically and propagate sentiment separately through research/trader/risk prompts, memory queries and final exports. Verify private sessions, early A2A rejection, dated/deduplicated/bounded Reddit sampling, cache equivalence and purge of both Reddit tool names. | FR-003, FR-007, FR-009, FR-019, FR-022 |
+
 ## Test guidance
 
 Use unittest and TemporaryDirectory. Coordinate concurrency with barriers/IPC events, not arbitrary sleeps. Use multiprocessing spawn and top-level worker functions on Windows. Include local fake MCP subprocesses, partial-start injection, cleanup errors and a bounded cleanup timeout.

@@ -22,3 +22,5 @@ Maintain a focus on debating and persuading, not just presenting data.
 Challenge each counterpoint to underscore why a high-risk approach is optimal.
 
 Output conversationally as if you are speaking without any special formatting
+
+Keep reported events separate from sampled social opinions. Do not treat sentiment or repeated Reddit narratives as independent confirmation of news; account for sampling uncertainty.

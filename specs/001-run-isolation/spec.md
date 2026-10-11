@@ -89,6 +89,7 @@ Acceptance: examples allocate fresh contexts; A2A entry points reject before con
 | FR-019 | Reuse AgentSpec/AGENT_SPECS and the shared lifecycle for validation, input defaults/refresh, extraction, declared outputs and memory formatting. Bind a run store through that shared boundary; preserve both trader and risk-manager aliases. |
 | FR-020 | Bind every debate/round context to its run and manager invocation. Atomically reset only the declared debate outputs at a fresh invocation, and atomically publish a full quorum's reports, complete history and round receipt. Reject foreign contexts, overlapping same-manager debates, stale generations and conflicting duplicates without altering committed state. |
 | FR-021 | Participants stage results without live publication or memory writes. Store memories only after report/round commit. Failed commits produce no memory writes; post-commit memory failure preserves committed data and prevents synthesis/run success. Store-operation replay must not retry external memory side effects. |
+| FR-022 | The social-media extension uses the same runtime, private sessions, owned MCP lifecycle and declared report ownership as every other agent. News and Reddit sentiment have distinct tools/reports; sentiment reaches downstream research, trading and risk without merging raw social claims into news evidence. See spec 004. |
 
 ## Nonfunctional requirements
 
@@ -97,11 +98,11 @@ Acceptance: examples allocate fresh contexts; A2A entry points reject before con
 - NFR-003: Storage contention has a finite timeout; never hold state locks across model/network calls.
 - NFR-004: Audit auxiliary vendor persistence and initialization side effects, not just application filenames. Run-dependent routing cannot use mutable process globals.
 - NFR-005: An uncatchable termination can leave a nonterminal run. File presence never proves success; automatic recovery and guaranteed cleanup after hard kill are excluded.
-- NFR-006: Preserve the c51be7f financial prompts, declared report keys/aliases and spec 003 debate semantics. Adapt the current 39-test suite across five test modules without weakening behavioral guarantees. Replace obsolete JSON-specific integration expectations with equivalent RunStore failure tests, retaining standalone legacy-adapter tests where useful.
+- NFR-006: Preserve the c51be7f financial prompts, declared report keys/aliases and spec 003 debate semantics during isolation work. Spec 004 explicitly authorizes prompt and input extensions for separate news/sentiment analysis. Adapt the current 39-test suite across five test modules without weakening behavioral guarantees. Replace obsolete JSON-specific integration expectations with equivalent RunStore failure tests, retaining standalone legacy-adapter tests where useful.
 
 ## Success criteria
 
-All scenarios AT-01 through AT-27 in acceptance.md pass, including task/process concurrency and fault injection. Existing regression tests and required formatting checks pass. A path audit proves supported entry points have no executable legacy mutable-path fallback. A2A restrictions and memory defaults are documented.
+All scenarios AT-01 through AT-28 in acceptance.md pass, including task/process concurrency and fault injection. Existing regression tests and required formatting checks pass. A path audit proves supported entry points have no executable legacy mutable-path fallback. A2A restrictions and memory defaults are documented.
 
 Zero observed contamination in these tests is the release gate; it is not a claim of proof against arbitrary malicious code or hardware failure.
 

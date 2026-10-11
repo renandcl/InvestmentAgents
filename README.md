@@ -20,6 +20,7 @@ flowchart LR
         MA["Market Analyst"]
         NA["News Analyst"]
         FA["Fundamentals Analyst"]
+        SMA["Social Media Sentiment Analyst"]
   end
  subgraph subGraph1["Researchers Discussion"]
         BR["Bull Reseacher"]
@@ -37,7 +38,7 @@ flowchart LR
   end
     Init(["Ticker, Date"]) -- Start Analysis --> IM["Investment Manager"]
     IM <-- Phase 1 --> AC
-    AC <--> MA & NA & FA
+    AC <--> MA & NA & FA & SMA
     IM <-- Phase 2 --> RM
     RM <--> BR & BER
     IM <-- Phase 3 --> TR
@@ -46,6 +47,7 @@ flowchart LR
     MA -. Market Report .- State["Per-run SQLite"]
     NA -. News Report .- State
     FA -. Fundamentals Report .- State
+    SMA -. Social Sentiment Report .- State
     RM -. Investment Plan .- State
     TR -. Investment Plan Report .- State
     RMG -. Risk Assessment .- State
@@ -299,3 +301,31 @@ skipped; reports and run state are kept):
 ```bash
 uv run python -B -m utils.purge_reddit [--include-legacy] [--apply]
 ```
+
+## News and social sentiment
+
+The analyst coordinator invokes four analysts. NewsAnalyst uses Finnhub and
+DuckDuckGo for dated reported events. SocialMediaAnalyst uses Reddit to assess
+opinions, attention, competing narratives and uncertainty. The new agent uses the
+same ANALYSTS model settings and isolated runtime as the other analysts.
+
+Sentiment is published as `social_media_analyst_report` with the atomic
+`social_analyst_report` alias consumed by research, trading and risk. Their prompts
+keep news evidence separate from social opinions. Repeated Reddit claims do not
+independently confirm reported events.
+
+The Reddit sample covers stocks, investing, finance, ValueInvesting, Daytrading and
+options. Searches are bounded to 100 posts per subreddit, filtered to inclusive UTC
+dates, deduplicated and combined into a sample of up to 30 posts by default.
+Reports cite posts and describe confidence and coverage; empty samples are
+insufficient evidence. Comments are not fetched. Engagement metrics are observed
+at retrieval time, and the sample is not an exhaustive historical archive.
+
+Use a fresh standalone run:
+
+```bash
+uv run --env-file .env python -m agents.analysts.social_media.agent --ticker AAPL --date 2025-08-01 --memory-mode OFF
+```
+
+The new A2A port 9913 remains disabled. The complete requirements and offline
+acceptance are in [004 - Social media sentiment](specs/004-social-media-sentiment/spec.md).

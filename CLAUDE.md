@@ -28,7 +28,7 @@ The orchestration is hierarchical, and every sub-agent is exposed as a tool of i
 
 ```
 InvestmentManager (agents/investment_manager)
-├── AnalystCoordinator ── FundamentalsAnalyst, NewsAnalyst, MarketAnalyst
+├── AnalystCoordinator ── FundamentalsAnalyst, NewsAnalyst, MarketAnalyst, SocialMediaAnalyst
 ├── ResearchManager ───── BullResearcher, BearResearcher        (memory)
 ├── Trader                                                      (memory)
 └── RiskManager ───────── Aggressive/Conservative/Neutral debators (memory)
@@ -67,6 +67,7 @@ Every agent directory follows the same layout. When you add or change an agent, 
 | 9910 | neutral_debator |
 | 9911 | risk_manager |
 | 9912 | investment_manager |
+| 9913 | social_media_analyst |
 
 If you change a port, update `main.py`, `test_a2a.py`, and the parent's `a2a_agent.py`.
 
@@ -88,13 +89,14 @@ Each MCP server is a uv workspace member built on FastMCP with a `models/` (pyda
 
 - market_analyst → `yfin-market-data-server`, `stockstats-market-data-server`
 - fundamentals_analyst → `simfin-fundamentals-data-server`, `finnhub-fundamentals-data-server`
-- news_analyst → `finnhub-news-data-server`, `reddit-news-data-server`, `duckduckgo-news-data-server`
+- news_analyst → `finnhub-news-data-server`, `duckduckgo-news-data-server`
+- social_media_analyst → `reddit-news-data-server` (only `get_reddit_sentiment`)
 - `mem0-server` is unused and rejects startup.
 
 Register cleanup before acquisition; close only owned handles in reverse order, including partial starts/cancellation. MCP children get validated INVESTMENT_RUN_ID/INVESTMENT_CACHE_ROOT through their explicit environment. Use hashed cache keys and atomic replacement with bounded Windows read/write retries. SimFin CSV inputs remain read-only. Never route run state through parent globals.
 
 ## Known quirks
 
-- `reddit-search` contains an unintegrated SocialMediaAnalyst prototype (latest commit: `9c070b0`, 2025-10-14). It is not part of the current agent tree and has not been adapted to run isolation. NewsAnalyst uses Reddit data; risk contracts retain a missing social-media-report default.
+- SocialMediaAnalyst is integrated through the analyst coordinator. Its `social_media_analyst_report` and `social_analyst_report` alias publish atomically. NewsAnalyst covers Finnhub/DuckDuckGo events; social media covers sampled Reddit opinions and attention. Research, trader and risk receive both reports separately. See specs/004-social-media-sentiment.
 - Shared contracts/lifecycle and `runtime/` own isolation behavior. Preserve their boundaries instead of copying storage logic into agents. Update specs/001-run-isolation requirements and acceptance before changing behavior; specs 002/003 define inherited hook/debate semantics.
 - Batch and standalone entry points share `runtime.logging.configure_logging`: application and `strands` logging default to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` for diagnostics. Agent imports must not configure logging or change logger levels.

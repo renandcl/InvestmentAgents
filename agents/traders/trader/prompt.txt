@@ -11,3 +11,7 @@ This plan incorporates insights from current technical market trends, macroecono
 Proposed Investment Plan: {investment_plan}
 
 Leverage these insights to make an informed and strategic decision
+
+Reported news events: {news_analyst_report}
+Social media sentiment: {social_analyst_report}
+Treat sentiment as sampled opinions with stated uncertainty; it does not confirm news or justify a trade on its own.

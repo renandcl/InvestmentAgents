@@ -50,9 +50,6 @@ class NewsAnalyst(Agent):
         self.stdio_mcp_finnhub_news_client = start_mcp(
             self.runtime, "finnhub-news-data-server", env_file=True
         )
-        self.stdio_mcp_reddit_news_client = start_mcp(
-            self.runtime, "reddit-news-data-server", env_file=True
-        )
         self.stdio_mcp_duckduckgo_news_client = start_mcp(
             self.runtime, "duckduckgo-news-data-server", env_file=False
         )
@@ -63,7 +60,6 @@ class NewsAnalyst(Agent):
     def _init_tools(self):
         self.tools = (
             self.stdio_mcp_finnhub_news_client.list_tools_sync()
-            + self.stdio_mcp_reddit_news_client.list_tools_sync()
             + self.stdio_mcp_duckduckgo_news_client.list_tools_sync()
         )
 

@@ -43,9 +43,18 @@ from runtime.store import RunStore
 
 
 class WorkflowModel(Model):
-    def __init__(self, agent_id, calls=None, entered=None, release=None, marker=None):
+    def __init__(
+        self,
+        agent_id,
+        calls=None,
+        entered=None,
+        release=None,
+        marker=None,
+        prompts=None,
+    ):
         self.agent_id, self.calls = agent_id, calls if calls is not None else []
         self.entered, self.release, self.marker = entered, release, marker
+        self.prompt_log = prompts
 
     def update_config(self, **kwargs):
         pass
@@ -58,6 +67,8 @@ class WorkflowModel(Model):
         yield
 
     async def stream(self, messages, tool_specs=None, system_prompt=None, **kwargs):
+        if self.prompt_log is not None:
+            self.prompt_log.setdefault(self.agent_id, []).append(system_prompt)
         self.calls.append(
             (self.agent_id, kwargs.get("invocation_state", {}).get("run_id"))
         )
@@ -279,6 +290,7 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         calls = []
+        prompts = {}
         clients = []
         real_open = builtins.open
         legacy = [
@@ -333,7 +345,9 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
                     patch.object(
                         module,
                         "OpenAIModel",
-                        side_effect=lambda _id=agent_id, **_: WorkflowModel(_id, calls),
+                        side_effect=lambda _id=agent_id, **_: WorkflowModel(
+                            _id, calls, prompts=prompts
+                        ),
                     )
                 )
             with patch("sys.stdout", new_callable=io.StringIO):
@@ -347,6 +361,28 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(key, state)
         self.assertEqual(state["trader_report"], state["trader_investment_plan"])
         self.assertEqual(state["risk_manager_report"], state["final_trade_decision"])
+        self.assertEqual(
+            state["social_media_analyst_report"], state["social_analyst_report"]
+        )
+        self.assertIn(
+            "social_media_analyst_report",
+            result.report_path.read_text().replace(" ", "_").lower(),
+        )
+        for agent_id in (
+            "bull_researcher",
+            "bear_researcher",
+            "research_manager",
+            "trader",
+            "risk_manager",
+            "aggressive_risk_analyst",
+            "conservative_risk_analyst",
+            "neutral_risk_analyst",
+        ):
+            with self.subTest(sentiment_consumer=agent_id):
+                self.assertTrue(prompts[agent_id])
+                for prompt in prompts[agent_id]:
+                    self.assertIn(state["social_analyst_report"], prompt)
+                    self.assertIn(state["news_analyst_report"], prompt)
         self.assertEqual(
             {path.parent.name for path in (result.run_root / "sessions").glob("*/*")},
             set(AGENT_SPECS),

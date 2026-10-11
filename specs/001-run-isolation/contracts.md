@@ -4,6 +4,11 @@
 
 ## Entities
 
+Spec 004 registers social_media_analyst with primary social_media_analyst_report and
+the social_analyst_report alias. Both publish in the same report transaction; all
+downstream sentiment inputs use the alias. Existing aliases and debate contracts
+retain their behavior.
+
 | Entity | Fields and invariants |
 |---|---|
 | RunConfig | Nonempty bounded ticker; valid ISO current_date; memory_mode OFF/RUN_ONLY; resolved local output_root; execution_mode in_process; host-resolved model config |

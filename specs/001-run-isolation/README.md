@@ -16,7 +16,7 @@ Read in order:
 5. [Tasks](tasks.md): implementation order and dependencies.
 6. [Research](research.md): repository evidence and design decisions.
 
-The update review incorporates [002 - hook contracts](../002-agent-hook-contracts/spec.md) and [003 - participant debates](../003-participant-debates/spec.md). Reuse the shared lifecycle and preserve complete-round publication; do not recreate per-agent hook logic. The revised package has 21 functional requirements, 27 acceptance scenarios and 24 implementation tasks.
+The update review incorporates [002 - hook contracts](../002-agent-hook-contracts/spec.md) and [003 - participant debates](../003-participant-debates/spec.md). Reuse the shared lifecycle and preserve complete-round publication; do not recreate per-agent hook logic. The isolation baseline has 21 functional requirements, 27 acceptance scenarios and 24 implementation tasks. [Spec 004](../004-social-media-sentiment/spec.md) extends it with FR-022 / AT-28 for the fourteen-agent tree and separate news/sentiment evidence.
 
 Core decisions: explicit context; transactional state per run; isolated sessions, memory, caches and artifacts; memory OFF by default; owned-resource cleanup.
 

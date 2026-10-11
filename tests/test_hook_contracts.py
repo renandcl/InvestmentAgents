@@ -63,7 +63,7 @@ class HookContractTests(unittest.TestCase):
 
     def test_every_agent_selects_one_matching_valid_contract(self):
         adapters = list((ROOT / "agents").rglob("hook.py"))
-        self.assertEqual(len(adapters), 13)
+        self.assertEqual(len(adapters), 14)
         selected = set()
         outputs = set()
         for path in adapters:
@@ -121,6 +121,35 @@ class HookContractTests(unittest.TestCase):
         agent = SimpleNamespace(agent_id="news_analyst")
         with self.assertRaisesRegex(ContractError, "wrong agent"):
             hook.get_shared_document(BeforeInvocationEvent(agent=agent))
+
+    def test_news_and_sentiment_remain_distinct_in_prompts_and_memory_queries(self):
+        self.snapshot["news_analyst_report"] = "Confirmed earnings event"
+        self.snapshot["social_analyst_report"] = "Sampled bullish Reddit opinion"
+        self.write_snapshot()
+        consumers = (
+            "bull_researcher",
+            "bear_researcher",
+            "research_manager",
+            "trader",
+            "risk_manager",
+            "aggressive_risk_analyst",
+            "conservative_risk_analyst",
+            "neutral_risk_analyst",
+        )
+        for agent_id in consumers:
+            with self.subTest(consumer=agent_id):
+                hook, agent, registry = self.make_agent(agent_id)
+                registry.invoke_callbacks(BeforeModelCallEvent(agent=agent))
+                self.assertIn("Confirmed earnings event", agent.system_prompt)
+                self.assertIn("Sampled bullish Reddit opinion", agent.system_prompt)
+                if hook.spec.memory:
+                    query = hook.memory.search_memories.call_args.args[0]
+                    self.assertIn(
+                        "Latest World Affairs News: Confirmed earnings event", query
+                    )
+                    self.assertIn(
+                        "Social Media Sentiment: Sampled bullish Reddit opinion", query
+                    )
 
     def test_retrieved_memories_reach_prompt_without_reformatting_braces(self):
         for records in (

@@ -142,6 +142,24 @@ class PurgeRedditTests(unittest.TestCase):
         self.assertIn((broken, None), report.skipped_runs)
         self.assertTrue((broken / "cache" / "reddit-news-data-server").exists())
 
+    def test_sentiment_tool_results_are_redacted_alongside_legacy_news(self):
+        request = self.done_message.with_name("message_1.json")
+        data = read_json(request)
+        data["message"]["content"].append(tool_use("s1", "get_reddit_sentiment"))
+        write_json(request, data)
+        data = read_json(self.done_message)
+        data["message"]["content"].append(tool_result("s1", "reddit opinion sample"))
+        write_json(self.done_message, data)
+        purge(self.runs, apply=True)
+        self.assertEqual(
+            results(self.done_message),
+            {
+                "r1": REDACTED,
+                "s1": REDACTED,
+                "f1": "finnhub headline",
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

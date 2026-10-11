@@ -1,5 +1,10 @@
 # Run-isolation acceptance evidence
 
+The 2026-10-11 extension [spec 004](../004-social-media-sentiment/spec.md) adds
+FR-022 / AT-28 and the fourteenth agent. Its [acceptance evidence](../004-social-media-sentiment/evidence.md)
+records 108 passing offline tests and explicitly authorizes the news/sentiment
+prompt extensions. The original isolation audit below describes its dated baseline.
+
 **Audit date:** 2026-10-09
 **Base revision:** c51be7f190f2ecd681290c207ac77e8a43d2f876 plus the run-isolation implementation submitted for review.
 

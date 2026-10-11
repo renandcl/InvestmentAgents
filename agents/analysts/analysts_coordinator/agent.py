@@ -8,6 +8,7 @@ from agents.analysts.analysts_coordinator.hook import SharedDocument
 from agents.analysts.fundamentals_analyst.agent import FundamentalsAnalyst
 from agents.analysts.market_analyst.agent import MarketAnalyst
 from agents.analysts.news_analyst.agent import NewsAnalyst
+from agents.analysts.social_media.agent import SocialMediaAnalyst
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
 from runtime.examples import run_example
@@ -26,7 +27,7 @@ class AnalystCoordinator(Agent):
             runtime=self.runtime,
             name="AnalystCoordinator",
             agent_id="analyst_coordinator",
-            description="Coordinates the analysis of market, news, and fundamentals data to provide insights and recommendations.",
+            description="Coordinates market, news, fundamentals and social sentiment analysis with separate evidence sources.",
             system_prompt=self.system_prompt,
             tools=self.tools,
             model=self.model,
@@ -51,11 +52,13 @@ class AnalystCoordinator(Agent):
         market_analyst = MarketAnalyst(runtime=self.runtime)
         news_analyst = NewsAnalyst(runtime=self.runtime)
         fundamentals_analyst = FundamentalsAnalyst(runtime=self.runtime)
+        social_media_analyst = SocialMediaAnalyst(runtime=self.runtime)
 
         self.tools = [
             market_analyst.get_market_analyst_insights,
             news_analyst.get_news_analyst_insights,
             fundamentals_analyst.get_fundamentals_analyst_insights,
+            social_media_analyst.get_social_media_analyst_insights,
         ]
 
     def _init_session_manager(self):
@@ -67,7 +70,7 @@ class AnalystCoordinator(Agent):
 
     @tool
     async def get_analyst_coordinator_insights(self, message: str) -> AgentResult:
-        """Get insights and recommendations from market, news, and fundamentals analysts for a specific ticker and date"""
+        """Get market, news, fundamentals and separate social sentiment insights for a ticker and date."""
         return await self.invoke_async(message)
 
 

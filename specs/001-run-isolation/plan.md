@@ -4,6 +4,11 @@
 
 ## Architecture
 
+The spec 004 extension adds SocialMediaAnalyst as the fourth coordinator tool.
+It owns Reddit MCP access while NewsAnalyst owns only Finnhub/DuckDuckGo access.
+The new report follows the existing RunAgent/AgentSpec lifecycle and private
+session/resource boundaries, with an atomic social_analyst_report alias.
+
 Keep the existing Strands agent tree and the shared agents/hooks contracts, services and lifecycle added in spec 002. Preserve the agents/debates state machine and runner added in spec 003. The runtime package now separates context, transactional storage, agent invocation boundaries, lifecycle/resources, memory workers, MCP setup, caches and artifacts. A RunRuntime owns context, state, session construction, memory factory and resource lifetime. Agent constructors receive dependencies explicitly and pass them to children.
 
 The LLM cannot choose context, run IDs, storage paths or lifecycle transitions. No mutable global "current run", parent os.environ change or chdir is allowed.

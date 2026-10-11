@@ -4,7 +4,7 @@ Reddit's Data API terms require deleted content to be removed from stored copies
 so this purges every verbatim copy the system keeps:
 
 - run provider caches: ``data/runs/<run_id>/cache/reddit-news-data-server/``
-- ``get_reddit_news`` tool results in run session transcripts, replaced with a
+- ``get_reddit_news`` and ``get_reddit_sentiment`` tool results in run session transcripts, replaced with a
   redaction marker so the conversations stay readable
 - with ``--include-legacy``: ``data/news_data/reddit_news_*.json`` and the
   transcripts under ``data/agents_sessions/``
@@ -33,7 +33,7 @@ from runtime.context import REPO_ROOT
 from runtime.store import TERMINAL
 
 REDDIT_PROVIDER = "reddit-news-data-server"
-REDDIT_TOOL = "get_reddit_news"
+REDDIT_TOOLS = frozenset({"get_reddit_news", "get_reddit_sentiment"})
 REDACTED = "[Reddit content removed after research completed]"
 
 
@@ -85,7 +85,7 @@ def redact_sessions(sessions_root, report, *, apply):
             loaded.append((path, data))
             for block in (data.get("message") or {}).get("content") or []:
                 tool_use = block.get("toolUse") if isinstance(block, dict) else None
-                if tool_use and tool_use.get("name") == REDDIT_TOOL:
+                if tool_use and tool_use.get("name") in REDDIT_TOOLS:
                     reddit_ids.add(tool_use.get("toolUseId"))
         if not reddit_ids:
             continue

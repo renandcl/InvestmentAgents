@@ -13,6 +13,15 @@ REDDIT_USERNAME = os.getenv("REDDIT_USERNAME", "unknown")
 REDDIT_USER_AGENT = (
     f"python:investmentagents.reddit-news:0.1.0 (by /u/{REDDIT_USERNAME})"
 )
+SENTIMENT_SUBREDDITS = (
+    "stocks",
+    "investing",
+    "finance",
+    "ValueInvesting",
+    "Daytrading",
+    "options",
+)
+SENTIMENT_SEARCH_LIMIT = 100
 
 
 class RedditNewsService:
@@ -24,6 +33,75 @@ class RedditNewsService:
             user_agent=REDDIT_USER_AGENT,
         )
         self.reddit.read_only = True
+
+    def get_sentiment(self, ticker, start_date, end_date, max_posts=30):
+        """Return a bounded, dated sample of opinions with source provenance."""
+        ticker = ticker.strip().upper()
+        start = datetime.datetime.strptime(start_date, "%Y-%m-%d").replace(
+            tzinfo=datetime.timezone.utc
+        )
+        end = datetime.datetime.strptime(end_date, "%Y-%m-%d").replace(
+            tzinfo=datetime.timezone.utc
+        )
+        if not ticker or start > end or not 1 <= max_posts <= 100:
+            raise ValueError("Invalid sentiment sample parameters")
+        cutoff = end + datetime.timedelta(days=1)
+        key = self.cache.key(
+            "sentiment-v1",
+            {
+                "ticker": ticker,
+                "start_date": start_date,
+                "end_date": end_date,
+                "max_posts": max_posts,
+                "subreddits": SENTIMENT_SUBREDDITS,
+                "search_limit": SENTIMENT_SEARCH_LIMIT,
+                "sort": "new",
+            },
+        )
+        cached = self.cache.read_json(key)
+        if cached is not None:
+            return cached
+        posts = {}
+        for name in SENTIMENT_SUBREDDITS:
+            for post in self.reddit.subreddit(name).search(
+                ticker, sort="new", time_filter="all", limit=SENTIMENT_SEARCH_LIMIT
+            ):
+                if not start.timestamp() <= post.created_utc < cutoff.timestamp():
+                    continue
+                post_id = str(post.id)
+                if post_id in posts:
+                    continue
+                posts[post_id] = {
+                    "id": post_id,
+                    "title": post.title,
+                    "selftext": post.selftext,
+                    "created_utc": post.created_utc,
+                    "subreddit": post.subreddit.display_name,
+                    "reddit_url": "https://www.reddit.com" + post.permalink,
+                    "score": post.score,
+                    "num_comments": post.num_comments,
+                }
+        sample = sorted(
+            posts.values(), key=lambda post: (-post["created_utc"], post["id"])
+        )[:max_posts]
+        result = {
+            "status": "ok" if sample else "no_data",
+            "ticker": ticker,
+            "start_date": start_date,
+            "end_date": end_date,
+            "timezone": "UTC",
+            "subreddits": list(SENTIMENT_SUBREDDITS),
+            "query": ticker,
+            "sort": "new",
+            "search_limit_per_subreddit": SENTIMENT_SEARCH_LIMIT,
+            "max_posts": max_posts,
+            "sample_size": len(sample),
+            "retrieved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "limitations": "Bounded post sample; comments are not fetched. Engagement is observed at retrieval time, not historical. Empty results do not imply neutral sentiment.",
+            "data": sample,
+        }
+        self.cache.write_json(key, result)
+        return result
 
     def get_news(
         self,
