@@ -7,7 +7,7 @@ This project implements a multi-agent system for investment analysis. It orchest
 - **Multi-Agent Architecture**: Coordinates specialized agents for fundamental analysis, market analysis, research, trading strategies, and risk management.
 - **Automated Workflow**: Runs a complete investment decision from data gathering to final decision.
 - **Report Generation**: Generates detailed Markdown reports for each analysis session.
-- **Run isolation**: Each execution owns its SQLite state, sessions, optional memory, caches and reports. In-process agents call children as tools; A2A entry points are currently disabled.
+- **Independent runs**: Each analysis has its own state, sessions, caches and report.
 - **Model Context Protocol (MCP) Integration**: Leverages MCP servers for data retrieval from various sources (e.g., Finnhub, SimFin).
 
 ## Architecture
@@ -23,7 +23,7 @@ flowchart LR
         SMA["Social Media Sentiment Analyst"]
   end
  subgraph subGraph1["Researchers Discussion"]
-        BR["Bull Reseacher"]
+        BR["Bull Researcher"]
         BER["Bear Researcher"]
         RM["Research Manager"]
   end
@@ -58,51 +58,6 @@ flowchart LR
     Memory -.- subGraph1 & subGraph2 & subGraph3
 ```
 
-## Agent hook contracts
-
-Each agent's `hook.py` selects an immutable contract from
-`agents/hooks/specs.py`. Contracts declare input keys, missing-value defaults,
-refresh timing, prompt bindings, output keys/aliases, memory queries and workflow
-policy. Update the contract together with `prompt.txt` when changing an agent.
-The shared provider validates placeholders before execution and requires nonempty
-`ticker` and `current_date`; upstream reports remain optional for standalone use.
-
-`agents/hooks/lifecycle.py` loads invocation inputs, prepares workflow state,
-renders the original template and finalizes successful assistant results. Report
-text is extracted once, committed to the run's SQLite store, then passed to memory. Failed or
-incomplete invocations cannot reuse an older report from message history.
-
-Research and risk managers use a deterministic `DebateRunner`: opening,
-rebuttal and clarification each require every configured participant once.
-Participants receive the same snapshot of prior completed rounds. Contributions
-are staged, published together after a complete round, then stored in memory.
-The manager synthesizes the full accepted history with no participant tools.
-Failed or cancelled rounds cannot publish partial arguments or trigger synthesis.
-
-The in-process managers run this scheduler through `invoke_async`, `stream_async`
-and their public tools. Same-agent calls serialize the whole lifecycle, including
-conversation resets. All A2A constructors, server factories and manual clients
-reject execution before side effects until distributed run ownership is specified.
-This includes servers that previously wrapped local participants; ports are reserved
-unchanged. Top-level investment phase sequencing stays prompt-driven.
-
-SQLite transactions publish complete rounds and aliases, fence stale debate
-generations and reject conflicting writes. Memory runs only after commit. An
-owned-agent failure prevents run success even when the parent model continues
-after an SDK tool error. Committed reports remain available for diagnosis.
-
-See [the implementation specification](specs/002-agent-hook-contracts/spec.md).
-The debate behavior change is specified separately in
-[003 - Participant-aware debates](specs/003-participant-debates/spec.md).
-Run offline checks from the repository root:
-
-```bash
-uv run python -m unittest discover -s tests -v
-```
-
-The isolation contract and acceptance matrix are in
-[001 - Run isolation](specs/001-run-isolation/README.md).
-
 ## Prerequisites
 
 - Python >= 3.13
@@ -120,41 +75,6 @@ The isolation contract and acceptance matrix are in
     ```bash
     uv sync --all-packages
     ```
-
-## Code Quality
-
-Run these commands from the repository root after installing dependencies:
-
-```bash
-uv run pre-commit install --install-hooks
-uv run pre-commit run --all-files
-```
-
-Each new clone needs to install the hooks once. Before each commit, the hooks
-check staged files using pinned tool versions in isolated environments.
-
-- **Ruff** checks Python errors and unused imports, sorts imports, and applies
-  safe fixes.
-- **Black** formats Python for Python 3.13 with an 88-character line length.
-- **detect-secrets** checks credential patterns, hardcoded secret assignments,
-  and high-entropy strings. It runs offline with `--no-verify`. No baseline
-  suppresses existing findings.
-- Additional checks catch private keys, conflict markers, case-conflicting
-  filenames, newly added files larger than 1 MiB, invalid TOML/YAML/JSON, and
-  whitespace issues.
-
-If a formatter changes files, review and stage the changes, then retry the commit.
-Remove credentials identified by the secret scanner and use environment variables;
-rotate any real exposed credential. Only confirmed harmless false positives
-should use the inline `# pragma: allowlist secret` annotation. See the
-[detect-secrets documentation](https://github.com/Yelp/detect-secrets#inline-allowlisting).
-The hooks check file contents rather than Git history.
-
-Run the offline regression suite separately:
-
-```bash
-uv run python -m unittest discover -s tests -v
-```
 
 ## Dependency Updates
 
@@ -178,7 +98,13 @@ WSL environment; newer runner versions require a newer Git for full-repo scans.
 
 ### Environment Variables
 
-This project uses environment variables for configuration. Create a `.env` file in the root directory.
+Copy `.env.example` to `.env` in the repository root. By default, agents use
+Ollama at `http://localhost:11434/v1` with `qwen3:8b`. The template lists per-group
+model and endpoint overrides.
+
+Logging defaults to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` in `.env` for diagnostics.
+Memory is optional and defaults to OFF; pass `memory_mode="RUN_ONLY"` to
+`run_analysis` to enable memory within that run.
 
 **Note:** Some MCP servers located in `mcp-servers/` also require their own `.env` files. Please check the individual server directories for specific configuration requirements.
 
@@ -191,11 +117,6 @@ Some MCP servers require pre-downloading data before they can be used. You may n
 ### Running the Analysis
 
 The main entry point is `main.py`. You can configure the assets, date range, and frequency directly in the `main()` function within `main.py`.
-
-Batch runs and standalone examples use the same logging policy: INFO by default,
-with `LEVEL | logger | message` output on stderr. Set `INVESTMENT_LOG_LEVEL=DEBUG`
-in the root `.env` or shell to enable diagnostics. Importing an agent does not
-configure logging or change logger levels.
 
 1.  Open `main.py` and modify the configuration section:
     ```python
@@ -215,67 +136,25 @@ configure logging or change logger levels.
 
 ### Output
 
-Every analysis receives a fresh UUID, including repeated ticker/date inputs:
+Each analysis writes to `data/runs/<run_id>/`. The command prints the run ID and
+Markdown report path.
 
 ```text
 data/runs/<run_id>/
-  run.sqlite3                # authoritative state, lifecycle and artifact hashes
-  manifest.json              # derived inspection view
-  shared_document.json       # final export, never live coordination
-  report.md
-  sessions/<agent_id>/...
-  memory/<agent_id>/...       # RUN_ONLY only; vector, history and vendor stores
-  cache/<provider_id>/...
+  report.md                  # investment analysis report
+  manifest.json              # run summary
+  run.sqlite3                # saved run state
+  shared_document.json       # exported analysis results
+  sessions/                  # agent conversations
+  cache/                     # provider data
+  memory/                    # present when memory is enabled
 ```
-
-The database is authoritative: successful files require a committed SUCCEEDED
-record and matching artifact hashes. Construction, invocation, cleanup and export
-failures propagate with run identity; a batch exits nonzero if any analysis fails.
-Cancellation closes owned resources and remains cancellation. A hard kill may
-leave CREATED/RUNNING; there is no automatic resume or takeover. Legacy global
-state, memories, sessions and reports are not read, migrated or deleted.
-
-### Single run and memory policy
-
-```python
-import asyncio
-from main import run_analysis
-from runtime.context import MemoryMode
-
-result = asyncio.run(run_analysis("AAPL", "2025-08-01", memory_mode=MemoryMode.OFF))
-print(result.run_id, result.report_path)
-```
-
-`OFF` is the default and never initializes Mem0 or an embedder. Opt in with
-`MemoryMode.RUN_ONLY` to use private per-agent Mem0 workers. Their Ollama-compatible
-defaults remain `qwen3:8b` and `qwen3-embedding:0.6b` (1024 dimensions); agent-group
-model environment overrides do not configure memory. Retrieval is bound to both
-run and agent. Cross-run learning and temporal evidence validation are outside
-this feature.
-
-All agent classes require `runtime=`. For custom orchestration, create a
-`RunConfig`, call `create_run(config)`, then await
-`runtime.execute(AgentClass, message, required_report_key)`; the runtime constructs
-the tree inside its managed lifecycle. Standalone examples use the same factory:
-
-```bash
-uv run --env-file .env python -m agents.traders.trader.agent --ticker AAPL --date 2025-08-01 --memory-mode OFF
-```
-
-`RunConfig` accepts a local `output_root`, a bounded SQLite busy timeout (default
-5 seconds), and a cleanup deadline (default 30 seconds). Concurrent independent
-runs are supported on a local filesystem; network filesystems are unsupported.
-The parent process does not switch CWD or environment to route runs. MCP children
-receive private cache roots and retain their provider `.env` credential delivery.
-Run identity/cache keys in those files must not conflict with host context.
-Shared SimFin datasets are read-only during analysis. Direct MCP startup requires
-host context; the unused Mem0 MCP server rejects startup.
 
 ## Project Structure
 
 - `agents/`: Contains the implementation of various agents (Investment Manager, Analysts, Researchers, etc.).
 - `runtime/`: Run context, SQLite store, lifecycle, sessions, memory workers, MCP resources and artifact publication.
-- `data/runs/`: Per-run mutable state and artifacts; legacy files remain untouched.
+- `data/runs/`: Saved analysis reports and run data.
 - `mcp-servers/`: Model Context Protocol servers for data retrieval.
 - `utils/`: Utility scripts (e.g., report generation).
 - `main.py`: Main script to run the investment analysis workflow.
@@ -301,31 +180,3 @@ skipped; reports and run state are kept):
 ```bash
 uv run python -B -m utils.purge_reddit [--include-legacy] [--apply]
 ```
-
-## News and social sentiment
-
-The analyst coordinator invokes four analysts. NewsAnalyst uses Finnhub and
-DuckDuckGo for dated reported events. SocialMediaAnalyst uses Reddit to assess
-opinions, attention, competing narratives and uncertainty. The new agent uses the
-same ANALYSTS model settings and isolated runtime as the other analysts.
-
-Sentiment is published as `social_media_analyst_report` with the atomic
-`social_analyst_report` alias consumed by research, trading and risk. Their prompts
-keep news evidence separate from social opinions. Repeated Reddit claims do not
-independently confirm reported events.
-
-The Reddit sample covers stocks, investing, finance, ValueInvesting, Daytrading and
-options. Searches are bounded to 100 posts per subreddit, filtered to inclusive UTC
-dates, deduplicated and combined into a sample of up to 30 posts by default.
-Reports cite posts and describe confidence and coverage; empty samples are
-insufficient evidence. Comments are not fetched. Engagement metrics are observed
-at retrieval time, and the sample is not an exhaustive historical archive.
-
-Use a fresh standalone run:
-
-```bash
-uv run --env-file .env python -m agents.analysts.social_media.agent --ticker AAPL --date 2025-08-01 --memory-mode OFF
-```
-
-The new A2A port 9913 remains disabled. The complete requirements and offline
-acceptance are in [004 - Social media sentiment](specs/004-social-media-sentiment/spec.md).

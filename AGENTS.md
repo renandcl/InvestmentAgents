@@ -18,6 +18,7 @@ uv run pre-commit run --all-files  # Ruff/import sorting, Black, secret/file che
 
 ## Runtime requirements
 
+- Batch and standalone entry points configure logging through `runtime.logging.configure_logging`, defaulting to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` for diagnostics. Agent imports must not configure logging or change logger levels.
 - Every agent defaults to an OpenAI-compatible endpoint at `http://localhost:11434/v1` (Ollama) with model `qwen3:8b`. You can override this for each group with `{ANALYSTS,RESEARCHERS,TRADERS,RISK_MANAGERS,INVESTMENT_MANAGER}_{BASE_URL,API_KEY,MODEL_ID}` (see `.env.example`).
 - Memory defaults to OFF with no vendor initialization. RUN_ONLY uses an owned Mem0 worker per run/agent, with private Chroma/history/vendor stores and run/agent filters. Its existing Ollama settings (`qwen3:8b`, `qwen3-embedding:0.6b`, 1024 dims) do not use agent-group environment overrides. Never import Mem0 in the parent or switch a parent MEM0_DIR.
 - Some MCP servers need API keys (`FINNHUB_API_KEY`, `REDDIT_CLIENT_ID/SECRET/USERNAME`, `SIMFIN_API_KEY`). Some also need data downloaded beforehand with `mcp-servers/<server>/data/download_data.py`.
@@ -48,30 +49,11 @@ Every agent directory follows the same layout. When you add or change an agent, 
 | `memory.py` | Thin adapter to `runtime.memory_for(agent_id)`; never instantiate a global Mem0 store. |
 | `test_a2a.py` | Reserved manual client; rejects before network or legacy state access. |
 
-`main.py` (root) uses the **in-process** path inside `RunRuntime.execute`. All A2A paths are disabled, including servers that previously wrapped local participants. Keep their ports unchanged.
-
-### A2A ports
-
-| Port | Agent |
-|---|---|
-| 9900 | fundamentals_analyst |
-| 9901 | news_analyst |
-| 9902 | market_analyst |
-| 9903 | analysts_coordinator |
-| 9904 | bear researcher |
-| 9905 | bull researcher |
-| 9906 | research_manager |
-| 9907 | trader |
-| 9908 | aggressive_debator |
-| 9909 | conservative_debator |
-| 9910 | neutral_debator |
-| 9911 | risk_manager |
-| 9912 | investment_manager |
-| 9913 | social_media_analyst |
-
-If you change a port, update `main.py`, `test_a2a.py`, and the parent's `a2a_agent.py`.
+`main.py` (root) uses the **in-process** path inside `RunRuntime.execute`. All A2A paths are disabled.
 
 ### State flow: `data/runs/<run_id>/run.sqlite3`
+
+Shared contracts/lifecycle and `runtime/` own isolation behavior; do not duplicate storage logic in agents. Update specs/001-run-isolation requirements and acceptance before changing behavior; specs 002/003 define inherited hook/debate semantics.
 
 Agents coordinate through their bound transactional `RunStore`:
 
@@ -94,9 +76,3 @@ Each MCP server is a uv workspace member built on FastMCP with a `models/` (pyda
 - `mem0-server` is unused and rejects startup.
 
 Register cleanup before acquisition; close only owned handles in reverse order, including partial starts/cancellation. MCP children get validated INVESTMENT_RUN_ID/INVESTMENT_CACHE_ROOT through their explicit environment. Use hashed cache keys and atomic replacement with bounded Windows read/write retries. SimFin CSV inputs remain read-only. Never route run state through parent globals.
-
-## Known quirks
-
-- SocialMediaAnalyst is integrated through the analyst coordinator. Its `social_media_analyst_report` and `social_analyst_report` alias publish atomically. NewsAnalyst covers Finnhub/DuckDuckGo events; social media covers sampled Reddit opinions and attention. Research, trader and risk receive both reports separately. See specs/004-social-media-sentiment.
-- Shared contracts/lifecycle and `runtime/` own isolation behavior. Preserve their boundaries instead of copying storage logic into agents. Update specs/001-run-isolation requirements and acceptance before changing behavior; specs 002/003 define inherited hook/debate semantics.
-- Batch and standalone entry points share `runtime.logging.configure_logging`: application and `strands` logging default to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` for diagnostics. Agent imports must not configure logging or change logger levels.
