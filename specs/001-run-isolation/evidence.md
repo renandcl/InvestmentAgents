@@ -1,5 +1,8 @@
 # Run-isolation acceptance evidence
 
+[PR review corrections](pr-review.md) records the subsequent ten findings and
+their regressions, with 118 offline tests passing on 2026-10-11.
+
 The 2026-10-11 extension [spec 004](../004-social-media-sentiment/spec.md) adds
 FR-022 / AT-28 and the fourteenth agent. Its [acceptance evidence](../004-social-media-sentiment/evidence.md)
 records 108 passing offline tests and explicitly authorizes the news/sentiment

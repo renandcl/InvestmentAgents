@@ -18,13 +18,16 @@ Reddit claims must not count as independent confirmation of a reported event.
   social_media_analyst_report with the atomic alias social_analyst_report,
   matching the existing risk input key.
 - SM-003: Retrieve posts from stocks, investing, finance, ValueInvesting, Daytrading
-  and options using the ticker, sorted by newest. Bound each search to 100 results;
+  and options using the ticker, sorted by newest. Paginate each search up to 1000 results;
   deduplicate post IDs, filter UTC dates inclusively, sort the combined sample and
   return at most 30 posts by default (maximum 100). Include timestamps, Reddit links,
   subreddit and observed engagement metadata with the sampling limits.
 - SM-004: Cache sentiment samples under the run's existing Reddit provider root
   using separate hashed keys. Fresh and cached responses match. Empty samples
   explicitly indicate insufficient evidence, rather than neutral sentiment.
+  Track the time window reached by each bounded search. If the requested historical
+  window is beyond the search cap, return unavailable/partial coverage explicitly,
+  rather than claiming no historical posts exist. The Reddit API is not an archive.
 - SM-005: Sentiment reports distinguish bullish/bearish/neutral opinions, narrative
   themes, disagreement and confidence. Cite samples; do not invent sentiment ratios,
   historic engagement, market-wide sentiment or factual confirmation. Scores/comments

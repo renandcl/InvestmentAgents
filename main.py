@@ -2,9 +2,10 @@ import asyncio
 
 import pandas as pd
 
+from agents.hooks.contracts import ContractError
 from agents.investment_manager.agent import InvestmentManager
 from runtime.context import RunConfig
-from runtime.errors import RunExecutionError
+from runtime.errors import RunExecutionError, StateStoreUnavailable
 from runtime.lifecycle import create_run
 from runtime.logging import configure_logging
 
@@ -66,6 +67,14 @@ def main():
             except RunExecutionError as error:
                 failures += 1
                 print(str(error))
+            except (ContractError, StateStoreUnavailable, OSError) as error:
+                failures += 1
+                print(
+                    f"Initialization failed for {ticker} on {date}: {type(error).__name__}"
+                )
+    print(
+        f"Batch complete: {len(assets) * len(dates) - failures} succeeded, {failures} failed."
+    )
     return 1 if failures else 0
 
 

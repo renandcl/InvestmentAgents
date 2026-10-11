@@ -36,6 +36,13 @@
 
 ## Test guidance
 
+AT-29: exercise preparation failures through real SDK tool boundaries (snapshot,
+status, round validation and recursive gate); initialization failures in a multi-item
+batch; export followed by failed success commit; explicit report ordering; malformed
+Finnhub responses before caching; configurable memory deadlines with owned abort;
+status-only reads; abandoned-run purge with explicit opt-in and legacy preservation.
+These regressions cover FR-010..016, FR-019, FR-021 and the PR review corrections.
+
 Use unittest and TemporaryDirectory. Coordinate concurrency with barriers/IPC events, not arbitrary sleeps. Use multiprocessing spawn and top-level worker functions on Windows. Include local fake MCP subprocesses, partial-start injection, cleanup errors and a bounded cleanup timeout.
 
 Prove no legacy reads with access spies/denylist as well as file hashes. Unchanged content alone does not prove no contamination. Test AT-15 using an actual permitted junction/symlink fixture; if the environment cannot create one, report missing coverage rather than declaring it passed.

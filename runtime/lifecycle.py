@@ -50,7 +50,7 @@ class RunRuntime:
             self._invocation_failure = failure
 
     def assert_running(self):
-        if not self._accepting or self.store.inspect()["status"] != "RUNNING":
+        if not self._accepting or self.store.status() != "RUNNING":
             raise RunNotWritable("Runtime is not accepting invocations")
 
     def session_for(self, agent_id):
@@ -101,7 +101,7 @@ class RunRuntime:
                 raise task.exception()
 
     async def execute(self, agent_factory, message, required_report_key):
-        if self._executing or self.store.inspect()["status"] != "CREATED":
+        if self._executing or self.store.status() != "CREATED":
             raise RunNotWritable("A run can execute only once")
         if required_report_key not in {
             key for spec in AGENT_SPECS.values() for key in spec.output_keys

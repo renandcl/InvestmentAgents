@@ -108,6 +108,17 @@ Zero observed contamination in these tests is the release gate; it is not a clai
 
 ## Specification maintenance
 
+PR review corrections (2026-10-11): the owned-invocation failure boundary includes
+gate acquisition and all preparation checks (FR-010). Batch initialization failures
+are counted without stopping later items (FR-016). Exports must never predict a
+successful lifecycle outcome before the database commits it (FR-012). Render reports
+in workflow order, with participants preceding synthesis and the final decision last.
+Memory request deadlines are configurable per immutable run configuration (default
+600 seconds); expiry remains fatal under FR-021 and aborts only that owned worker.
+Status checks read status alone rather than decoding the full inspection record.
+Explicitly named, operator-confirmed abandoned runs may have Reddit content purged
+without changing lifecycle status; legacy cleanup is unsupported under FR-014.
+
 Implementation must follow [contracts](contracts.md) and [plan](plan.md). Change requirement and acceptance IDs before changing intended behavior. The task list tracks implementation separately from specification readiness.
 
 Future work must explicitly specify any experiment-scoped memory or shared cache reuse; neither may be introduced as an optimization that bypasses this contract.

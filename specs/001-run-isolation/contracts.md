@@ -125,3 +125,14 @@ The runtime retains failures of owned agent invocations independently of SDK too
 | Hard kill or inability to persist outcome | Nonterminal/unknown; never inferred successful |
 
 Artifact file presence alone is insufficient. SQLite owns status. A derived manifest can lag and be regenerated. New report writes and re-execution of a terminal run are prohibited.
+
+State exports omit lifecycle status and name run.sqlite3 as its source. Report
+headers identify an analysis snapshot; neither file predicts SUCCEEDED. Rendering
+follows workflow order, ending with the InvestmentManager decision. Memory request
+budgets are immutable RunConfig.memory_request_timeout values (600 seconds default,
+positive and at most 86400 seconds). Timeout remains fatal when memory is enabled;
+abort the owned worker rather than risk consuming a late reply as a new response.
+
+Reddit purge defaults to terminal runs. An explicitly named abandoned run may be
+purged only after the operator confirms that its owner and children are stopped.
+This changes neither status nor resume eligibility. Legacy purge options are removed.

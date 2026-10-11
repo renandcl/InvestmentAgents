@@ -101,6 +101,7 @@ class RunConfig:
     execution_mode: str = "in_process"
     busy_timeout: float = 5.0
     cleanup_timeout: float = 30.0
+    memory_request_timeout: float = 600.0
     models: tuple[ModelSettings, ...] = field(
         default_factory=resolve_models, repr=False
     )
@@ -137,8 +138,16 @@ class RunConfig:
             raise UnsafeRunPath("Output root cannot contain filesystem redirects")
         if any(
             type(value) not in (int, float)
-            for value in (self.busy_timeout, self.cleanup_timeout)
-        ) or not (0 < self.busy_timeout <= 60 and 0 < self.cleanup_timeout <= 300):
+            for value in (
+                self.busy_timeout,
+                self.cleanup_timeout,
+                self.memory_request_timeout,
+            )
+        ) or not (
+            0 < self.busy_timeout <= 60
+            and 0 < self.cleanup_timeout <= 300
+            and 0 < self.memory_request_timeout <= 86400
+        ):
             raise InvalidRunConfig("Timeouts must be finite and bounded")
         if (
             not isinstance(self.models, tuple)

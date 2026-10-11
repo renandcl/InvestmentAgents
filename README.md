@@ -178,5 +178,8 @@ research is complete, purge it (dry run unless `--apply`; unfinished runs are
 skipped; reports and run state are kept):
 
 ```bash
-uv run python -B -m utils.purge_reddit [--include-legacy] [--apply]
+uv run python -B -m utils.purge_reddit [--apply]
 ```
+
+For a hard-killed run, confirm its process and children have stopped, then add
+`--abandoned-run <run_id>`. Legacy data is preserved.

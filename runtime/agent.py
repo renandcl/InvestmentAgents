@@ -90,81 +90,92 @@ class RunAgent(Agent):
     async def stream_async(self, prompt=None, *, invocation_state=None, **kwargs):
         # Agent.invoke_async consumes self.stream_async, so only this outermost
         # boundary locks. Public @tool methods ultimately use the same path.
-        async with self._invocation_gate:
-            self.runtime.assert_running()
-            state = dict(invocation_state or {})
-            context = state.get("debate_context")
-            if context is not None:
-                if (
-                    not isinstance(context, RoundContext)
-                    or context.participant_id != self.agent_id
-                ):
-                    raise RunContextMismatch("Invalid participant context")
-                self.runtime.store.validate_round(
-                    handle=context.handle,
-                    participant_id=self.agent_id,
-                    round_number=context.round_number,
-                    phase=context.phase,
-                    snapshot=context.snapshot,
+        invocation_id = uuid4().hex
+        completed = False
+        try:
+            async with self._invocation_gate:
+                self.runtime.assert_running()
+                state = dict(invocation_state or {})
+                context = state.get("debate_context")
+                if context is not None:
+                    if (
+                        not isinstance(context, RoundContext)
+                        or context.participant_id != self.agent_id
+                    ):
+                        raise RunContextMismatch("Invalid participant context")
+                    self.runtime.store.validate_round(
+                        handle=context.handle,
+                        participant_id=self.agent_id,
+                        round_number=context.round_number,
+                        phase=context.phase,
+                        snapshot=context.snapshot,
+                    )
+                snapshot = self.runtime.store.read_snapshot()
+                spec = self.lifecycle_hooks.spec
+                invocation = Invocation(
+                    context.participant_invocation_id if context else uuid4().hex,
+                    uuid4().hex,
+                    {key: snapshot.revisions.get(key, 0) for key in spec.output_keys},
                 )
-            snapshot = self.runtime.store.read_snapshot()
-            spec = self.lifecycle_hooks.spec
-            invocation = Invocation(
-                context.participant_invocation_id if context else uuid4().hex,
-                uuid4().hex,
-                {key: snapshot.revisions.get(key, 0) for key in spec.output_keys},
-            )
-            self._active_invocation = invocation
-            state["run_id"] = self.runtime.context.run_id
-            state["invocation_id"] = invocation.invocation_id
-            task = self.runtime.enter_invocation()
-            failure = None
-            completed = False
-            try:
-                # Clearing is inside the same gate as session/model/hook activity.
-                if context is not None or spec.workflow:
-                    self.messages.clear()
-                async with aclosing(
-                    super().stream_async(prompt, invocation_state=state, **kwargs)
-                ) as stream:
-                    async for event in stream:
-                        if result := event.get("result"):
-                            completed = result.stop_reason in (
-                                "end_turn",
-                                "stop_sequence",
-                            )
-                            if not completed:
-                                error = (
-                                    asyncio.CancelledError()
-                                    if result.stop_reason == "cancelled"
-                                    else ContractError(
-                                        "Owned invocation did not complete"
-                                    )
-                                )
-                                self.runtime.record_invocation_failure(
-                                    self.agent_id, invocation.invocation_id, error
-                                )
-                        yield event
-            except BaseException as error:
-                failure = error
-                if not (isinstance(error, GeneratorExit) and completed):
-                    self.runtime.record_invocation_failure(
-                        self.agent_id, invocation.invocation_id, error
-                    )
-                raise
-            finally:
+                invocation_id = invocation.invocation_id
+                task = self.runtime.enter_invocation()
+                self._active_invocation = invocation
+                state["run_id"] = self.runtime.context.run_id
+                state["invocation_id"] = invocation.invocation_id
+                failure = None
+                completed = False
                 try:
-                    if invocation.debate_handle is not None:
-                        self.runtime.store.end_debate(
-                            debate_handle=invocation.debate_handle, outcome="aborted"
-                        )
+                    # Clearing is inside the same gate as session/model/hook activity.
+                    if context is not None or spec.workflow:
+                        self.messages.clear()
+                    async with aclosing(
+                        super().stream_async(prompt, invocation_state=state, **kwargs)
+                    ) as stream:
+                        async for event in stream:
+                            if result := event.get("result"):
+                                completed = result.stop_reason in (
+                                    "end_turn",
+                                    "stop_sequence",
+                                )
+                                if not completed:
+                                    error = (
+                                        asyncio.CancelledError()
+                                        if result.stop_reason == "cancelled"
+                                        else ContractError(
+                                            "Owned invocation did not complete"
+                                        )
+                                    )
+                                    self.runtime.record_invocation_failure(
+                                        self.agent_id, invocation.invocation_id, error
+                                    )
+                            yield event
                 except BaseException as error:
-                    self.runtime.record_invocation_failure(
-                        self.agent_id, invocation.invocation_id, error
-                    )
-                    if failure is None:
-                        raise
+                    failure = error
+                    if not (isinstance(error, GeneratorExit) and completed):
+                        self.runtime.record_invocation_failure(
+                            self.agent_id, invocation.invocation_id, error
+                        )
+                    raise
                 finally:
-                    self._last_invocation_id = invocation.invocation_id
-                    self._active_invocation = None
-                    self.runtime.leave_invocation(task)
+                    try:
+                        if invocation.debate_handle is not None:
+                            self.runtime.store.end_debate(
+                                debate_handle=invocation.debate_handle,
+                                outcome="aborted",
+                            )
+                    except BaseException as error:
+                        self.runtime.record_invocation_failure(
+                            self.agent_id, invocation.invocation_id, error
+                        )
+                        if failure is None:
+                            raise
+                    finally:
+                        self._last_invocation_id = invocation.invocation_id
+                        self._active_invocation = None
+                        self.runtime.leave_invocation(task)
+        except BaseException as error:
+            if not (isinstance(error, GeneratorExit) and completed):
+                self.runtime.record_invocation_failure(
+                    self.agent_id, invocation_id, error
+                )
+            raise

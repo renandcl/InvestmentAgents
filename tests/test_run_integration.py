@@ -32,8 +32,10 @@ from runtime.context import REPO_ROOT, RunConfig, resolve_models
 from runtime.errors import (
     RunContextMismatch,
     RunExecutionError,
+    RunNotWritable,
     SafeError,
     StateConflict,
+    StateStoreUnavailable,
     UnsupportedExecutionMode,
 )
 from runtime.examples import run_example
@@ -474,6 +476,112 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertFalse(runtime._invocations)
                 closed.assert_called_once()
+
+    async def test_child_preparation_failures_stay_fatal_after_sdk_tool_error(self):
+        for failure_kind in ("snapshot", "status", "round", "recursion"):
+            with self.subTest(failure=failure_kind):
+                runtime = create_run(
+                    RunConfig("AAPL", "2025-08-01", output_root=Path(self.tmp.name))
+                )
+                observed = {}
+
+                def factory(*, runtime):
+                    agent_id = (
+                        "bull_researcher"
+                        if failure_kind == "round"
+                        else "market_analyst"
+                    )
+                    child = simple_agent(runtime, agent_id)
+                    observed["child"] = child
+
+                    @tool
+                    async def analyze(message: str) -> str:
+                        """Run a child analysis whose preparation may fail."""
+                        if failure_kind == "recursion":
+                            async with child._invocation_gate:
+                                return str(await child.invoke_async(message))
+                        if failure_kind == "snapshot":
+                            boundary = patch.object(
+                                runtime.store,
+                                "read_snapshot",
+                                side_effect=StateStoreUnavailable("busy"),
+                            )
+                            state = None
+                        elif failure_kind == "status":
+                            boundary = patch.object(
+                                runtime,
+                                "assert_running",
+                                side_effect=RunNotWritable("not running"),
+                            )
+                            state = None
+                        else:
+                            context = RoundContext(
+                                uuid4().hex,
+                                1,
+                                "opening",
+                                agent_id,
+                                runtime.store.read_snapshot(),
+                                runtime.context.run_id,
+                                "research_manager",
+                                uuid4().hex,
+                                1,
+                                uuid4().hex,
+                            )
+                            state = {"debate_context": context}
+                            boundary = patch.object(
+                                runtime.store,
+                                "validate_round",
+                                side_effect=RunContextMismatch("stale"),
+                            )
+                        with boundary:
+                            return str(
+                                await child.invoke_async(
+                                    message, invocation_state=state
+                                )
+                            )
+
+                    hook = AgentLifecycleHooks(
+                        AGENT_SPECS["investment_manager"], runtime=runtime
+                    )
+                    parent = RunAgent(
+                        runtime=runtime,
+                        agent_id="investment_manager",
+                        model=WorkflowModel("investment_manager"),
+                        hooks=[hook],
+                        tools=[analyze],
+                        callback_handler=None,
+                    )
+                    parent.lifecycle_hooks = hook
+                    observed["parent"] = parent
+                    return parent
+
+                with self.assertRaises(RunExecutionError):
+                    await runtime.execute(
+                        factory, "Analyze", "investment_manager_report"
+                    )
+                record = runtime.store.inspect()
+                self.assertEqual(record["status"], "FAILED")
+                self.assertFalse(record["artifacts"])
+                self.assertEqual(
+                    record["primary_error"]["agent_id"], observed["child"].agent_id
+                )
+                self.assertRegex(
+                    record["primary_error"]["invocation_id"], r"^[a-f0-9]{32}$"
+                )
+                snapshot = runtime.store.read_snapshot().values
+                self.assertIn("investment_manager_report", snapshot)
+                self.assertNotIn(
+                    observed["child"].lifecycle_hooks.spec.output_keys[0], snapshot
+                )
+                self.assertIsNone(observed["child"]._active_invocation)
+                self.assertFalse(runtime._invocations)
+                errors = [
+                    block["toolResult"]
+                    for message in observed["parent"].messages
+                    for block in message.get("content", [])
+                    if "toolResult" in block
+                ]
+                self.assertEqual(errors[0]["status"], "error")
 
     async def test_credentials_reach_model_but_not_manifest_or_database_diagnostics(
         self,

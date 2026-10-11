@@ -107,7 +107,7 @@ class SocialSentimentTests(unittest.TestCase):
         for call in search.call_args_list:
             self.assertEqual(call.args, ("AAPL",))
             self.assertEqual(
-                call.kwargs, {"sort": "new", "time_filter": "all", "limit": 100}
+                call.kwargs, {"sort": "new", "time_filter": "all", "limit": 1000}
             )
         smaller = self.service.get_sentiment(
             "AAPL", "2025-08-01", "2025-08-20", max_posts=1
@@ -134,6 +134,34 @@ class SocialSentimentTests(unittest.TestCase):
             ):
                 self.service.get_sentiment("AAPL", start, end, maximum)
         self.service.reddit.subreddit.assert_not_called()
+
+    def test_history_is_reached_after_the_first_newest_page(self):
+        recent = [post(f"new{i}", "2026-10-11T00:00:00") for i in range(150)]
+        posts = recent + [
+            post("historical", "2025-08-20T12:00:00"),
+            post("old", "2025-07-01T00:00:00"),
+        ]
+        self.service.reddit = Mock()
+        self.service.reddit.subreddit.return_value.search.side_effect = (
+            lambda *a, **k: iter(posts)
+        )
+        result = self.service.get_sentiment("AAPL", "2025-08-01", "2025-08-20")
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual([item["id"] for item in result["data"]], ["historical"])
+        self.assertTrue(
+            all(item["window_reached"] for item in result["coverage"].values())
+        )
+
+    def test_unreached_historical_window_is_unavailable_not_no_data(self):
+        posts = [post(f"new{i}", "2026-10-11T00:00:00") for i in range(1000)]
+        self.service.reddit = Mock()
+        self.service.reddit.subreddit.return_value.search.side_effect = (
+            lambda *a, **k: iter(posts)
+        )
+        result = self.service.get_sentiment("AAPL", "2025-08-01", "2025-08-20")
+        self.assertEqual(result["status"], "unavailable")
+        self.assertEqual(result["data"], [])
+        self.assertTrue(all(item["capped"] for item in result["coverage"].values()))
 
     def test_mcp_sentiment_adapter_validates_dates_and_returns_structured_evidence(
         self,

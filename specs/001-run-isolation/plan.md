@@ -104,10 +104,16 @@ Construction is inside the managed failure boundary. On success:
 1. Await root invocation and owned child work; require the designated root report and no recorded owned-agent failure.
 2. Close owned resources successfully.
 3. Export a consistent state snapshot and render report.md via UTF-8 temporary files and atomic replacement.
+   Omit lifecycle status from JSON and label Markdown as an analysis snapshot;
+   neither artifact predicts whether the subsequent success commit will succeed.
 4. Hash artifacts and commit their receipts and SUCCEEDED together in SQLite.
 5. Refresh the human-readable manifest.
 
 Database and filesystem writes are not one transaction. Files created before step 4 are not successful artifacts unless the database says so. Inspection trusts SQLite. A missing/stale manifest is regenerable; failure to refresh it after committed success is a derived-export warning, not a contradictory state transition.
+
+Status guards use RunStore.status rather than full inspection. Memory requests use
+the immutable configurable memory_request_timeout (600 seconds default); expired
+requests abort only their worker and remain fatal, without retrying uncertain adds.
 
 Catchable construction/invocation/cleanup/report-export failures record FAILED. Cancellation records CANCELLED with cleanup errors and propagates cancellation to the caller. A status-write failure reports outcome unknown and preserves available files. Hard kill can leave CREATED/RUNNING; there is no automatic resume, takeover or success inference.
 

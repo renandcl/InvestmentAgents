@@ -78,7 +78,13 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("sentinel-B", ra.report_path.read_text(encoding="utf-8"))
         self.assertNotIn("sentinel-A", rb.report_path.read_text(encoding="utf-8"))
         self.assertEqual(
-            json.loads(ra.state_path.read_text(encoding="utf-8"))["status"], "SUCCEEDED"
+            json.loads((ra.run_root / "manifest.json").read_text(encoding="utf-8"))[
+                "status"
+            ],
+            "SUCCEEDED",
+        )
+        self.assertNotIn(
+            "status", json.loads(ra.state_path.read_text(encoding="utf-8"))
         )
         self.assertEqual(os.environ, env)
         self.assertEqual(Path.cwd(), cwd)

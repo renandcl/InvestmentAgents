@@ -98,6 +98,7 @@ class RunStore:
         safe_config = {
             "memory_mode": config.memory_mode.value,
             "execution_mode": config.execution_mode,
+            "memory_request_timeout": config.memory_request_timeout,
             "model_ids": {m.group: m.model_id for m in config.models},
         }
         # Provenance is constructed by the runtime, not copied from environment/config.
@@ -219,6 +220,11 @@ class RunStore:
             ]
             record["sequence"] = self._sequence(db)
             return record
+
+    def status(self):
+        """Read durable lifecycle status without decoding inspection metadata."""
+        with self._transaction() as db:
+            return db.execute("SELECT status FROM run WHERE singleton=1").fetchone()[0]
 
     def _replay(self, db, operation_id, payload):
         identifier(operation_id)

@@ -7,7 +7,7 @@ This run-owned MCP server supplies bounded Reddit post samples for social sentim
 - `get_reddit_sentiment(ticker, start_date, end_date, max_posts=30)`: structured
   evidence from stocks, investing, finance, ValueInvesting, Daytrading and options.
   Dates are inclusive UTC dates. Results include post text, Reddit links, dates,
-  subreddit and engagement observed at retrieval time. Samples are deduplicated,
+  subreddit and engagement observed at retrieval time. Search paginates up to 1000 posts per subreddit; samples are deduplicated,
   sorted newest first and bounded to 1..100 posts. Empty results mean insufficient
   evidence. Comments are not fetched; this is not an exhaustive archive.
 - `get_reddit_news`: retained for compatibility with prior clients. The current
@@ -23,3 +23,8 @@ Set `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` and `REDDIT_USERNAME` in this ser
 
 Use `uv run python -B -m utils.purge_reddit --apply` after research to purge stored
 Reddit caches and redact both Reddit tool-result types in finished run sessions.
+
+Historical coverage is explicit: `unavailable` means the search did not reach the
+requested window; `partial` means incomplete coverage. The API is not an archive.
+For abandoned runs, use `--abandoned-run <run_id>` only after confirming the owner
+and its children stopped. Legacy cleanup is not supported.

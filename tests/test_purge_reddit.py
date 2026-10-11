@@ -1,13 +1,15 @@
 """Offline contracts for the Reddit purge tool."""
 
+import io
 import json
 import sqlite3
 import unittest
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from utils.purge_reddit import REDACTED, purge
+from utils.purge_reddit import REDACTED, main, purge, run_status
 
 
 def write_json(path, data):
@@ -95,14 +97,11 @@ class PurgeRedditTests(unittest.TestCase):
         self.legacy_message = make_session(self.legacy / "agents_sessions")
 
     def test_dry_run_reports_without_changing_files(self):
-        report = purge(self.runs, legacy_root=self.legacy)
+        report = purge(self.runs)
         self.assertEqual(
             report.cache_dirs, [self.done / "cache" / "reddit-news-data-server"]
         )
-        self.assertEqual(len(report.cache_files), 1)
-        self.assertEqual(
-            report.redacted_messages, [self.done_message, self.legacy_message]
-        )
+        self.assertEqual(report.redacted_messages, [self.done_message])
         self.assertTrue((self.done / "cache" / "reddit-news-data-server").exists())
         self.assertEqual(results(self.done_message)["r1"], "reddit post body")
 
@@ -122,18 +121,33 @@ class PurgeRedditTests(unittest.TestCase):
         )
         self.assertEqual(results(self.legacy_message)["r1"], "reddit post body")
 
-    def test_apply_with_legacy_and_rerun_is_idempotent(self):
-        purge(self.runs, legacy_root=self.legacy, apply=True)
-        self.assertEqual(
-            sorted(p.name for p in (self.legacy / "news_data").iterdir()),
-            ["finnhub_news_AAPL_x.json"],
-        )
-        self.assertEqual(results(self.legacy_message)["r1"], REDACTED)
-        again = purge(self.runs, legacy_root=self.legacy, apply=True)
-        self.assertEqual(
-            (again.cache_dirs, again.cache_files, again.redacted_messages),
-            ([], [], []),
-        )
+    def test_apply_preserves_legacy_and_rerun_is_idempotent(self):
+        before = {
+            path: path.read_bytes() for path in self.legacy.rglob("*") if path.is_file()
+        }
+        purge(self.runs, apply=True)
+        self.assertEqual(before, {path: path.read_bytes() for path in before})
+        again = purge(self.runs, apply=True)
+        self.assertEqual((again.cache_dirs, again.redacted_messages), ([], []))
+        with (
+            patch("sys.stderr", new_callable=io.StringIO),
+            self.assertRaises(SystemExit) as caught,
+        ):
+            main(["--include-legacy", "--apply"])
+        self.assertEqual(caught.exception.code, 2)
+        self.assertEqual(before, {path: path.read_bytes() for path in before})
+
+    def test_named_abandoned_run_can_be_purged_without_changing_status(self):
+        other, other_message = make_run(self.runs, "another", "CREATED")
+        dry = purge(self.runs, abandoned_runs=["live"])
+        self.assertIn(self.live / "cache" / "reddit-news-data-server", dry.cache_dirs)
+        self.assertTrue((self.live / "cache" / "reddit-news-data-server").exists())
+        purge(self.runs, abandoned_runs=["live"], apply=True)
+        self.assertFalse((self.live / "cache" / "reddit-news-data-server").exists())
+        self.assertEqual(results(self.live_message)["r1"], REDACTED)
+        self.assertEqual(run_status(self.live), "RUNNING")
+        self.assertTrue((other / "cache" / "reddit-news-data-server").exists())
+        self.assertEqual(results(other_message)["r1"], "reddit post body")
 
     def test_run_without_readable_status_is_skipped(self):
         broken = self.runs / "broken"

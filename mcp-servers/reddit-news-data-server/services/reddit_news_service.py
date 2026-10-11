@@ -21,7 +21,7 @@ SENTIMENT_SUBREDDITS = (
     "Daytrading",
     "options",
 )
-SENTIMENT_SEARCH_LIMIT = 100
+SENTIMENT_SEARCH_LIMIT = 1000
 
 
 class RedditNewsService:
@@ -47,7 +47,7 @@ class RedditNewsService:
             raise ValueError("Invalid sentiment sample parameters")
         cutoff = end + datetime.timedelta(days=1)
         key = self.cache.key(
-            "sentiment-v1",
+            "sentiment-v2",
             {
                 "ticker": ticker,
                 "start_date": start_date,
@@ -62,10 +62,23 @@ class RedditNewsService:
         if cached is not None:
             return cached
         posts = {}
+        coverage = {}
         for name in SENTIMENT_SUBREDDITS:
+            scanned = 0
+            oldest = None
+            reached_start = False
             for post in self.reddit.subreddit(name).search(
                 ticker, sort="new", time_filter="all", limit=SENTIMENT_SEARCH_LIMIT
             ):
+                scanned += 1
+                oldest = (
+                    post.created_utc
+                    if oldest is None
+                    else min(oldest, post.created_utc)
+                )
+                if post.created_utc < start.timestamp():
+                    reached_start = True
+                    break
                 if not start.timestamp() <= post.created_utc < cutoff.timestamp():
                     continue
                 post_id = str(post.id)
@@ -81,11 +94,26 @@ class RedditNewsService:
                     "score": post.score,
                     "num_comments": post.num_comments,
                 }
+            coverage[name] = {
+                "scanned": scanned,
+                "oldest_returned_utc": oldest,
+                "window_reached": oldest is not None and oldest < cutoff.timestamp(),
+                "capped": scanned >= SENTIMENT_SEARCH_LIMIT and not reached_start,
+            }
         sample = sorted(
             posts.values(), key=lambda post: (-post["created_utc"], post["id"])
         )[:max_posts]
+        inaccessible = any(
+            item["scanned"] and not item["window_reached"] for item in coverage.values()
+        )
+        truncated = inaccessible or any(item["capped"] for item in coverage.values())
         result = {
-            "status": "ok" if sample else "no_data",
+            "status": (
+                ("partial" if truncated else "ok")
+                if sample
+                else ("unavailable" if inaccessible else "no_data")
+            ),
+            "coverage": coverage,
             "ticker": ticker,
             "start_date": start_date,
             "end_date": end_date,
@@ -97,7 +125,7 @@ class RedditNewsService:
             "max_posts": max_posts,
             "sample_size": len(sample),
             "retrieved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "limitations": "Bounded post sample; comments are not fetched. Engagement is observed at retrieval time, not historical. Empty results do not imply neutral sentiment.",
+            "limitations": "Bounded paginated search, not an historical archive; an unreached window is unavailable. Comments are not fetched. Engagement is observed at retrieval time, not historical. Empty results do not imply neutral sentiment.",
             "data": sample,
         }
         self.cache.write_json(key, result)

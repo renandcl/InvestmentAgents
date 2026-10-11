@@ -17,6 +17,9 @@ The sample is bounded, may contain duplicates in narratives, and is not represen
 of all investors. Scores and comment counts reflect retrieval time, not necessarily
 the analysis date. Post bodies are the evidence; comments are not fetched.
 Missing or empty data means insufficient evidence, rather than neutral sentiment.
+Inspect per-subreddit coverage: unavailable means the historical window was not
+reached by the bounded search, and partial means coverage is incomplete. Do not
+infer that no historical posts existed when the API did not reach that window.
 
 Produce a sentiment report with a concise summary, cited narrative evidence,
 limitations and a final Markdown table. Do not issue a trade recommendation or

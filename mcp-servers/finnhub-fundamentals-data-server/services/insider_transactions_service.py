@@ -35,7 +35,16 @@ class FinnhubInsiderTransactionsService:
                 before,
                 curr_date,
             )
-
+            if not isinstance(json_data, dict):
+                raise ValueError("Invalid insider transaction response")
+            data = json_data.get("data")
+            if data is None:
+                data = []
+            if not isinstance(data, list) or any(
+                not isinstance(item, dict) for item in data
+            ):
+                raise ValueError("Invalid insider transaction records")
+            json_data = dict(json_data, data=data)
             self.cache.write_json(key, json_data)
 
         if len(json_data.get("data", [])) == 0:

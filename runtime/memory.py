@@ -124,7 +124,9 @@ class RunMemory:
             try:
                 self.process.stdin.write(json.dumps(request, ensure_ascii=False) + "\n")
                 self.process.stdin.flush()
-                line = self._responses.get(timeout=120)
+                line = self._responses.get(
+                    timeout=self.runtime.config.memory_request_timeout
+                )
                 if line is None:
                     raise ValueError
                 response = json.loads(line)
