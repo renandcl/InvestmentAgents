@@ -44,10 +44,10 @@ def memory_config(root):
         "embedder": {
             "provider": "openai",
             "config": {
-                "model": "embeddinggemma:latest",
+                "model": "qwen3-embedding:0.6b",
                 "openai_base_url": "http://localhost:11434/v1",
                 "api_key": "ollama",  # pragma: allowlist secret
-                "embedding_dims": 768,
+                "embedding_dims": 1024,
             },
         },  # pragma: allowlist secret
     }
