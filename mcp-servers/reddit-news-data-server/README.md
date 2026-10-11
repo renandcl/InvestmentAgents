@@ -18,4 +18,4 @@ The server will start in stdio transport mode for MCP communication.
 
 ## Environment
 
-- Requires valid Reddit API credentials in the `.env` file as `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`
+- Requires valid Reddit API credentials in the `.env` file as `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`, plus `REDDIT_USERNAME` (the account that owns the app) for the user agent Reddit requires

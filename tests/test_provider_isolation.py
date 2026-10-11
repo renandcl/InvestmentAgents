@@ -182,7 +182,7 @@ class CacheTests(unittest.TestCase):
             for path in (REPO_ROOT / "mcp-servers").glob("*/main.py"):
                 expected = (
                     UnsupportedExecutionMode
-                    if path.parent.name in {"google-news-data-server", "mem0-server"}
+                    if path.parent.name == "mem0-server"
                     else RunContextRequired
                 )
                 with (

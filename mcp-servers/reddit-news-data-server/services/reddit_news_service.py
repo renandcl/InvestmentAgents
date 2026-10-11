@@ -8,6 +8,11 @@ from runtime.cache import service_cache
 
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
+# Reddit's API rules require <platform>:<app ID>:<version> (by /u/<username>).
+REDDIT_USERNAME = os.getenv("REDDIT_USERNAME", "unknown")
+REDDIT_USER_AGENT = (
+    f"python:investmentagents.reddit-news:0.1.0 (by /u/{REDDIT_USERNAME})"
+)
 
 
 class RedditNewsService:
@@ -16,7 +21,7 @@ class RedditNewsService:
         self.reddit = praw.Reddit(
             client_id=REDDIT_CLIENT_ID,
             client_secret=REDDIT_CLIENT_SECRET,
-            user_agent="fundamentals_news_agent",
+            user_agent=REDDIT_USER_AGENT,
         )
         self.reddit.read_only = True
 

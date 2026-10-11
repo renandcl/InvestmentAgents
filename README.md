@@ -262,7 +262,7 @@ The parent process does not switch CWD or environment to route runs. MCP childre
 receive private cache roots and retain their provider `.env` credential delivery.
 Run identity/cache keys in those files must not conflict with host context.
 Shared SimFin datasets are read-only during analysis. Direct MCP startup requires
-host context; unused Google News and Mem0 MCP servers reject startup.
+host context; the unused Mem0 MCP server rejects startup.
 
 ## Project Structure
 
@@ -273,3 +273,24 @@ host context; unused Google News and Mem0 MCP servers reject startup.
 - `utils/`: Utility scripts (e.g., report generation).
 - `main.py`: Main script to run the investment analysis workflow.
 - `pyproject.toml`: Project configuration and dependencies.
+
+## Licensing and terms of use
+
+Apache-2.0 (see [LICENSE](LICENSE)). For research and educational use only; not
+investment advice. Dependencies and the default models (`qwen3:8b`,
+`qwen3-embedding`) are permissively licensed. A hosted provider set through
+`*_BASE_URL` brings its own terms.
+
+The data sources are the real limit. Yahoo Finance (`yfinance`), the Finnhub and
+SimFin free tiers, Reddit's Data API and DuckDuckGo (`ddgs`, unofficial) are for
+personal, non-commercial use. Don't redistribute their data or publish run
+directories, and get licensed feeds before any commercial use. Set
+`REDDIT_USERNAME` for the user agent Reddit requires.
+
+Reddit requires deleted content to be removed from stored copies. When your
+research is complete, purge it (dry run unless `--apply`; unfinished runs are
+skipped; reports and run state are kept):
+
+```bash
+uv run python -B -m utils.purge_reddit [--include-legacy] [--apply]
+```
