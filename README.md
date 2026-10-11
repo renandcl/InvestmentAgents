@@ -241,7 +241,7 @@ print(result.run_id, result.report_path)
 
 `OFF` is the default and never initializes Mem0 or an embedder. Opt in with
 `MemoryMode.RUN_ONLY` to use private per-agent Mem0 workers. Their Ollama-compatible
-defaults remain `qwen3:8b` and `embeddinggemma:latest` (768 dimensions); agent-group
+defaults remain `qwen3:8b` and `qwen3-embedding:0.6b` (1024 dimensions); agent-group
 model environment overrides do not configure memory. Retrieval is bound to both
 run and agent. Cross-run learning and temporal evidence validation are outside
 this feature.

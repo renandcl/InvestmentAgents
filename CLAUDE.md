@@ -19,7 +19,7 @@ uv run pre-commit run --all-files  # Ruff/import sorting, Black, secret/file che
 ## Runtime requirements
 
 - Every agent defaults to an OpenAI-compatible endpoint at `http://localhost:11434/v1` (Ollama) with model `qwen3:8b`. You can override this for each group with `{ANALYSTS,RESEARCHERS,TRADERS,RISK_MANAGERS,INVESTMENT_MANAGER}_{BASE_URL,API_KEY,MODEL_ID}` (see `.env.example`).
-- Memory defaults to OFF with no vendor initialization. RUN_ONLY uses an owned Mem0 worker per run/agent, with private Chroma/history/vendor stores and run/agent filters. Its existing Ollama settings (`qwen3:8b`, `embeddinggemma:latest`, 768 dims) do not use agent-group environment overrides. Never import Mem0 in the parent or switch a parent MEM0_DIR.
+- Memory defaults to OFF with no vendor initialization. RUN_ONLY uses an owned Mem0 worker per run/agent, with private Chroma/history/vendor stores and run/agent filters. Its existing Ollama settings (`qwen3:8b`, `qwen3-embedding:0.6b`, 1024 dims) do not use agent-group environment overrides. Never import Mem0 in the parent or switch a parent MEM0_DIR.
 - Some MCP servers need API keys (`FINNHUB_API_KEY`, `REDDIT_CLIENT_ID/SECRET`, `SIMFIN_API_KEY`). Some also need data downloaded beforehand with `mcp-servers/<server>/data/download_data.py`.
 
 ## Architecture
