@@ -6,6 +6,7 @@ from pathlib import Path
 
 from runtime.context import MemoryMode, RunConfig
 from runtime.lifecycle import create_run
+from runtime.logging import configure_logging
 
 
 def run_example(agent_factory, required_report_key):
@@ -18,6 +19,7 @@ def run_example(agent_factory, required_report_key):
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--message", default="Provide the analysis.")
     args = parser.parse_args()
+    configure_logging()
     options = {"output_root": args.output_root} if args.output_root else {}
     runtime = create_run(
         RunConfig(args.ticker, args.date, memory_mode=args.memory_mode, **options)

@@ -95,6 +95,6 @@ Register cleanup before acquisition; close only owned handles in reverse order, 
 
 ## Known quirks
 
-- There is no Social Media Analyst; risk contracts retain a missing-report default.
+- `reddit-search` contains an unintegrated SocialMediaAnalyst prototype (latest commit: `9c070b0`, 2025-10-14). It is not part of the current agent tree and has not been adapted to run isolation. NewsAnalyst uses Reddit data; risk contracts retain a missing social-media-report default.
 - Shared contracts/lifecycle and `runtime/` own isolation behavior. Preserve their boundaries instead of copying storage logic into agents. Update specs/001-run-isolation requirements and acceptance before changing behavior; specs 002/003 define inherited hook/debate semantics.
-- Each agent configures logging on its own, with a mix of DEBUG and INFO for `strands`.
+- Batch and standalone entry points share `runtime.logging.configure_logging`: application and `strands` logging default to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` for diagnostics. Agent imports must not configure logging or change logger levels.

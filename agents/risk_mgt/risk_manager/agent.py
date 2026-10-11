@@ -1,4 +1,3 @@
-import logging
 import os
 
 from strands import tool
@@ -13,12 +12,6 @@ from agents.risk_mgt.risk_manager.hook import SharedDocument
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
 from runtime.examples import run_example
-
-# Enable debug logs
-logging.getLogger("strands").setLevel(logging.DEBUG)
-logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s", handlers=[logging.StreamHandler()]
-)
 
 
 class RiskManager(Agent):

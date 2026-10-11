@@ -190,6 +190,11 @@ Some MCP servers require pre-downloading data before they can be used. You may n
 
 The main entry point is `main.py`. You can configure the assets, date range, and frequency directly in the `main()` function within `main.py`.
 
+Batch runs and standalone examples use the same logging policy: INFO by default,
+with `LEVEL | logger | message` output on stderr. Set `INVESTMENT_LOG_LEVEL=DEBUG`
+in the root `.env` or shell to enable diagnostics. Importing an agent does not
+configure logging or change logger levels.
+
 1.  Open `main.py` and modify the configuration section:
     ```python
     def main():

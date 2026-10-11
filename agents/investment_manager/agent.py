@@ -1,4 +1,3 @@
-import logging
 import os
 
 from strands import tool
@@ -13,12 +12,6 @@ from agents.traders.trader.agent import Trader
 from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
 from runtime.examples import run_example
-
-# Enables Strands debug log level
-logging.getLogger("strands").setLevel(logging.INFO)
-logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s",
-)
 
 
 class InvestmentManager(Agent):

@@ -6,6 +6,7 @@ from agents.investment_manager.agent import InvestmentManager
 from runtime.context import RunConfig
 from runtime.errors import RunExecutionError
 from runtime.lifecycle import create_run
+from runtime.logging import configure_logging
 
 
 async def run_analysis(ticker: str, date: str, **config_options):
@@ -19,6 +20,7 @@ async def run_analysis(ticker: str, date: str, **config_options):
 
 
 def main():
+    configure_logging()
     # Configuration
     assets = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA"]
     start_date = "2025-08-01"
