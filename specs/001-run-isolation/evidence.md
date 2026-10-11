@@ -73,7 +73,7 @@ listed modules. The implementation sources were inspected alongside these tests.
   explicit; the auxiliary entity collection clones the same private Chroma path,
   confirmed by the real-backend test. Shared dependency/model files are not
   analysis state.
-- Unused Google News and Mem0 MCP implementations reject initialization.
+- The unused Mem0 MCP implementation rejects initialization. The Google News server was later removed because scraping Google violates its terms of service.
   `utils/report.py` only renders an explicit StateSnapshot and its old CLI is
   guarded. `JsonReportStore` remains an explicit-path legacy test adapter; no
   runtime/agent path constructs it. Searches found no executable global legacy

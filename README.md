@@ -262,7 +262,7 @@ The parent process does not switch CWD or environment to route runs. MCP childre
 receive private cache roots and retain their provider `.env` credential delivery.
 Run identity/cache keys in those files must not conflict with host context.
 Shared SimFin datasets are read-only during analysis. Direct MCP startup requires
-host context; unused Google News and Mem0 MCP servers reject startup.
+host context; the unused Mem0 MCP server rejects startup.
 
 ## Project Structure
 
@@ -273,3 +273,44 @@ host context; unused Google News and Mem0 MCP servers reject startup.
 - `utils/`: Utility scripts (e.g., report generation).
 - `main.py`: Main script to run the investment analysis workflow.
 - `pyproject.toml`: Project configuration and dependencies.
+
+## Licensing and terms of use
+
+This project is licensed under the [Apache License 2.0](LICENSE). It is provided
+for research and educational use only and is **not investment advice**; every
+generated report carries the same notice.
+
+Third-party components keep their own terms:
+
+- **Python packages**: runtime dependencies use permissive licenses (Apache-2.0,
+  MIT, BSD, ISC, PSF, MPL-2.0 for a few transitive packages). The `dev` group adds
+  `arize-phoenix` (Elastic License 2.0): use it locally, but do not offer it to
+  third parties as a hosted service.
+- **Models**: `qwen3:8b` and `qwen3-embedding` are Apache-2.0. If you point an
+  agent group at a hosted provider (`*_BASE_URL`), that provider's terms and usage
+  policies apply, including any rules for financial advice.
+- **Market and news data**: these terms limit how the project may be used.
+  - Yahoo Finance (via `yfinance`) is unofficial; Yahoo's terms allow personal use only.
+  - Finnhub and SimFin free tiers are for non-commercial use. Commercial use or
+    redistribution needs a paid license, and SimFin requires attribution.
+  - Reddit's Data API is free for non-commercial use only and forbids training
+    models on its content. Set `REDDIT_USERNAME` so requests carry the user agent
+    Reddit requires.
+  - DuckDuckGo results come from an unofficial scraper (`ddgs`).
+
+Run directories (`data/runs/<run_id>/`) and downloaded datasets contain
+third-party content. Do not commit or publish them. Reddit requires deleted
+content to be removed from stored copies. When your research is complete,
+remove the stored Reddit content with:
+
+```bash
+uv run python -B -m utils.purge_reddit                    # dry run: list what would go
+uv run python -B -m utils.purge_reddit --apply            # finished runs under data/runs
+uv run python -B -m utils.purge_reddit --include-legacy --apply  # also pre-isolation data/
+```
+
+The script deletes Reddit provider caches and replaces `get_reddit_news` tool
+results in session transcripts with a redaction marker. It skips unfinished runs.
+Reports, run state and memories contain only LLM-written summaries, so they are
+kept and their artifact hashes stay valid. Commercial use would require licensed data feeds and a Reddit
+commercial agreement.

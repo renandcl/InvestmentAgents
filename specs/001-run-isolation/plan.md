@@ -85,7 +85,7 @@ Migrate Yahoo, both Stockstats cache paths, Finnhub news/insider services, Reddi
 
 Windows contention applies to both publication and reads. Both use a one-second bound for transient sharing/permission failures, with path containment rechecked on each attempt. The existing complete file remains until replacement succeeds; permission errors are never cache misses and persistent failures propagate. Deterministic fault injection covers transient recovery and deadline exhaustion alongside concurrent-reader/writer tests.
 
-SimFin CSVs remain read-only shared inputs, never updated by analysis. Google News, Mem0 MCP and direct provider demonstrations must adopt explicit context or fail before service construction. Include library-owned analysis caches in the persistence audit.
+SimFin CSVs remain read-only shared inputs, never updated by analysis. Mem0 MCP and direct provider demonstrations must adopt explicit context or fail before service construction. Include library-owned analysis caches in the persistence audit.
 
 A resource registry registers a cleanup wrapper before each start attempt, so partial acquisition is covered. Cleanup is safe for unstarted/partially started resources, executes in reverse order, continues after individual errors and preserves the original error. Stop only owned client/process handles. The installed MCPClient exposes stop/context-manager cleanup.
 

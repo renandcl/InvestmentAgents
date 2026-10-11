@@ -3,6 +3,8 @@ name = "investmentagents"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.13"
 dependencies = [
     "strands-agents-tools[a2a-client]>=0.8.9",
@@ -18,7 +20,6 @@ members = [
     "mcp-servers/finnhub-fundamentals-data-server",
     "mcp-servers/finnhub-news-data-server",
     "mcp-servers/reddit-news-data-server",
-    "mcp-servers/google-news-data-server",
     "mcp-servers/duckduckgo-news-data-server",
     "mcp-servers/yfin-market-data-server",
     "mcp-servers/stockstats-market-data-server",
