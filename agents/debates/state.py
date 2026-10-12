@@ -1,9 +1,9 @@
 """Pure state machine; accepted contributions, not tool turns, complete rounds."""
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from agents.hooks.contracts import ContractError, DebatePolicy
+from runtime.types import DebateHandle, StateSnapshot
 
 
 @dataclass(frozen=True)
@@ -12,7 +12,22 @@ class RoundContext:
     round_number: int
     phase: str
     participant_id: str
-    snapshot: dict[str, Any]
+    snapshot: StateSnapshot
+    run_id: str
+    manager_id: str
+    manager_invocation_id: str
+    generation: int
+    participant_invocation_id: str
+
+    @property
+    def handle(self):
+        return DebateHandle(
+            self.run_id,
+            self.manager_id,
+            self.manager_invocation_id,
+            self.debate_id,
+            self.generation,
+        )
 
 
 @dataclass

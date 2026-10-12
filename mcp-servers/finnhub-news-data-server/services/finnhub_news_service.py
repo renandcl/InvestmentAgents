@@ -1,15 +1,17 @@
-import json
 import os
 from datetime import datetime, timezone
 
 import finnhub
 from dateutil.relativedelta import relativedelta
 
+from runtime.cache import service_cache
+
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 
 
 class FinnhubNewsService:
-    def __init__(self):
+    def __init__(self, *, cache=None):
+        self.cache = service_cache("finnhub-news-data-server", cache)
         self.client = finnhub.Client(api_key=FINNHUB_API_KEY)
 
     def get_news(
@@ -34,15 +36,14 @@ class FinnhubNewsService:
         before = start_date - relativedelta(days=look_back_days)
         before = before.strftime("%Y-%m-%d")
 
-        file_path = f"data/news_data/finnhub_news_{ticker}_{before}_{curr_date}.json"
-
-        if os.path.exists(file_path):
-            json_data = json.load(open(file_path, "r"))
-        else:
+        key = self.cache.key(
+            "news", {"ticker": ticker, "before": before, "current_date": curr_date}
+        )
+        json_data = self.cache.read_json(key)
+        if json_data is None:
             json_data = {"data": self.client.company_news(ticker, before, curr_date)}
 
-            os.makedirs("data/news_data", exist_ok=True)
-            json.dump(json_data, open(file_path, "w"))
+            self.cache.write_json(key, json_data)
 
         if len(json_data["data"]) == 0:
             return "No news data available for this company."

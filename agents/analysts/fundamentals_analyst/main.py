@@ -1,35 +1,15 @@
-import logging
+"""A2A server reserved for future distributed run isolation (port 9900)."""
 
-import uvicorn
-from a2a.types import AgentSkill
-from agent import FundamentalsAnalyst
-from strands.multiagent.a2a import A2AServer
+from runtime.errors import UnsupportedExecutionMode
 
-# Enables Strands debug log level
-logging.getLogger("strands").setLevel(logging.INFO)
-logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s",
-)
+PORT = 9900
 
 
 def a2a_agent_app():
-    """Factory to create the FastAPI app for the fundamentals analyst agent."""
-    fundamentals_analyst = FundamentalsAnalyst()
-    skill = AgentSkill(
-        description=fundamentals_analyst.description,
-        name=fundamentals_analyst.name,
-        id=fundamentals_analyst.agent_id,
-        tags=[],
-        examples=["Provide the fundamentals analysis."],
+    raise UnsupportedExecutionMode(
+        "A2A servers are disabled until distributed run isolation is supported."
     )
-    a2a_server = A2AServer(
-        agent=fundamentals_analyst,
-        host="0.0.0.0",
-        port=9900,
-        skills=[skill],
-    )
-    return a2a_server.to_fastapi_app()
 
 
 if __name__ == "__main__":
-    uvicorn.run(a2a_agent_app(), host="0.0.0.0", port=9900, log_level="info")
+    a2a_agent_app()

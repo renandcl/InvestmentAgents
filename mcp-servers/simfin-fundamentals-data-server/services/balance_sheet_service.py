@@ -3,6 +3,8 @@ from typing import Annotated
 
 import pandas as pd
 
+from runtime.cache import provider_context
+
 file_path = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(file_path, "../data")
 
@@ -24,6 +26,9 @@ def get_simfin_balance_sheet(
     Returns:
         str: The balance sheet information for the specified company.
     """
+    provider_context("simfin-fundamentals-data-server")
+    if freq not in {"annual", "quarterly"}:
+        raise ValueError("Unsupported reporting frequency")
     data_path = os.path.join(
         DATA_DIR,
         f"us-balance-{freq}.csv",

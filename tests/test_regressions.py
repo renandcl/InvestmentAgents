@@ -1,7 +1,5 @@
 """Offline regression tests; run with python -m unittest discover -s tests."""
 
-import inspect
-import json
 import runpy
 import tempfile
 import tomllib
@@ -10,6 +8,15 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+
+from isolation_helpers import (
+    complete_manager_fixture,
+    fixture_replace,
+    new_runtime,
+    unit_agent,
+)
+
+from runtime.cache import RunCache
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,7 +30,7 @@ class HookTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.shared = Path(self.temp.name) / "shared.json"
+        self.runtime = new_runtime(Path(self.temp.name))
         self.data = {
             "ticker": "AAPL",
             "current_date": "2025-08-01",
@@ -38,20 +45,16 @@ class HookTests(unittest.TestCase):
         self.save_data()
 
     def save_data(self):
-        self.shared.write_text(json.dumps(self.data), encoding="utf-8")
+        fixture_replace(self.runtime, self.data)
 
     def make_hook(self, folder):
         cls = runpy.run_path(str(ROOT / folder / "hook.py"))["SharedDocument"]
-        kwargs = {"shared_document_file": str(self.shared)}
-        if "memory" in inspect.signature(cls).parameters:
-            kwargs["memory"] = Mock(search_memories=Mock(return_value=[]))
-        hook = cls(**kwargs)
-        agent = SimpleNamespace(
-            system_prompt=(ROOT / folder / "prompt.txt").read_text(encoding="utf-8"),
-            state=State(),
-            messages=[{"role": "user", "content": [{"text": "Analyze"}]}],
-            agent_id=hook.spec.agent_id,
+        hook = cls(
+            runtime=self.runtime, memory=Mock(search_memories=Mock(return_value=[]))
         )
+        agent = unit_agent(self.runtime, hook.spec.agent_id)
+        agent.system_prompt = (ROOT / folder / "prompt.txt").read_text(encoding="utf-8")
+        agent.messages = [{"role": "user", "content": [{"text": "Analyze"}]}]
         return hook, SimpleNamespace(agent=agent)
 
     def test_all_hooks_render_fresh_state_on_repeated_invocations(self):
@@ -63,7 +66,7 @@ class HookTests(unittest.TestCase):
                 hook.add_prompt_arguments(event)
                 self.data["market_analyst_report"] = 'Updated market {"value": 2}'
                 self.data["bear_researcher_report"] = "Updated bear"
-                self.data["ticker"] = "MSFT"
+                # Identity is immutable; updated reports must still refresh.
                 self.save_data()
                 hook.get_shared_document(event)
                 hook.add_prompt_arguments(event)
@@ -75,7 +78,7 @@ class HookTests(unittest.TestCase):
                 if "{bear_researcher_report}" in template:
                     self.assertIn("Updated bear", event.agent.system_prompt)
                 if "{ticker}" in template:
-                    self.assertIn("MSFT", event.agent.system_prompt)
+                    self.assertIn("AAPL", event.agent.system_prompt)
 
     def test_research_report_reaches_trader(self):
         hook, event = self.make_hook(Path("agents/researchers/manager"))
@@ -86,8 +89,7 @@ class HookTests(unittest.TestCase):
         event.result = SimpleNamespace(
             stop_reason="end_turn", message=event.agent.messages[-1]
         )
-        event.agent.state.set("debate_rounds", 3)
-        event.agent.state.set("debate_phase", "synthesis")
+        complete_manager_fixture(hook, event.agent)
         hook.save_shared_document(event)
         trader, event = self.make_hook(Path("agents/traders/trader"))
         trader.get_shared_document(event)
@@ -155,15 +157,9 @@ class RedditTests(unittest.TestCase):
         )
         globals_ = service.get_news.__globals__
         with tempfile.TemporaryDirectory() as directory:
-            cache = Path(directory) / "news.json"
-            overrides = {
-                "open": lambda _, mode: cache.open(mode, encoding="utf-8"),
-                "os": SimpleNamespace(
-                    path=SimpleNamespace(exists=lambda _: cache.exists()),
-                    makedirs=Mock(),
-                ),
-                "Submission": lambda _, _data: SimpleNamespace(**_data),
-            }
+            runtime = new_runtime(Path(directory))
+            service.cache = RunCache.for_run(runtime, "reddit-news-data-server")
+            overrides = {"Submission": lambda _, _data: SimpleNamespace(**_data)}
             with patch.dict(globals_, overrides):
                 first = service.get_news("AAPL", "2025-08-20", 30)
                 cached = service.get_news("AAPL", "2025-08-20", 30)

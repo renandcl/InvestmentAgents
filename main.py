@@ -1,50 +1,27 @@
 import asyncio
-import json
-import os
 
 import pandas as pd
 
+from agents.hooks.contracts import ContractError
 from agents.investment_manager.agent import InvestmentManager
-from utils.report import generate_markdown_report
+from runtime.context import RunConfig
+from runtime.errors import RunExecutionError, StateStoreUnavailable
+from runtime.lifecycle import create_run
+from runtime.logging import configure_logging
 
 
-async def run_analysis(ticker: str, date: str):
-    """
-    Runs the investment analysis for a specific ticker and date.
-    """
-    print(f"--- Starting analysis for {ticker} on {date} ---")
-
-    # Update shared_document.json with the current context
-    shared_doc_path = os.path.abspath("data/shared_document.json")
-
-    # Ensure data directory exists
-    os.makedirs(os.path.dirname(shared_doc_path), exist_ok=True)
-
-    # Initialize shared document if it doesn't exist or update it
-    initial_data = {"ticker": ticker, "current_date": date}
-    with open(shared_doc_path, "w") as f:
-        json.dump(initial_data, f)
-
-    # Initialize and run the Investment Manager
-    # We create a new instance for each run to ensure a fresh session
-    investment_manager = InvestmentManager()
-    prompt = "Execute the investment analyses."
-
-    try:
-        response = await investment_manager.execute_complete_workflow(prompt)
-        print(f"Analysis finished for {ticker} on {date}.")
-        print(f"Response: {response}")
-
-        # Generate report
-        report_filename = f"report_{ticker}_{date}.md"
-        report_path = os.path.join("reports", report_filename)
-        generate_markdown_report(shared_doc_path, report_path)
-
-    except Exception as e:
-        print(f"An error occurred during analysis for {ticker} on {date}: {e}")
+async def run_analysis(ticker: str, date: str, **config_options):
+    """Return a committed RunResult, or raise an error carrying the run identity."""
+    runtime = create_run(RunConfig(ticker, date, **config_options))
+    return await runtime.execute(
+        InvestmentManager,
+        "Execute the investment analyses.",
+        "investment_manager_report",
+    )
 
 
 def main():
+    configure_logging()
     # Configuration
     assets = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA"]
     start_date = "2025-08-01"
@@ -79,10 +56,27 @@ def main():
     print(f"Generated dates: {dates}")
 
     # Run analysis for each asset and date
+    failures = 0
     for ticker in assets:
         for date in dates:
-            asyncio.run(run_analysis(ticker, date))
+            try:
+                result = asyncio.run(run_analysis(ticker, date))
+                print(
+                    f"Run {result.run_id}: {result.status}; report: {result.report_path}"
+                )
+            except RunExecutionError as error:
+                failures += 1
+                print(str(error))
+            except (ContractError, StateStoreUnavailable, OSError) as error:
+                failures += 1
+                print(
+                    f"Initialization failed for {ticker} on {date}: {type(error).__name__}"
+                )
+    print(
+        f"Batch complete: {len(assets) * len(dates) - failures} succeeded, {failures} failed."
+    )
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

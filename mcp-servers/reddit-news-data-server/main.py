@@ -1,4 +1,15 @@
+# Validate host context before importing libraries that may initialize services.
+# ruff: noqa: E402
+import json
+import sys
 from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from runtime.cache import provider_context
+
+provider_context("reddit-news-data-server")
 
 from mcp.server.fastmcp import FastMCP
 
@@ -7,6 +18,24 @@ from services import RedditNewsService
 
 mcp = FastMCP("reddit-news-data")
 reddit_news_service = RedditNewsService()
+
+
+@mcp.tool()
+def get_reddit_sentiment(
+    ticker: str, start_date: str, end_date: str, max_posts: int = 30
+) -> str:
+    """Get Reddit opinions and engagement, separately from factual news.
+
+    Dates are inclusive UTC calendar dates. The sample covers selected investing
+    subreddits and is bounded to 1..100 posts. Engagement is observed at retrieval.
+    """
+    params = RedditNewsParameters(
+        ticker=ticker, start_date=start_date, end_date=end_date
+    )
+    result = reddit_news_service.get_sentiment(
+        params.ticker, params.start_date, params.end_date, max_posts
+    )
+    return json.dumps(result, ensure_ascii=False)
 
 
 @mcp.tool()

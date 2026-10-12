@@ -1,16 +1,15 @@
-import json
-import os
 from datetime import datetime
 from typing import Dict, List
 
 from dateutil.relativedelta import relativedelta
 from ddgs import DDGS
 
+from runtime.cache import service_cache
+
 
 class DuckDuckGoNewsService:
-    def __init__(self):
-        # DDGS has context manager usage; we will instantiate when querying
-        pass
+    def __init__(self, *, cache=None):
+        self.cache = service_cache("duckduckgo-news-data-server", cache)
 
     def get_news(
         self,
@@ -27,15 +26,21 @@ class DuckDuckGoNewsService:
         before = curr_dt - relativedelta(days=look_back_days)
         before_str = before.strftime("%Y-%m-%d")
 
-        os.makedirs("data/news_data", exist_ok=True)
-        cache_file = (
-            "data/news_data/duckduckgo_news_"
-            f"{query}_{before_str}_{curr_date}_{max_results}_{region}_{safesearch}_{timelimit or 'auto'}_{backend}.json"
+        key = self.cache.key(
+            "news",
+            {
+                "query": query,
+                "current_date": curr_date,
+                "look_back_days": look_back_days,
+                "max_results": max_results,
+                "region": region,
+                "safesearch": safesearch,
+                "timelimit": timelimit,
+                "backend": backend,
+            },
         )
-
-        if os.path.exists(cache_file):
-            json_data = json.load(open(cache_file, "r"))
-        else:
+        json_data = self.cache.read_json(key)
+        if json_data is None:
             # ddgs.news does not support direct date filtering for historical ranges precisely; we fetch and then filter
             # If timelimit not supplied, infer from look_back_days (heuristic)
             inferred_timelimit = timelimit
@@ -104,7 +109,7 @@ class DuckDuckGoNewsService:
                     break
 
             json_data = {"data": filtered}
-            json.dump(json_data, open(cache_file, "w"))
+            self.cache.write_json(key, json_data)
 
         if len(json_data["data"]) == 0:
             return "No news data available for this query."

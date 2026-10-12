@@ -5,5 +5,5 @@ from agents.hooks.specs import AGENT_SPECS
 
 
 class SharedDocument(AgentLifecycleHooks):
-    def __init__(self, shared_document_file: str, memory):
-        super().__init__(AGENT_SPECS["risk_manager"], shared_document_file, memory)
+    def __init__(self, *, runtime, memory=None):
+        super().__init__(AGENT_SPECS["risk_manager"], runtime=runtime, memory=memory)

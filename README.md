@@ -7,7 +7,7 @@ This project implements a multi-agent system for investment analysis. It orchest
 - **Multi-Agent Architecture**: Coordinates specialized agents for fundamental analysis, market analysis, research, trading strategies, and risk management.
 - **Automated Workflow**: Runs a complete investment decision from data gathering to final decision.
 - **Report Generation**: Generates detailed Markdown reports for each analysis session.
-- **Agent-to-Agent (A2A) Communication**: Utilizes A2A protocols for seamless interaction and task delegation between agents.
+- **Independent runs**: Each analysis has its own state, sessions, caches and report.
 - **Model Context Protocol (MCP) Integration**: Leverages MCP servers for data retrieval from various sources (e.g., Finnhub, SimFin).
 
 ## Architecture
@@ -20,10 +20,10 @@ flowchart LR
         MA["Market Analyst"]
         NA["News Analyst"]
         FA["Fundamentals Analyst"]
-        SA["Social Media Analyst"]
+        SMA["Social Media Sentiment Analyst"]
   end
  subgraph subGraph1["Researchers Discussion"]
-        BR["Bull Reseacher"]
+        BR["Bull Researcher"]
         BER["Bear Researcher"]
         RM["Research Manager"]
   end
@@ -38,61 +38,24 @@ flowchart LR
   end
     Init(["Ticker, Date"]) -- Start Analysis --> IM["Investment Manager"]
     IM <-- Phase 1 --> AC
-    AC <--> MA & NA & FA & SA
+    AC <--> MA & NA & FA & SMA
     IM <-- Phase 2 --> RM
     RM <--> BR & BER
     IM <-- Phase 3 --> TR
     IM <-- Phase 4 --> RMG
     RMG <--> AD & CD & ND
-    MA -. Market Report .- State["Document"]
+    MA -. Market Report .- State["Per-run SQLite"]
     NA -. News Report .- State
     FA -. Fundamentals Report .- State
-    SA -. Social Media Report .- State
+    SMA -. Social Sentiment Report .- State
     RM -. Investment Plan .- State
     TR -. Investment Plan Report .- State
     RMG -. Risk Assessment .- State
     IM -. Final Trade Decision .- State
     State@{ shape: db}
-    Memory["Past Memory"]
+    Memory["Run-only Memory (OFF by default)"]
     Memory@{ shape: db}
     Memory -.- subGraph1 & subGraph2 & subGraph3
-```
-
-## Agent hook contracts
-
-Each agent's `hook.py` selects an immutable contract from
-`agents/hooks/specs.py`. Contracts declare input keys, missing-value defaults,
-refresh timing, prompt bindings, output keys/aliases, memory queries and workflow
-policy. Update the contract together with `prompt.txt` when changing an agent.
-The shared provider validates placeholders before execution and requires nonempty
-`ticker` and `current_date`; upstream reports remain optional for standalone use.
-
-`agents/hooks/lifecycle.py` loads invocation inputs, prepares workflow state,
-renders the original template and finalizes successful assistant results. Report
-text is extracted once, persisted to JSON, then passed to memory. Failed or
-incomplete invocations cannot reuse an older report from message history.
-
-Research and risk managers use a deterministic `DebateRunner`: opening,
-rebuttal and clarification each require every configured participant once.
-Participants receive the same snapshot of prior completed rounds. Contributions
-are staged, published together after a complete round, then stored in memory.
-The manager synthesizes the full accepted history with no participant tools.
-Failed or cancelled rounds cannot publish partial arguments or trigger synthesis.
-
-The in-process managers also run this scheduler through `invoke_async` and
-`stream_async`, including when served through their A2A entry points. Distributed
-manager variants in `a2a_agent.py` reject construction until HTTP round-context
-propagation is implemented. Top-level investment phase sequencing stays
-prompt-driven. JSON replacement is atomic but does not provide cross-process
-coordination or run isolation.
-
-See [the implementation specification](specs/002-agent-hook-contracts/spec.md).
-The debate behavior change is specified separately in
-[003 - Participant-aware debates](specs/003-participant-debates/spec.md).
-Run offline checks from the repository root:
-
-```bash
-uv run python -m unittest discover -s tests -v
 ```
 
 ## Prerequisites
@@ -112,41 +75,6 @@ uv run python -m unittest discover -s tests -v
     ```bash
     uv sync --all-packages
     ```
-
-## Code Quality
-
-Run these commands from the repository root after installing dependencies:
-
-```bash
-uv run pre-commit install --install-hooks
-uv run pre-commit run --all-files
-```
-
-Each new clone needs to install the hooks once. Before each commit, the hooks
-check staged files using pinned tool versions in isolated environments.
-
-- **Ruff** checks Python errors and unused imports, sorts imports, and applies
-  safe fixes.
-- **Black** formats Python for Python 3.13 with an 88-character line length.
-- **detect-secrets** checks credential patterns, hardcoded secret assignments,
-  and high-entropy strings. It runs offline with `--no-verify`. No baseline
-  suppresses existing findings.
-- Additional checks catch private keys, conflict markers, case-conflicting
-  filenames, newly added files larger than 1 MiB, invalid TOML/YAML/JSON, and
-  whitespace issues.
-
-If a formatter changes files, review and stage the changes, then retry the commit.
-Remove credentials identified by the secret scanner and use environment variables;
-rotate any real exposed credential. Only confirmed harmless false positives
-should use the inline `# pragma: allowlist secret` annotation. See the
-[detect-secrets documentation](https://github.com/Yelp/detect-secrets#inline-allowlisting).
-The hooks check file contents rather than Git history.
-
-Run the offline regression suite separately:
-
-```bash
-uv run python -m unittest discover -s tests -v
-```
 
 ## Dependency Updates
 
@@ -170,7 +98,13 @@ WSL environment; newer runner versions require a newer Git for full-repo scans.
 
 ### Environment Variables
 
-This project uses environment variables for configuration. Create a `.env` file in the root directory.
+Copy `.env.example` to `.env` in the repository root. By default, agents use
+Ollama at `http://localhost:11434/v1` with `qwen3:8b`. The template lists per-group
+model and endpoint overrides.
+
+Logging defaults to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` in `.env` for diagnostics.
+Memory is optional and defaults to OFF; pass `memory_mode="RUN_ONLY"` to
+`run_analysis` to enable memory within that run.
 
 **Note:** Some MCP servers located in `mcp-servers/` also require their own `.env` files. Please check the individual server directories for specific configuration requirements.
 
@@ -197,19 +131,55 @@ The main entry point is `main.py`. You can configure the assets, date range, and
 
 2.  Run the analysis using `uv`:
     ```bash
-    uv run main.py
+    uv run --env-file .env main.py
     ```
 
 ### Output
 
-- **Reports**: Generated Markdown reports are saved in the `reports/` directory. The filename format is `report_{ticker}_{date}.md`.
-- **Shared State**: The intermediate state and agent outputs are stored in `data/shared_document.json`.
+Each analysis writes to `data/runs/<run_id>/`. The command prints the run ID and
+Markdown report path.
+
+```text
+data/runs/<run_id>/
+  report.md                  # investment analysis report
+  manifest.json              # run summary
+  run.sqlite3                # saved run state
+  shared_document.json       # exported analysis results
+  sessions/                  # agent conversations
+  cache/                     # provider data
+  memory/                    # present when memory is enabled
+```
 
 ## Project Structure
 
 - `agents/`: Contains the implementation of various agents (Investment Manager, Analysts, Researchers, etc.).
-- `data/`: Stores shared state, session data, and market/fundamental data.
+- `runtime/`: Run context, SQLite store, lifecycle, sessions, memory workers, MCP resources and artifact publication.
+- `data/runs/`: Saved analysis reports and run data.
 - `mcp-servers/`: Model Context Protocol servers for data retrieval.
 - `utils/`: Utility scripts (e.g., report generation).
 - `main.py`: Main script to run the investment analysis workflow.
 - `pyproject.toml`: Project configuration and dependencies.
+
+## Licensing and terms of use
+
+Apache-2.0 (see [LICENSE](LICENSE)). For research and educational use only; not
+investment advice. Dependencies and the default models (`qwen3:8b`,
+`qwen3-embedding`) are permissively licensed. A hosted provider set through
+`*_BASE_URL` brings its own terms.
+
+The data sources are the real limit. Yahoo Finance (`yfinance`), the Finnhub and
+SimFin free tiers, Reddit's Data API and DuckDuckGo (`ddgs`, unofficial) are for
+personal, non-commercial use. Don't redistribute their data or publish run
+directories, and get licensed feeds before any commercial use. Set
+`REDDIT_USERNAME` for the user agent Reddit requires.
+
+Reddit requires deleted content to be removed from stored copies. When your
+research is complete, purge it (dry run unless `--apply`; unfinished runs are
+skipped; reports and run state are kept):
+
+```bash
+uv run python -B -m utils.purge_reddit [--apply]
+```
+
+For a hard-killed run, confirm its process and children have stopped, then add
+`--abandoned-run <run_id>`. Legacy data is preserved.

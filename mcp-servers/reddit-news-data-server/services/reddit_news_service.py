@@ -1,22 +1,135 @@
 import datetime
-import json
 import os
 
 import praw
 from praw.models import Submission
 
+from runtime.cache import service_cache
+
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
+# Reddit's API rules require <platform>:<app ID>:<version> (by /u/<username>).
+REDDIT_USERNAME = os.getenv("REDDIT_USERNAME", "unknown")
+REDDIT_USER_AGENT = (
+    f"python:investmentagents.reddit-news:0.1.0 (by /u/{REDDIT_USERNAME})"
+)
+SENTIMENT_SUBREDDITS = (
+    "stocks",
+    "investing",
+    "finance",
+    "ValueInvesting",
+    "Daytrading",
+    "options",
+)
+SENTIMENT_SEARCH_LIMIT = 1000
 
 
 class RedditNewsService:
-    def __init__(self):
+    def __init__(self, *, cache=None):
+        self.cache = service_cache("reddit-news-data-server", cache)
         self.reddit = praw.Reddit(
             client_id=REDDIT_CLIENT_ID,
             client_secret=REDDIT_CLIENT_SECRET,
-            user_agent="fundamentals_news_agent",
+            user_agent=REDDIT_USER_AGENT,
         )
         self.reddit.read_only = True
+
+    def get_sentiment(self, ticker, start_date, end_date, max_posts=30):
+        """Return a bounded, dated sample of opinions with source provenance."""
+        ticker = ticker.strip().upper()
+        start = datetime.datetime.strptime(start_date, "%Y-%m-%d").replace(
+            tzinfo=datetime.timezone.utc
+        )
+        end = datetime.datetime.strptime(end_date, "%Y-%m-%d").replace(
+            tzinfo=datetime.timezone.utc
+        )
+        if not ticker or start > end or not 1 <= max_posts <= 100:
+            raise ValueError("Invalid sentiment sample parameters")
+        cutoff = end + datetime.timedelta(days=1)
+        key = self.cache.key(
+            "sentiment-v2",
+            {
+                "ticker": ticker,
+                "start_date": start_date,
+                "end_date": end_date,
+                "max_posts": max_posts,
+                "subreddits": SENTIMENT_SUBREDDITS,
+                "search_limit": SENTIMENT_SEARCH_LIMIT,
+                "sort": "new",
+            },
+        )
+        cached = self.cache.read_json(key)
+        if cached is not None:
+            return cached
+        posts = {}
+        coverage = {}
+        for name in SENTIMENT_SUBREDDITS:
+            scanned = 0
+            oldest = None
+            reached_start = False
+            for post in self.reddit.subreddit(name).search(
+                ticker, sort="new", time_filter="all", limit=SENTIMENT_SEARCH_LIMIT
+            ):
+                scanned += 1
+                oldest = (
+                    post.created_utc
+                    if oldest is None
+                    else min(oldest, post.created_utc)
+                )
+                if post.created_utc < start.timestamp():
+                    reached_start = True
+                    break
+                if not start.timestamp() <= post.created_utc < cutoff.timestamp():
+                    continue
+                post_id = str(post.id)
+                if post_id in posts:
+                    continue
+                posts[post_id] = {
+                    "id": post_id,
+                    "title": post.title,
+                    "selftext": post.selftext,
+                    "created_utc": post.created_utc,
+                    "subreddit": post.subreddit.display_name,
+                    "reddit_url": "https://www.reddit.com" + post.permalink,
+                    "score": post.score,
+                    "num_comments": post.num_comments,
+                }
+            coverage[name] = {
+                "scanned": scanned,
+                "oldest_returned_utc": oldest,
+                "window_reached": oldest is not None and oldest < cutoff.timestamp(),
+                "capped": scanned >= SENTIMENT_SEARCH_LIMIT and not reached_start,
+            }
+        sample = sorted(
+            posts.values(), key=lambda post: (-post["created_utc"], post["id"])
+        )[:max_posts]
+        inaccessible = any(
+            item["scanned"] and not item["window_reached"] for item in coverage.values()
+        )
+        truncated = inaccessible or any(item["capped"] for item in coverage.values())
+        result = {
+            "status": (
+                ("partial" if truncated else "ok")
+                if sample
+                else ("unavailable" if inaccessible else "no_data")
+            ),
+            "coverage": coverage,
+            "ticker": ticker,
+            "start_date": start_date,
+            "end_date": end_date,
+            "timezone": "UTC",
+            "subreddits": list(SENTIMENT_SUBREDDITS),
+            "query": ticker,
+            "sort": "new",
+            "search_limit_per_subreddit": SENTIMENT_SEARCH_LIMIT,
+            "max_posts": max_posts,
+            "sample_size": len(sample),
+            "retrieved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "limitations": "Bounded paginated search, not an historical archive; an unreached window is unavailable. Comments are not fetched. Engagement is observed at retrieval time, not historical. Empty results do not imply neutral sentiment.",
+            "data": sample,
+        }
+        self.cache.write_json(key, result)
+        return result
 
     def get_news(
         self,
@@ -39,11 +152,16 @@ class RedditNewsService:
         start_date = datetime.datetime.strptime(curr_date, "%Y-%m-%d")
         before = start_date - datetime.timedelta(days=look_back_days)
 
-        file_path = f"data/news_data/reddit_news_{ticker}_{before.strftime('%Y-%m-%d')}_{curr_date}.json"
-
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                json_data = json.load(f)
+        key = self.cache.key(
+            "news",
+            {
+                "ticker": ticker,
+                "current_date": curr_date,
+                "look_back_days": look_back_days,
+            },
+        )
+        json_data = self.cache.read_json(key)
+        if json_data is not None:
             # subreddit : List[Submission] = json_data["data"]
             subreddit = []
             for item in json_data["data"]:
@@ -56,7 +174,6 @@ class RedditNewsService:
                 )
             )
 
-            os.makedirs("data/news_data", exist_ok=True)
             json_data = {"data": []}
 
             for submission in subreddit:
@@ -67,8 +184,7 @@ class RedditNewsService:
                         "created_utc": submission.created_utc,
                     }
                 )
-            with open(file_path, "w") as f:
-                json.dump(json_data, f)
+            self.cache.write_json(key, json_data)
 
         combined_result = ""
         count_submissions = 0
