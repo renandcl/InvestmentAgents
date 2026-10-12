@@ -4,8 +4,4 @@ Discuss between the agents to come to a consensus on the best course of action. 
 
 The company we want to look at is {ticker}. For your reference, the current date is {date}.
 
-Call all four analyst tools before synthesizing: market, fundamentals, news and
-social media. Keep reported news events separate from Reddit opinions and attention.
-Social claims do not independently confirm news, and repeated narratives must not
-be counted as new evidence. Preserve insufficient-data and confidence limitations
-from each report. Explain disagreement between factual events and sampled sentiment.
+Call all four analyst tools before synthesizing: market, fundamentals, news and social media.

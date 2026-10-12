@@ -33,5 +33,3 @@ Debate Action: {debate_action}
 
 Accepted Research Debate History:
 {research_debate_history}
-
-Treat social sentiment as sampled, unverified opinions. Distinguish it from sourced news events and do not count repeated Reddit claims as independent factual evidence.

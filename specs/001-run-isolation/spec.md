@@ -98,7 +98,7 @@ Acceptance: examples allocate fresh contexts; A2A entry points reject before con
 - NFR-003: Storage contention has a finite timeout; never hold state locks across model/network calls.
 - NFR-004: Audit auxiliary vendor persistence and initialization side effects, not just application filenames. Run-dependent routing cannot use mutable process globals.
 - NFR-005: An uncatchable termination can leave a nonterminal run. File presence never proves success; automatic recovery and guaranteed cleanup after hard kill are excluded.
-- NFR-006: Preserve the c51be7f financial prompts, declared report keys/aliases and spec 003 debate semantics during isolation work. Spec 004 explicitly authorizes prompt and input extensions for separate news/sentiment analysis. Adapt the current 39-test suite across five test modules without weakening behavioral guarantees. Replace obsolete JSON-specific integration expectations with equivalent RunStore failure tests, retaining standalone legacy-adapter tests where useful.
+- NFR-006: Preserve the c51be7f financial prompts, declared report keys/aliases and spec 003 debate semantics during isolation work. Spec 004 explicitly authorizes prompt and input extensions for separate news/sentiment analysis; preserve the original news wording except for provider names and avoid repeated source-specific warnings in downstream templates. Adapt the current 39-test suite across five test modules without weakening behavioral guarantees. Replace obsolete JSON-specific integration expectations with equivalent RunStore failure tests, retaining standalone legacy-adapter tests where useful.
 
 ## Success criteria
 

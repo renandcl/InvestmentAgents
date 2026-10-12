@@ -2,6 +2,15 @@
 
 **Validated:** 2026-10-11
 
+After simplifying the prompts, **18 targeted tests passed in 2.649 seconds**:
+the complete hook-contract module and the real Strands full-tree integration test.
+Template bindings, distinct news/sentiment inputs, report aliases and private sessions
+remain valid. Manual diff review confirms NewsAnalyst matches its pre-extension prompt
+except for provider names, and downstream templates retain report inputs without the
+repeated social-claims paragraphs. The social prompt follows the reference's analysis
+and report structure, adapted to the available Reddit source. These offline checks
+validate integration; they do not measure model-generated sentiment quality.
+
 The offline unittest suite passed **108 tests in 34.568 seconds**, with no skips.
 Models, Reddit responses and MCP providers use offline fixtures. No live-provider
 or sentiment-model quality claim is made.
