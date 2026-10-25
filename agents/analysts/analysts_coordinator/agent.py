@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 
 from strands import tool
 from strands.agent import AgentResult
@@ -13,9 +16,12 @@ from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
 from runtime.examples import run_example
 
+if TYPE_CHECKING:
+    from runtime.lifecycle import RunRuntime
+
 
 class AnalystCoordinator(Agent):
-    def __init__(self, *, runtime):
+    def __init__(self, *, runtime: RunRuntime) -> None:
         self.runtime = require_runtime(runtime)
         self._init_system_prompt()
         self._init_model()
@@ -35,20 +41,20 @@ class AnalystCoordinator(Agent):
             hooks=self.hooks,
         )
 
-    def _init_system_prompt(self):
+    def _init_system_prompt(self) -> None:
         with open(
             os.path.join(os.path.dirname(__file__), "prompt.txt"), "r", encoding="utf-8"
         ) as f:
             self.system_prompt = f.read()
 
-    def _init_model(self):
+    def _init_model(self) -> None:
         settings = self.runtime.config.model_for("ANALYSTS")
         self.model = OpenAIModel(
             client_args={"base_url": settings.base_url, "api_key": settings.api_key},
             model_id=settings.model_id,
         )
 
-    def _init_tools(self):
+    def _init_tools(self) -> None:
         market_analyst = MarketAnalyst(runtime=self.runtime)
         news_analyst = NewsAnalyst(runtime=self.runtime)
         fundamentals_analyst = FundamentalsAnalyst(runtime=self.runtime)
@@ -61,10 +67,10 @@ class AnalystCoordinator(Agent):
             social_media_analyst.get_social_media_analyst_insights,
         ]
 
-    def _init_session_manager(self):
+    def _init_session_manager(self) -> None:
         self.session_manager = self.runtime.session_for("analyst_coordinator")
 
-    def _init_hooks(self):
+    def _init_hooks(self) -> None:
         self.lifecycle_hooks = SharedDocument(runtime=self.runtime, memory=None)
         self.hooks = [self.lifecycle_hooks]
 

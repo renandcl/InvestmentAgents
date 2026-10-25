@@ -1,11 +1,15 @@
 """Immutable, host-created identity; no ambient current run or mutable routing."""
 
+from __future__ import annotations
+
 import os
 import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import StrEnum
 from pathlib import Path
+from typing import TypedDict
 from uuid import UUID, uuid4
 
 from runtime.errors import (
@@ -30,11 +34,11 @@ class MemoryMode(StrEnum):
     RUN_ONLY = "RUN_ONLY"
 
 
-def utc_now():
+def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def validate_run_id(value):
+def validate_run_id(value: str) -> str:
     try:
         parsed = UUID(value)
         if parsed.version != 4 or parsed.hex != value:
@@ -44,13 +48,13 @@ def validate_run_id(value):
     return value
 
 
-def identifier(value):
+def identifier(value: str) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", value):
         raise InvalidRunConfig("Invalid host identifier")
     return value
 
 
-def contained(root, *parts):
+def contained(root: Path, *parts: str) -> Path:
     root = Path(root)
     if not root.is_absolute():
         raise UnsafeRunPath("Root must be absolute")
@@ -79,7 +83,21 @@ class ModelSettings:
     model_id: str
 
 
-def resolve_models(environ=None):
+class RunConfigOptions(TypedDict, total=False):
+    """Optional configuration accepted by the batch analysis helper."""
+
+    output_root: Path
+    memory_mode: MemoryMode
+    execution_mode: str
+    busy_timeout: float
+    cleanup_timeout: float
+    memory_request_timeout: float
+    models: tuple[ModelSettings, ...]
+
+
+def resolve_models(
+    environ: Mapping[str, str] | None = None,
+) -> tuple[ModelSettings, ...]:
     source = os.environ if environ is None else environ
     return tuple(
         ModelSettings(
@@ -106,7 +124,7 @@ class RunConfig:
         default_factory=resolve_models, repr=False
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if (
             not isinstance(self.ticker, str)
             or not self.ticker.strip()
@@ -166,7 +184,7 @@ class RunConfig:
         object.__setattr__(self, "memory_mode", mode)
         object.__setattr__(self, "output_root", root)
 
-    def model_for(self, group):
+    def model_for(self, group: str) -> ModelSettings:
         return next(model for model in self.models if model.group == group)
 
 
@@ -180,21 +198,23 @@ class RunContext:
     run_root: Path
     schema_version: int = 1
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         validate_run_id(self.run_id)
         if self.run_root != contained(self.output_root, self.run_id):
             raise UnsafeRunPath("Run root does not match identity")
 
-    def path(self, *parts):
+    def path(self, *parts: str) -> Path:
         contained(self.output_root, self.run_id)
         return contained(self.run_root, *parts)
 
     @property
-    def database_path(self):
+    def database_path(self) -> Path:
         return self.path("run.sqlite3")
 
 
-def allocate_context(config, *, id_factory=uuid4):
+def allocate_context(
+    config: RunConfig, *, id_factory: Callable[[], UUID] = uuid4
+) -> RunContext:
     # Validate the whole config before even allocating a directory.
     if not isinstance(config, RunConfig):
         raise InvalidRunConfig("RunConfig is required")

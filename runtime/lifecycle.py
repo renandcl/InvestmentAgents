@@ -1,6 +1,9 @@
 """Run allocation and managed construction, invocation, cleanup and finalization."""
 
+from __future__ import annotations
+
 import asyncio
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from strands.session.file_session_manager import FileSessionManager
@@ -21,9 +24,13 @@ from runtime.resources import ResourceRegistry
 from runtime.store import RunStore
 from runtime.types import RunResult
 
+if TYPE_CHECKING:
+    from runtime.context import RunConfig, RunContext
+    from runtime.types import AgentFactory, MemoryService
+
 
 class RunRuntime:
-    def __init__(self, config, context, store):
+    def __init__(self, config: RunConfig, context: RunContext, store: RunStore) -> None:
         if store.context != context or (
             config.ticker,
             config.current_date,
@@ -34,13 +41,15 @@ class RunRuntime:
         self.context = context
         self.store = store
         self.resources = ResourceRegistry(config.cleanup_timeout)
-        self._memories = {}
+        self._memories: dict[str, MemoryService] = {}
         self._executing = False
         self._accepting = True
-        self._invocations = {}
-        self._invocation_failure = None
+        self._invocations: dict[asyncio.Task[Any] | None, int] = {}
+        self._invocation_failure: SafeError | None = None
 
-    def record_invocation_failure(self, agent_id, invocation_id, error):
+    def record_invocation_failure(
+        self, agent_id: str, invocation_id: str, error: BaseException
+    ) -> None:
         # SDK tool executors may consume the exception. Keep its safe identity
         # after the completed child has left _invocations, without traceback data.
         failure = SafeError.from_exception(
@@ -49,11 +58,11 @@ class RunRuntime:
         if self._invocation_failure is None:
             self._invocation_failure = failure
 
-    def assert_running(self):
+    def assert_running(self) -> None:
         if not self._accepting or self.store.status() != "RUNNING":
             raise RunNotWritable("Runtime is not accepting invocations")
 
-    def session_for(self, agent_id):
+    def session_for(self, agent_id: str) -> FileSessionManager:
         self.assert_running()
         if agent_id not in AGENT_SPECS:
             raise ContractError("Unknown session owner")
@@ -62,7 +71,7 @@ class RunRuntime:
         root.mkdir(parents=True, exist_ok=True)
         return FileSessionManager(session_id=uuid4().hex, storage_dir=str(root))
 
-    def memory_for(self, agent_id):
+    def memory_for(self, agent_id: str) -> MemoryService:
         self.assert_running()
         if agent_id not in AGENT_SPECS:
             raise ContractError("Unknown memory owner")
@@ -70,20 +79,20 @@ class RunRuntime:
             self._memories[agent_id] = create_memory(self, agent_id)
         return self._memories[agent_id]
 
-    def enter_invocation(self):
+    def enter_invocation(self) -> asyncio.Task[Any] | None:
         self.assert_running()
         task = asyncio.current_task()
         self._invocations[task] = self._invocations.get(task, 0) + 1
         return task
 
-    def leave_invocation(self, task):
+    def leave_invocation(self, task: asyncio.Task[Any] | None) -> None:
         count = self._invocations.get(task, 0)
         if count > 1:
             self._invocations[task] = count - 1
         else:
             self._invocations.pop(task, None)
 
-    async def _drain(self, *, cancel):
+    async def _drain(self, *, cancel: bool) -> None:
         tasks = set(self._invocations) - {asyncio.current_task()}
         if not tasks:
             return
@@ -100,7 +109,9 @@ class RunRuntime:
             if not task.cancelled() and task.exception() is not None:
                 raise task.exception()
 
-    async def execute(self, agent_factory, message, required_report_key):
+    async def execute(
+        self, agent_factory: AgentFactory, message: str, required_report_key: str
+    ) -> RunResult:
         if self._executing or self.store.status() != "CREATED":
             raise RunNotWritable("A run can execute only once")
         if required_report_key not in {
@@ -217,7 +228,7 @@ class RunRuntime:
         )
 
 
-def create_run(config):
+def create_run(config: RunConfig) -> RunRuntime:
     context = allocate_context(config)
     store = RunStore(context, timeout=config.busy_timeout)
     store.initialize(config, provenance())

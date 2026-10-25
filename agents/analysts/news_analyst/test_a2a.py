@@ -1,9 +1,15 @@
 """Manual A2A client disabled for the isolated in-process milestone."""
 
+from __future__ import annotations
+
+from typing import NoReturn
+
 from runtime.errors import UnsupportedExecutionMode
 
 
-async def send_sync_message(message: str, base_url: str = "http://localhost:9901"):
+async def send_sync_message(
+    message: str, base_url: str = "http://localhost:9901"
+) -> NoReturn:
     raise UnsupportedExecutionMode(
         "A2A clients require distributed run-context propagation."
     )

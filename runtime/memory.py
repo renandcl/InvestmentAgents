@@ -1,29 +1,39 @@
 """OFF does nothing; RUN_ONLY owns an isolated Mem0 worker per agent."""
 
+from __future__ import annotations
+
 import json
 import os
 import queue
 import subprocess
 import sys
 import threading
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from agents.hooks.contracts import ContractError
 from runtime.context import REPO_ROOT, MemoryMode
 from runtime.errors import RunContextMismatch
 
+if TYPE_CHECKING:
+    from runtime.lifecycle import RunRuntime
+    from runtime.types import MemoryService
+
 
 class NullMemory:
-    def search_memories(self, current_situation, ticker, n_matches=2):
+    def search_memories(
+        self, current_situation: str, ticker: str, n_matches: int = 2
+    ) -> dict[str, Any]:
         return {"results": []}
 
-    def get_memories(self):
+    def get_memories(self) -> dict[str, Any]:
         return {"results": []}
 
-    def add_memory(self, memory, ticker):
+    def add_memory(self, memory: str, ticker: str) -> Any:
         return None
 
 
-def memory_config(root):
+def memory_config(root: Path) -> dict[str, Any]:
     return {
         "history_db_path": str(root / "history.sqlite3"),
         "vector_store": {
@@ -54,12 +64,12 @@ def memory_config(root):
 
 
 class RunMemory:
-    def __init__(self, runtime, agent_id):
+    def __init__(self, runtime: RunRuntime, agent_id: str) -> None:
         self.runtime = runtime
         self.agent_id = agent_id
-        self.process = None
-        self._reader = None
-        self._responses = queue.Queue()
+        self.process: subprocess.Popen[str] | None = None
+        self._reader: threading.Thread | None = None
+        self._responses: queue.Queue[str | None] = queue.Queue()
         self._lock = threading.Lock()
         self._closed = False
         self.root = runtime.context.path("memory", agent_id)
@@ -67,7 +77,7 @@ class RunMemory:
         runtime.resources.register(self.close, abort=self.abort)
         self._start()
 
-    def _start(self):
+    def _start(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         self.runtime.context.path("memory", self.agent_id)
         environment = dict(os.environ)
@@ -103,7 +113,7 @@ class RunMemory:
         )
         process = self.process
 
-        def read():
+        def read() -> None:
             try:
                 for line in process.stdout:
                     self._responses.put(line)
@@ -116,7 +126,7 @@ class RunMemory:
         self._reader.start()
         self._request({"method": "initialize"})
 
-    def _request(self, request):
+    def _request(self, request: dict[str, Any]) -> Any:
         self.runtime.assert_running()
         with self._lock:
             if self._closed or self.process is None or self.process.poll() is not None:
@@ -137,15 +147,17 @@ class RunMemory:
                 self.abort()
                 raise ContractError("Run memory operation failed") from None
 
-    def _ticker(self, ticker):
+    def _ticker(self, ticker: str) -> None:
         if ticker != self.runtime.context.ticker:
             raise RunContextMismatch("Memory ticker does not match its run")
 
-    def add_memory(self, memory, ticker):
+    def add_memory(self, memory: str, ticker: str) -> Any:
         self._ticker(ticker)
         return self._request({"method": "add", "memory": memory})
 
-    def search_memories(self, current_situation, ticker, n_matches=2):
+    def search_memories(
+        self, current_situation: str, ticker: str, n_matches: int = 2
+    ) -> dict[str, Any]:
         self._ticker(ticker)
         if type(n_matches) is not int or not 1 <= n_matches <= 100:
             raise ContractError("Invalid memory result limit")
@@ -153,10 +165,10 @@ class RunMemory:
             {"method": "search", "query": current_situation, "top_k": n_matches}
         )
 
-    def get_memories(self):
+    def get_memories(self) -> dict[str, Any]:
         return self._request({"method": "get_all"})
 
-    def abort(self):
+    def abort(self) -> None:
         process = self.process
         if process is not None and process.poll() is None:
             process.terminate()
@@ -166,7 +178,7 @@ class RunMemory:
                 process.kill()
                 process.wait(timeout=2)
 
-    def close(self):
+    def close(self) -> None:
         if self._closed:
             return
         self._closed = True
@@ -187,7 +199,7 @@ class RunMemory:
                 process.stdout.close()
 
 
-def create_memory(runtime, agent_id):
+def create_memory(runtime: RunRuntime, agent_id: str) -> MemoryService:
     if runtime.config.memory_mode == MemoryMode.OFF:
         return NullMemory()
     return RunMemory(runtime, agent_id)

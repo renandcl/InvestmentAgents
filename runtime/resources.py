@@ -1,21 +1,25 @@
 """Owned cleanup, registered before acquisition and bounded under cancellation."""
 
+from __future__ import annotations
+
 import asyncio
 import inspect
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from runtime.errors import ContractError, SafeError
 
 
 @dataclass
 class OwnedResource:
-    close: object
-    abort: object = None
+    close: Callable[[], Any]
+    abort: Callable[[], Any] | None = None
     attempted: bool = False
 
 
-async def call_cleanup(callback):
+async def call_cleanup(callback: Callable[[], Any]) -> Any:
     if inspect.iscoroutinefunction(callback):
         return await callback()
     # MCP stop can block on a vendor thread. A daemon avoids indefinitely joining
@@ -23,14 +27,14 @@ async def call_cleanup(callback):
     loop = asyncio.get_running_loop()
     future = loop.create_future()
 
-    def deliver(result, error):
+    def deliver(result: Any, error: BaseException | None) -> None:
         if not future.done():
             if error is None:
                 future.set_result(result)
             else:
                 future.set_exception(error)
 
-    def run():
+    def run() -> None:
         result, error = None, None
         try:
             result = callback()
@@ -49,23 +53,25 @@ async def call_cleanup(callback):
 
 
 class ResourceRegistry:
-    def __init__(self, timeout=30.0):
+    def __init__(self, timeout: float = 30.0) -> None:
         if not 0 < timeout <= 300:
             raise ContractError("Cleanup timeout must be bounded")
         self.timeout = timeout
-        self._resources = []
-        self._close_task = None
+        self._resources: list[OwnedResource] = []
+        self._close_task: asyncio.Task[tuple[SafeError, ...]] | None = None
         self._closed = False
-        self.errors = ()
+        self.errors: tuple[SafeError, ...] = ()
 
-    def register(self, close, *, abort=None):
+    def register(
+        self, close: Callable[[], Any], *, abort: Callable[[], Any] | None = None
+    ) -> OwnedResource:
         if self._closed or self._close_task is not None:
             raise ContractError("Cannot acquire resources during cleanup")
         resource = OwnedResource(close, abort)
         self._resources.append(resource)
         return resource
 
-    async def _close(self):
+    async def _close(self) -> tuple[SafeError, ...]:
         errors = []
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self.timeout
@@ -107,7 +113,7 @@ class ResourceRegistry:
         self._closed = True
         return self.errors
 
-    async def close(self):
+    async def close(self) -> tuple[SafeError, ...]:
         if self._close_task is None:
             self._close_task = asyncio.create_task(self._close())
         cancelled = None
@@ -122,6 +128,6 @@ class ResourceRegistry:
         return result
 
 
-def _consume(task):
+def _consume(task: asyncio.Task[Any]) -> None:
     if not task.cancelled():
         task.exception()

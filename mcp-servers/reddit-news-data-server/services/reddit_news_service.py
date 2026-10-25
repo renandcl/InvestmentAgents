@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import datetime
 import os
+from typing import TYPE_CHECKING, Any
 
 import praw
 from praw.models import Submission
 
 from runtime.cache import service_cache
+
+if TYPE_CHECKING:
+    from runtime.cache import RunCache
 
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
@@ -25,7 +31,7 @@ SENTIMENT_SEARCH_LIMIT = 1000
 
 
 class RedditNewsService:
-    def __init__(self, *, cache=None):
+    def __init__(self, *, cache: RunCache | None = None) -> None:
         self.cache = service_cache("reddit-news-data-server", cache)
         self.reddit = praw.Reddit(
             client_id=REDDIT_CLIENT_ID,
@@ -34,7 +40,9 @@ class RedditNewsService:
         )
         self.reddit.read_only = True
 
-    def get_sentiment(self, ticker, start_date, end_date, max_posts=30):
+    def get_sentiment(
+        self, ticker: str, start_date: str, end_date: str, max_posts: int = 30
+    ) -> dict[str, Any]:
         """Return a bounded, dated sample of opinions with source provenance."""
         ticker = ticker.strip().upper()
         start = datetime.datetime.strptime(start_date, "%Y-%m-%d").replace(
@@ -136,7 +144,7 @@ class RedditNewsService:
         ticker: str,
         curr_date: str,
         look_back_days: int,
-    ):
+    ) -> str:
         """
         Retrieve news about a company within a time frame
 

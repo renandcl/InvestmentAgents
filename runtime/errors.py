@@ -1,10 +1,16 @@
 """Safe, named runtime failures; persisted diagnostics never include exception text."""
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from agents.hooks.contracts import ContractError
 from agents.hooks.specs import AGENT_SPECS
+
+if TYPE_CHECKING:
+    from runtime.context import RunContext
 
 
 class InvalidRunConfig(ContractError):
@@ -58,7 +64,7 @@ class SafeError:
     agent_id: str | None = None
     invocation_id: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.agent_id is not None:
             if self.agent_id not in AGENT_SPECS:
                 raise ContractError("Unknown failure owner")
@@ -92,7 +98,14 @@ class SafeError:
             raise ContractError("Unknown safe failure category")
 
     @classmethod
-    def from_exception(cls, error, stage, *, agent_id=None, invocation_id=None):
+    def from_exception(
+        cls,
+        error: BaseException,
+        stage: str,
+        *,
+        agent_id: str | None = None,
+        invocation_id: str | None = None,
+    ) -> SafeError:
         category = type(error).__name__
         try:
             return cls(category, stage, agent_id, invocation_id)
@@ -101,7 +114,7 @@ class SafeError:
 
 
 class RunExecutionError(RuntimeError):
-    def __init__(self, context, status, error):
+    def __init__(self, context: RunContext, status: str, error: SafeError) -> None:
         self.run_id = context.run_id
         self.run_root = context.run_root
         self.status = status

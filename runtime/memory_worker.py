@@ -1,5 +1,7 @@
 """Private child process: scope vendor import-time persistence before importing Mem0."""
 
+from __future__ import annotations
+
 import argparse
 import contextlib
 import json
@@ -13,7 +15,7 @@ from runtime.errors import RunContextMismatch
 from runtime.memory import memory_config
 
 
-def serve(root, agent_id):
+def serve(root: Path | str, agent_id: str) -> None:
     run_id = validate_run_id(os.environ.get("INVESTMENT_RUN_ID"))
     root = Path(root)
     if root.name != run_id or agent_id not in AGENT_SPECS:
@@ -60,7 +62,7 @@ def serve(root, agent_id):
         sys.stdout.flush()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-root", required=True)
     parser.add_argument("--agent-id", required=True)

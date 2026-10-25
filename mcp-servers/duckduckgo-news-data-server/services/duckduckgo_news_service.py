@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
 from dateutil.relativedelta import relativedelta
 from ddgs import DDGS
 
 from runtime.cache import service_cache
 
+if TYPE_CHECKING:
+    from runtime.cache import RunCache
+
 
 class DuckDuckGoNewsService:
-    def __init__(self, *, cache=None):
+    def __init__(self, *, cache: RunCache | None = None) -> None:
         self.cache = service_cache("duckduckgo-news-data-server", cache)
 
     def get_news(

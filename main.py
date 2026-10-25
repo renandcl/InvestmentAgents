@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import asyncio
+from typing import TYPE_CHECKING, Unpack
 
 import pandas as pd
 
@@ -9,8 +12,14 @@ from runtime.errors import RunExecutionError, StateStoreUnavailable
 from runtime.lifecycle import create_run
 from runtime.logging import configure_logging
 
+if TYPE_CHECKING:
+    from runtime.context import RunConfigOptions
+    from runtime.types import RunResult
 
-async def run_analysis(ticker: str, date: str, **config_options):
+
+async def run_analysis(
+    ticker: str, date: str, **config_options: Unpack[RunConfigOptions]
+) -> RunResult:
     """Return a committed RunResult, or raise an error carrying the run identity."""
     runtime = create_run(RunConfig(ticker, date, **config_options))
     return await runtime.execute(
@@ -20,7 +29,7 @@ async def run_analysis(ticker: str, date: str, **config_options):
     )
 
 
-def main():
+def main() -> int | None:
     configure_logging()
     # Configuration
     assets = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA"]

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from typing import Annotated
 
@@ -16,7 +18,7 @@ def get_simfin_cashflow(
         "reporting frequency of the company's financial history: annual / quarterly",
     ],
     curr_date: Annotated[str, "current date you are trading at, yyyy-mm-dd"],
-):
+) -> str:
     provider_context("simfin-fundamentals-data-server")
     if freq not in {"annual", "quarterly"}:
         raise ValueError("Unsupported reporting frequency")

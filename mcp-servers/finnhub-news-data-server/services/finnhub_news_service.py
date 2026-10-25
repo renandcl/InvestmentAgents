@@ -1,16 +1,22 @@
+from __future__ import annotations
+
 import os
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import finnhub
 from dateutil.relativedelta import relativedelta
 
 from runtime.cache import service_cache
 
+if TYPE_CHECKING:
+    from runtime.cache import RunCache
+
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 
 
 class FinnhubNewsService:
-    def __init__(self, *, cache=None):
+    def __init__(self, *, cache: RunCache | None = None) -> None:
         self.cache = service_cache("finnhub-news-data-server", cache)
         self.client = finnhub.Client(api_key=FINNHUB_API_KEY)
 
@@ -19,7 +25,7 @@ class FinnhubNewsService:
         ticker: str,
         curr_date: str,
         look_back_days: int,
-    ):
+    ) -> str:
         """
         Retrieve news about a company within a time frame
 

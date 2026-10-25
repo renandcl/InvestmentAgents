@@ -1,5 +1,13 @@
 # Run-isolation acceptance evidence
 
+**Type-hint review, 2026-10-25:** All 321 production functions/methods in the PR's
+Python files declare parameter and return types. Runtime collections, callback
+signatures, agent factories and memory interfaces also declare their data types;
+dynamic SDK/provider payloads retain flexible annotations. Annotation imports resolve
+with their declared `TYPE_CHECKING` dependencies. The full offline suite passed
+**118 tests in 47.863 seconds**; applicable pre-commit checks passed. No live models
+or providers were used.
+
 [PR review corrections](pr-review.md) records the subsequent ten findings and
 their regressions, with 118 offline tests passing on 2026-10-11.
 

@@ -1,27 +1,37 @@
 """Derived, atomically published exports; SQLite remains the authority."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
 import subprocess
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import TYPE_CHECKING, Any
 
 from agents.hooks.specs import AGENT_SPECS
 from runtime.context import REPO_ROOT
 from runtime.types import ArtifactRecord
 
+if TYPE_CHECKING:
+    from runtime.cache import ProviderContext
+    from runtime.context import RunContext
+    from runtime.store import RunStore
+    from runtime.types import StateSnapshot
 
-def hash_file(path):
+
+def hash_file(path: Path) -> str | None:
     try:
         return hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError:
         return None
 
 
-def provenance():
-    def git(*args):
+def provenance() -> dict[str, Any]:
+    def git(*args: str) -> str | None:
         try:
             result = subprocess.run(
                 ["git", *args],
@@ -47,7 +57,7 @@ def provenance():
     }
 
 
-def atomic_write(context, name, data):
+def atomic_write(context: RunContext | ProviderContext, name: str, data: bytes) -> Path:
     path = context.path(name)
     temporary = None
     try:
@@ -96,7 +106,7 @@ REPORT_AGENT_ORDER = (
 )
 
 
-def render_report(values):
+def render_report(values: Mapping[str, Any]) -> str:
     parts = [
         f"# Investment Report for {values['ticker']} on {values['current_date']}",
         f"Run: {values['run_id']}",
@@ -112,7 +122,7 @@ def render_report(values):
     return "\n\n".join(parts) + "\n"
 
 
-def export_final(context, snapshot):
+def export_final(context: RunContext, snapshot: StateSnapshot) -> list[ArtifactRecord]:
     # Files precede the database commit and must never predict its outcome.
     values = dict(snapshot.values)
     values.pop("status", None)
@@ -142,7 +152,7 @@ def export_final(context, snapshot):
     return artifacts
 
 
-def refresh_manifest(store):
+def refresh_manifest(store: RunStore) -> dict[str, Any]:
     record = store.inspect()
     atomic_write(
         store.context,

@@ -1,7 +1,9 @@
 """One Strands adapter with explicit preparation and finalization ordering."""
 
+from __future__ import annotations
+
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from strands.hooks import (
     AfterInvocationEvent,
@@ -23,9 +25,20 @@ from agents.hooks.services import (
 from runtime.agent import require_runtime
 from runtime.errors import RunContextMismatch
 
+if TYPE_CHECKING:
+    from runtime.agent import Invocation
+    from runtime.lifecycle import RunRuntime
+    from runtime.types import MemoryService, StateSnapshot
+
 
 class AgentLifecycleHooks(HookProvider):
-    def __init__(self, spec: AgentSpec, *, runtime, memory: Any = None):
+    def __init__(
+        self,
+        spec: AgentSpec,
+        *,
+        runtime: RunRuntime,
+        memory: MemoryService | None = None,
+    ) -> None:
         self.spec = spec
         self.runtime = require_runtime(runtime)
         self.shared_document_file = str(runtime.context.path("shared_document.json"))
@@ -79,7 +92,9 @@ class AgentLifecycleHooks(HookProvider):
         event.agent.state.set("debate_action", self.spec.workflow.final_action)
         self.retrieve_memories(snapshot, event)
 
-    def _invocation(self, event):
+    def _invocation(
+        self, event: BeforeInvocationEvent | BeforeModelCallEvent | AfterInvocationEvent
+    ) -> Invocation:
         if event.agent.agent_id != self.spec.agent_id:
             raise ContractError(f"{self.spec.agent_id}: hook attached to wrong agent")
         if getattr(event.agent, "runtime", None) is not self.runtime:
@@ -90,7 +105,9 @@ class AgentLifecycleHooks(HookProvider):
         self.runtime.assert_running()
         return invocation
 
-    def _round_snapshot(self, event):
+    def _round_snapshot(
+        self, event: BeforeInvocationEvent | BeforeModelCallEvent
+    ) -> StateSnapshot | None:
         context = getattr(event, "invocation_state", {}).get("debate_context")
         if context is None:
             return None

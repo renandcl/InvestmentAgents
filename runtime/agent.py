@@ -1,10 +1,14 @@
 """One serialized invocation boundary for tools, invoke_async and stream_async."""
 
+from __future__ import annotations
+
 import asyncio
 import threading
 from collections import deque
+from collections.abc import AsyncIterator
 from contextlib import aclosing
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, TypedDict
 from uuid import uuid4
 
 from strands import Agent
@@ -14,23 +18,37 @@ from agents.hooks.contracts import ContractError
 from runtime.errors import RunContextMismatch, RunContextRequired
 from runtime.lifecycle import RunRuntime
 
+if TYPE_CHECKING:
+    from strands.types.agent import AgentInput
 
-def require_runtime(runtime):
+    from runtime.types import DebateHandle
+
+
+def require_runtime(runtime: RunRuntime) -> RunRuntime:
     if not isinstance(runtime, RunRuntime):
         raise RunContextRequired("An explicit RunRuntime is required")
     runtime.assert_running()
     return runtime
 
 
+type InvocationOwner = tuple[asyncio.AbstractEventLoop, asyncio.Task[Any] | None]
+
+
+class InvocationWaiter(TypedDict):
+    owner: InvocationOwner
+    future: asyncio.Future[None]
+    granted: bool
+
+
 class InvocationGate:
     """FIFO gate across event loops; cancellation never strands an acquired slot."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._mutex = threading.Lock()
-        self._owner = None
-        self._waiters = deque()
+        self._owner: InvocationOwner | None = None
+        self._waiters: deque[InvocationWaiter] = deque()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> InvocationGate:
         loop = asyncio.get_running_loop()
         owner = (loop, asyncio.current_task())
         with self._mutex:
@@ -39,7 +57,11 @@ class InvocationGate:
             if self._owner is None:
                 self._owner = owner
                 return self
-            waiter = {"owner": owner, "future": loop.create_future(), "granted": False}
+            waiter: InvocationWaiter = {
+                "owner": owner,
+                "future": loop.create_future(),
+                "granted": False,
+            }
             self._waiters.append(waiter)
         try:
             await waiter["future"]
@@ -53,7 +75,7 @@ class InvocationGate:
             raise
         return self
 
-    def _release(self):
+    def _release(self) -> None:
         with self._mutex:
             self._owner = None
             if self._waiters:
@@ -61,13 +83,13 @@ class InvocationGate:
                 waiter["granted"] = True
                 self._owner = waiter["owner"]
 
-                def deliver():
+                def deliver() -> None:
                     if not waiter["future"].done():
                         waiter["future"].set_result(None)
 
                 waiter["owner"][0].call_soon_threadsafe(deliver)
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: object) -> None:
         self._release()
 
 
@@ -75,19 +97,25 @@ class InvocationGate:
 class Invocation:
     invocation_id: str
     operation_id: str
-    expected_revisions: dict
-    debate_handle: object = None
+    expected_revisions: dict[str, int]
+    debate_handle: DebateHandle | None = None
 
 
 class RunAgent(Agent):
-    def __init__(self, *, runtime, **kwargs):
+    def __init__(self, *, runtime: RunRuntime, **kwargs: Any) -> None:
         self.runtime = require_runtime(runtime)
         self._invocation_gate = InvocationGate()
-        self._active_invocation = None
-        self._last_invocation_id = None
+        self._active_invocation: Invocation | None = None
+        self._last_invocation_id: str | None = None
         super().__init__(**kwargs)
 
-    async def stream_async(self, prompt=None, *, invocation_state=None, **kwargs):
+    async def stream_async(
+        self,
+        prompt: AgentInput = None,
+        *,
+        invocation_state: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
         # Agent.invoke_async consumes self.stream_async, so only this outermost
         # boundary locks. Public @tool methods ultimately use the same path.
         invocation_id = uuid4().hex

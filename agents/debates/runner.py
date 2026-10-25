@@ -1,7 +1,10 @@
 """Run local participants against one prior-round snapshot; commit only quorum."""
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from agents.debates.state import DebateState, RoundContext
@@ -9,6 +12,10 @@ from agents.hooks.contracts import ContractError, DebatePolicy
 from agents.hooks.services import extract_report
 from runtime.errors import RunContextMismatch
 from runtime.types import Contribution, DebateStart
+
+if TYPE_CHECKING:
+    from runtime.agent import RunAgent
+    from runtime.store import RunStore
 
 PHASE_TASKS = {
     "opening": "Present your evidence-based opening position. No peer arguments exist yet.",
@@ -18,7 +25,12 @@ PHASE_TASKS = {
 
 
 class DebateRunner:
-    def __init__(self, policy: DebatePolicy, participants: dict[str, Any], store):
+    def __init__(
+        self,
+        policy: DebatePolicy,
+        participants: Mapping[str, RunAgent],
+        store: RunStore,
+    ) -> None:
         policy.validate()
         if set(participants) != {p.agent_id for p in policy.participants}:
             raise ContractError(

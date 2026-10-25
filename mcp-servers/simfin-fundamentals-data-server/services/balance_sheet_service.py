@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from typing import Annotated
 
@@ -16,7 +18,7 @@ def get_simfin_balance_sheet(
         "reporting frequency of the company's financial history: annual / quarterly",
     ],
     curr_date: Annotated[str, "current date you are trading at, yyyy-mm-dd"],
-):
+) -> str:
     """
     Retrieve the balance sheet for a specific company from SimFin.
     Args:

@@ -1,10 +1,14 @@
 """SQLite authority for one run, including fenced complete-round publication."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import sqlite3
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from agents.debates.state import DebateState
@@ -27,6 +31,11 @@ from runtime.types import (
     StateSnapshot,
     WriteReceipt,
 )
+
+if TYPE_CHECKING:
+    from agents.hooks.contracts import AgentSpec
+    from runtime.context import RunConfig, RunContext
+    from runtime.types import ArtifactRecord
 
 TERMINAL = frozenset({"SUCCEEDED", "FAILED", "CANCELLED"})
 SCHEMA = """
@@ -66,7 +75,7 @@ CREATE TABLE artifacts (
 """
 
 
-def canonical(value):
+def canonical(value: Any) -> str:
     return json.dumps(
         value,
         sort_keys=True,
@@ -77,13 +86,13 @@ def canonical(value):
 
 
 class RunStore:
-    def __init__(self, context, *, timeout=5.0):
+    def __init__(self, context: RunContext, *, timeout: float = 5.0) -> None:
         self.context = context
         self.timeout = timeout
         if not 0 < timeout <= 60:
             raise ContractError("Store timeout must be bounded")
 
-    def initialize(self, config, provenance):
+    def initialize(self, config: RunConfig, provenance: Mapping[str, Any]) -> None:
         path = self.context.database_path
         # Exclusive placeholder: initialization must never overwrite another database.
         with path.open("xb"):
@@ -127,7 +136,7 @@ class RunStore:
             raise StateStoreUnavailable("Run initialization failed") from None
 
     @contextmanager
-    def _transaction(self, *, write=False):
+    def _transaction(self, *, write: bool = False) -> Iterator[sqlite3.Connection]:
         db = None
         try:
             # mode=rw avoids silently creating an empty database after a path error.
@@ -165,20 +174,25 @@ class RunStore:
             if db is not None:
                 db.close()
 
-    def _event(self, db, kind, details):
-        return db.execute(
-            "INSERT INTO events(created_at,kind,details) VALUES(?,?,?)",
-            (utc_now(), kind, canonical(details)),
-        ).lastrowid
+    def _event(
+        self, db: sqlite3.Connection, kind: str, details: Mapping[str, Any]
+    ) -> int:
+        return cast(
+            int,
+            db.execute(
+                "INSERT INTO events(created_at,kind,details) VALUES(?,?,?)",
+                (utc_now(), kind, canonical(details)),
+            ).lastrowid,
+        )
 
-    def _sequence(self, db):
+    def _sequence(self, db: sqlite3.Connection) -> int:
         return db.execute("SELECT COALESCE(MAX(sequence),0) FROM events").fetchone()[0]
 
-    def _running(self, db):
+    def _running(self, db: sqlite3.Connection) -> None:
         if db.execute("SELECT status FROM run").fetchone()[0] != "RUNNING":
             raise RunNotWritable("Run is not running")
 
-    def _spec(self, agent_id, *, manager=False):
+    def _spec(self, agent_id: str, *, manager: bool = False) -> AgentSpec:
         if agent_id not in AGENT_SPECS:
             raise ContractError("Unknown agent")
         spec = AGENT_SPECS[agent_id]
@@ -186,7 +200,7 @@ class RunStore:
             raise ContractError("Agent has no debate policy")
         return spec
 
-    def _snapshot(self, db):
+    def _snapshot(self, db: sqlite3.Connection) -> StateSnapshot:
         record = db.execute("SELECT identity,status FROM run").fetchone()
         values = json.loads(record["identity"])
         values["status"] = record["status"]
@@ -197,11 +211,11 @@ class RunStore:
                 values[row["key"]] = row["value"]
         return StateSnapshot(self.context.run_id, values, revisions, self._sequence(db))
 
-    def read_snapshot(self):
+    def read_snapshot(self) -> StateSnapshot:
         with self._transaction() as db:
             return self._snapshot(db)
 
-    def inspect(self):
+    def inspect(self) -> dict[str, Any]:
         with self._transaction() as db:
             record = dict(db.execute("SELECT * FROM run").fetchone())
             record.pop("singleton")
@@ -221,12 +235,14 @@ class RunStore:
             record["sequence"] = self._sequence(db)
             return record
 
-    def status(self):
+    def status(self) -> str:
         """Read durable lifecycle status without decoding inspection metadata."""
         with self._transaction() as db:
             return db.execute("SELECT status FROM run WHERE singleton=1").fetchone()[0]
 
-    def _replay(self, db, operation_id, payload):
+    def _replay(
+        self, db: sqlite3.Connection, operation_id: str, payload: Mapping[str, Any]
+    ) -> dict[str, Any] | None:
         identifier(operation_id)
         row = db.execute(
             "SELECT payload,result FROM operations WHERE operation_id=?",
@@ -240,17 +256,25 @@ class RunStore:
             )
         return json.loads(row["result"])
 
-    def _record(self, db, operation_id, payload, result):
+    def _record(
+        self,
+        db: sqlite3.Connection,
+        operation_id: str,
+        payload: Mapping[str, Any],
+        result: Mapping[str, Any],
+    ) -> None:
         db.execute(
             "INSERT INTO operations VALUES(?,?,?)",
             (operation_id, canonical(payload), canonical(result)),
         )
 
-    def _revision(self, db, key):
+    def _revision(self, db: sqlite3.Connection, key: str) -> int:
         row = db.execute("SELECT revision FROM state WHERE key=?", (key,)).fetchone()
         return row[0] if row else 0
 
-    def _check_revisions(self, db, keys, expected):
+    def _check_revisions(
+        self, db: sqlite3.Connection, keys: Iterable[str], expected: Mapping[str, int]
+    ) -> None:
         if set(expected) != set(keys) or any(
             type(value) is not int or value < 0 for value in expected.values()
         ):
@@ -260,7 +284,15 @@ class RunStore:
         if any(self._revision(db, key) != expected[key] for key in keys):
             raise StateConflict("Report revision changed")
 
-    def _write(self, db, key, value, writer, invocation_id, operation_id):
+    def _write(
+        self,
+        db: sqlite3.Connection,
+        key: str,
+        value: str | None,
+        writer: str,
+        invocation_id: str,
+        operation_id: str,
+    ) -> int:
         revision = self._revision(db, key) + 1
         db.execute(
             "INSERT INTO state VALUES(?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET "
@@ -270,7 +302,7 @@ class RunStore:
         )
         return revision
 
-    def _handle(self, db, handle):
+    def _handle(self, db: sqlite3.Connection, handle: DebateHandle) -> sqlite3.Row:
         if not isinstance(handle, DebateHandle) or handle.run_id != self.context.run_id:
             raise RunContextMismatch("Foreign debate handle")
         row = db.execute(
@@ -293,13 +325,13 @@ class RunStore:
     def patch_reports(
         self,
         *,
-        agent_id,
-        invocation_id,
-        operation_id,
-        changes,
-        expected_revisions,
-        debate_handle=None,
-    ):
+        agent_id: str,
+        invocation_id: str,
+        operation_id: str,
+        changes: Mapping[str, str],
+        expected_revisions: Mapping[str, int],
+        debate_handle: DebateHandle | None = None,
+    ) -> WriteReceipt:
         spec = self._spec(agent_id)
         identifier(invocation_id)
         if set(changes) != set(spec.output_keys):
@@ -371,7 +403,9 @@ class RunStore:
             self._record(db, operation_id, payload, result)
             return WriteReceipt(**result)
 
-    def begin_debate(self, *, manager_id, manager_invocation_id, operation_id):
+    def begin_debate(
+        self, *, manager_id: str, manager_invocation_id: str, operation_id: str
+    ) -> DebateStart:
         spec = self._spec(manager_id, manager=True)
         identifier(manager_invocation_id)
         payload = {
@@ -448,12 +482,12 @@ class RunStore:
     def commit_round(
         self,
         *,
-        debate_handle,
-        operation_id,
-        round_number,
-        contributions,
-        expected_revisions,
-    ):
+        debate_handle: DebateHandle,
+        operation_id: str,
+        round_number: int,
+        contributions: Mapping[str, Contribution],
+        expected_revisions: Mapping[str, int],
+    ) -> RoundReceipt:
         if not isinstance(debate_handle, DebateHandle):
             raise RunContextMismatch("Debate handle is required")
         spec = self._spec(debate_handle.manager_id, manager=True)
@@ -578,7 +612,15 @@ class RunStore:
                 debate_handle.generation, round_number, WriteReceipt(**result)
             )
 
-    def validate_round(self, *, handle, participant_id, round_number, phase, snapshot):
+    def validate_round(
+        self,
+        *,
+        handle: DebateHandle,
+        participant_id: str,
+        round_number: int,
+        phase: str,
+        snapshot: StateSnapshot,
+    ) -> None:
         spec = self._spec(handle.manager_id, manager=True)
         policy = spec.workflow
         if participant_id not in {p.agent_id for p in policy.participants}:
@@ -619,7 +661,9 @@ class RunStore:
             ):
                 raise RunContextMismatch("Snapshot identity mismatch")
 
-    def end_debate(self, *, debate_handle, outcome):
+    def end_debate(
+        self, *, debate_handle: DebateHandle, outcome: str
+    ) -> dict[str, Any]:
         if outcome not in {"completed", "aborted"}:
             raise ContractError("Invalid debate outcome")
         with self._transaction(write=True) as db:
@@ -684,8 +728,13 @@ class RunStore:
             )
 
     def transition(
-        self, expected_status, next_status, *, error=None, cleanup_errors=()
-    ):
+        self,
+        expected_status: str,
+        next_status: str,
+        *,
+        error: SafeError | None = None,
+        cleanup_errors: Sequence[SafeError] = (),
+    ) -> dict[str, Any]:
         allowed = {
             ("CREATED", "RUNNING"),
             ("CREATED", "FAILED"),
@@ -725,7 +774,13 @@ class RunStore:
             self._event(db, "status", {"status": next_status})
         return self.inspect()
 
-    def commit_success(self, *, artifacts, required_report_key, expected_sequence):
+    def commit_success(
+        self,
+        *,
+        artifacts: Sequence[ArtifactRecord],
+        required_report_key: str,
+        expected_sequence: int,
+    ) -> dict[str, Any]:
         if {item.kind for item in artifacts} != {"state", "report"} or len(
             artifacts
         ) != 2:

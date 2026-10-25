@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from io import StringIO
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import pandas as pd
 import yfinance as yf
@@ -7,10 +9,15 @@ from stockstats import wrap
 
 from runtime.cache import CacheCorruption, service_cache
 
+if TYPE_CHECKING:
+    from runtime.cache import RunCache
+
 
 class StockstatsUtils:
     @staticmethod
-    def price_data(cache, symbol, start_date, end_date):
+    def price_data(
+        cache: RunCache, symbol: str, start_date: str, end_date: str
+    ) -> pd.DataFrame:
         cache = service_cache("stockstats-market-data-server", cache)
         key = cache.key(
             "prices",
@@ -51,8 +58,8 @@ class StockstatsUtils:
             str, "end date for retrieving stock price data, YYYY-mm-dd"
         ],
         *,
-        cache,
-    ):
+        cache: RunCache,
+    ) -> float | str:
         df = None
         data = None
         # 15 years ago from today

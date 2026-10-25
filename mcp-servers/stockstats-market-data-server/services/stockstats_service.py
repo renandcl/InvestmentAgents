@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
@@ -8,9 +11,12 @@ from runtime.cache import configure_yfinance, service_cache
 
 from .stockstats_utils import StockstatsUtils
 
+if TYPE_CHECKING:
+    from runtime.cache import RunCache
+
 
 class StockstatsService:
-    def __init__(self, *, cache=None):
+    def __init__(self, *, cache: RunCache | None = None) -> None:
         self.cache = service_cache("stockstats-market-data-server", cache)
         configure_yfinance(self.cache, yfinance=yf)
 

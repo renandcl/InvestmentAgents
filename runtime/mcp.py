@@ -1,7 +1,10 @@
 """Explicit provider environment and owned MCP acquisition."""
 
+from __future__ import annotations
+
 import os
 import shutil
+from typing import TYPE_CHECKING
 
 from dotenv import dotenv_values
 from mcp import StdioServerParameters, stdio_client
@@ -9,6 +12,9 @@ from strands.tools.mcp import MCPClient
 
 from runtime.context import REPO_ROOT
 from runtime.errors import RunContextMismatch
+
+if TYPE_CHECKING:
+    from runtime.lifecycle import RunRuntime
 
 PROVIDERS = frozenset(
     {
@@ -24,7 +30,9 @@ PROVIDERS = frozenset(
 RESERVED = ("INVESTMENT_RUN_ID", "INVESTMENT_CACHE_ROOT")
 
 
-def server_parameters(runtime, provider, *, env_file=False):
+def server_parameters(
+    runtime: RunRuntime, provider: str, *, env_file: bool = False
+) -> StdioServerParameters:
     runtime.assert_running()
     if provider not in PROVIDERS:
         raise RunContextMismatch("Unregistered MCP provider")
@@ -63,7 +71,9 @@ def server_parameters(runtime, provider, *, env_file=False):
     )
 
 
-def start_mcp(runtime, provider, *, env_file=False):
+def start_mcp(
+    runtime: RunRuntime, provider: str, *, env_file: bool = False
+) -> MCPClient:
     parameters = server_parameters(runtime, provider, env_file=env_file)
     client = MCPClient(lambda: stdio_client(parameters))
     runtime.resources.register(lambda: client.stop(None, None, None))

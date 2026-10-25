@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 
 from strands import tool
 from strands.agent import AgentResult
@@ -12,9 +15,12 @@ from runtime.agent import RunAgent as Agent
 from runtime.agent import require_runtime
 from runtime.examples import run_example
 
+if TYPE_CHECKING:
+    from runtime.lifecycle import RunRuntime
+
 
 class ResearchManager(Agent):
-    def __init__(self, *, runtime):
+    def __init__(self, *, runtime: RunRuntime) -> None:
         self.runtime = require_runtime(runtime)
         self._init_system_prompt()
         self._init_model()
@@ -34,29 +40,29 @@ class ResearchManager(Agent):
             hooks=self.hooks,
         )
 
-    def _init_system_prompt(self):
+    def _init_system_prompt(self) -> None:
         with open(
             os.path.join(os.path.dirname(__file__), "prompt.txt"), "r", encoding="utf-8"
         ) as f:
             self.system_prompt = f.read()
 
-    def _init_model(self):
+    def _init_model(self) -> None:
         settings = self.runtime.config.model_for("RESEARCHERS")
         self.model = OpenAIModel(
             client_args={"base_url": settings.base_url, "api_key": settings.api_key},
             model_id=settings.model_id,
         )
 
-    def _init_session_manager(self):
+    def _init_session_manager(self) -> None:
         self.session_manager = self.runtime.session_for("research_manager")
 
-    def _init_hooks(self):
+    def _init_hooks(self) -> None:
         self.lifecycle_hooks = SharedDocument(
             runtime=self.runtime, memory=self.runtime.memory_for("research_manager")
         )
         self.hooks = [self.lifecycle_hooks]
 
-    def _init_tools(self):
+    def _init_tools(self) -> None:
         bear_researcher = BearResearcher(runtime=self.runtime)
         bull_researcher = BullResearcher(runtime=self.runtime)
         self.lifecycle_hooks.debate_runner = DebateRunner(

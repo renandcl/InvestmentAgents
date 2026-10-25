@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Dict, List, Literal
+from typing import TYPE_CHECKING, Dict, List, Literal
 
 import yfinance as yf
 
 from runtime.cache import configure_yfinance, service_cache
 
+if TYPE_CHECKING:
+    from runtime.cache import RunCache
+
 
 class YFinMarketDataService:
-    def __init__(self, *, cache=None):
+    def __init__(self, *, cache: RunCache | None = None) -> None:
         self.cache = service_cache("yfin-market-data-server", cache)
         configure_yfinance(self.cache, yfinance=yf)
 

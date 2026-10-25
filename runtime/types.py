@@ -1,8 +1,31 @@
 """Store values contain snapshots, never open connections or ambient context."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from strands import Agent
+
+    from runtime.lifecycle import RunRuntime
+
+
+class AgentFactory(Protocol):
+    def __call__(self, *, runtime: RunRuntime) -> Agent: ...
+
+
+class MemoryService(Protocol):
+    """Run-scoped operations; Mem0 owns the dynamic result record schema."""
+
+    def search_memories(
+        self, current_situation: str, ticker: str, n_matches: int = 2
+    ) -> dict[str, Any]: ...
+
+    def get_memories(self) -> dict[str, Any]: ...
+
+    def add_memory(self, memory: str, ticker: str) -> Any: ...
 
 
 @dataclass(frozen=True)
@@ -51,7 +74,7 @@ class RoundReceipt:
     receipt: WriteReceipt
 
     @property
-    def duplicate(self):
+    def duplicate(self) -> bool:
         return self.receipt.duplicate
 
 

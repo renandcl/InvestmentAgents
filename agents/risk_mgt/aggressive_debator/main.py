@@ -1,11 +1,15 @@
 """A2A server reserved for future distributed run isolation (port 9908)."""
 
+from __future__ import annotations
+
+from typing import NoReturn
+
 from runtime.errors import UnsupportedExecutionMode
 
 PORT = 9908
 
 
-def a2a_agent_app():
+def a2a_agent_app() -> NoReturn:
     raise UnsupportedExecutionMode(
         "A2A servers are disabled until distributed run isolation is supported."
     )

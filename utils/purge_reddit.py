@@ -18,6 +18,8 @@ Dry run by default; pass ``--apply`` to delete:
     uv run python -B -m utils.purge_reddit [--abandoned-run RUN_ID] [--apply]
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -25,9 +27,11 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+from collections.abc import Iterable, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from runtime.context import REPO_ROOT
 from runtime.store import TERMINAL
@@ -39,12 +43,12 @@ REDACTED = "[Reddit content removed after research completed]"
 
 @dataclass
 class PurgeReport:
-    cache_dirs: list = field(default_factory=list)
-    redacted_messages: list = field(default_factory=list)
-    skipped_runs: list = field(default_factory=list)
+    cache_dirs: list[Path] = field(default_factory=list)
+    redacted_messages: list[Path] = field(default_factory=list)
+    skipped_runs: list[tuple[Path, str | None]] = field(default_factory=list)
 
 
-def run_status(run_root):
+def run_status(run_root: Path) -> str | None:
     database = run_root / "run.sqlite3"
     if not database.is_file():
         return None
@@ -57,7 +61,7 @@ def run_status(run_root):
         return None
 
 
-def _write_json(path, data):
+def _write_json(path: Path, data: dict[str, Any]) -> None:
     descriptor, temporary = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
@@ -68,7 +72,7 @@ def _write_json(path, data):
         raise
 
 
-def redact_sessions(sessions_root, report, *, apply):
+def redact_sessions(sessions_root: Path, report: PurgeReport, *, apply: bool) -> None:
     """Redact Reddit tool results in Strands FileSessionManager transcripts."""
     for messages_dir in sorted(sessions_root.rglob("messages")):
         if not messages_dir.is_dir():
@@ -105,7 +109,9 @@ def redact_sessions(sessions_root, report, *, apply):
                     _write_json(path, data)
 
 
-def purge(runs_root, *, abandoned_runs=(), apply=False):
+def purge(
+    runs_root: Path, *, abandoned_runs: Iterable[str] = (), apply: bool = False
+) -> PurgeReport:
     report = PurgeReport()
     abandoned = frozenset(abandoned_runs)
     root = runs_root.resolve()
@@ -132,7 +138,7 @@ def purge(runs_root, *, abandoned_runs=(), apply=False):
     return report
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runs-root", type=Path, default=REPO_ROOT / "data" / "runs")
     parser.add_argument(

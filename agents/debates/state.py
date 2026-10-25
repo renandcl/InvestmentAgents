@@ -1,5 +1,7 @@
 """Pure state machine; accepted contributions, not tool turns, complete rounds."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from agents.hooks.contracts import ContractError, DebatePolicy
@@ -20,7 +22,7 @@ class RoundContext:
     participant_invocation_id: str
 
     @property
-    def handle(self):
+    def handle(self) -> DebateHandle:
         return DebateHandle(
             self.run_id,
             self.manager_id,

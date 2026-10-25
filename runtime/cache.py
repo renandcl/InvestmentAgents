@@ -1,18 +1,26 @@
 """Private provider caches with hashed argument keys and atomic publication."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
 import re
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
 
 from agents.hooks.contracts import ContractError
 from runtime.artifacts import atomic_write
 from runtime.context import contained, validate_run_id
 from runtime.errors import RunContextMismatch, RunContextRequired, UnsafeRunPath
 from runtime.store import canonical
+
+if TYPE_CHECKING:
+    from runtime.lifecycle import RunRuntime
 
 
 class CacheCorruption(ContractError):
@@ -25,7 +33,7 @@ class ProviderContext:
     provider_id: str
     root: Path
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         validate_run_id(self.run_id)
         if not re.fullmatch(r"[a-z0-9-]+", self.provider_id):
             raise RunContextMismatch("Invalid provider identity")
@@ -38,11 +46,11 @@ class ProviderContext:
             raise RunContextMismatch("Provider root does not match run identity")
         contained(self.root)
 
-    def path(self, *parts):
+    def path(self, *parts: str) -> Path:
         return contained(self.root, *parts)
 
 
-def provider_context(provider_id):
+def provider_context(provider_id: str) -> ProviderContext:
     run_id, root = os.environ.get("INVESTMENT_RUN_ID"), os.environ.get(
         "INVESTMENT_CACHE_ROOT"
     )
@@ -52,12 +60,12 @@ def provider_context(provider_id):
 
 
 class RunCache:
-    def __init__(self, context):
+    def __init__(self, context: ProviderContext) -> None:
         self.context = context
         context.path().mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def for_run(cls, runtime, provider_id):
+    def for_run(cls, runtime: RunRuntime, provider_id: str) -> RunCache:
         return cls(
             ProviderContext(
                 runtime.context.run_id,
@@ -67,10 +75,12 @@ class RunCache:
         )
 
     @classmethod
-    def for_provider(cls, provider_id):
+    def for_provider(cls, provider_id: str) -> RunCache:
         return cls(provider_context(provider_id))
 
-    def key(self, method, arguments, *, extension="json"):
+    def key(
+        self, method: str, arguments: Mapping[str, Any], *, extension: str = "json"
+    ) -> str:
         if extension not in {"json", "csv"}:
             raise UnsafeRunPath("Unsupported cache format")
         payload = {
@@ -85,12 +95,12 @@ class RunCache:
             + extension
         )
 
-    def path(self, key):
+    def path(self, key: str) -> Path:
         if not re.fullmatch(r"[a-f0-9]{64}\.(json|csv)", key):
             raise UnsafeRunPath("Cache filenames must be hashed keys")
         return self.context.path(key)
 
-    def read_text(self, key):
+    def read_text(self, key: str) -> str | None:
         deadline = time.monotonic() + 1.0
         while True:
             try:
@@ -106,11 +116,11 @@ class RunCache:
             except UnicodeError:
                 raise CacheCorruption("Cache is not UTF-8") from None
 
-    def write_text(self, key, text):
+    def write_text(self, key: str, text: str) -> None:
         self.path(key)
         atomic_write(self.context, key, text.encode("utf-8"))
 
-    def read_json(self, key):
+    def read_json(self, key: str) -> dict[str, Any] | None:
         text = self.read_text(key)
         if text is None:
             return None
@@ -122,11 +132,11 @@ class RunCache:
         except (ValueError, TypeError):
             raise CacheCorruption("Invalid provider cache record") from None
 
-    def write_json(self, key, data):
+    def write_json(self, key: str, data: Mapping[str, Any]) -> None:
         self.write_text(key, json.dumps(data, ensure_ascii=False, allow_nan=False))
 
 
-def service_cache(provider_id, cache=None):
+def service_cache(provider_id: str, cache: RunCache | None = None) -> RunCache:
     if cache is None:
         return RunCache.for_provider(provider_id)
     if not isinstance(cache, RunCache) or cache.context.provider_id != provider_id:
@@ -135,7 +145,7 @@ def service_cache(provider_id, cache=None):
     return cache
 
 
-def configure_yfinance(cache, *, yfinance):
+def configure_yfinance(cache: RunCache, *, yfinance: ModuleType) -> None:
     # yfinance's process-level singleton caches are safe only inside its owned
     # one-run provider process; never switch them in the application process.
     if provider_context(cache.context.provider_id) != cache.context:
