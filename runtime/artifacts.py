@@ -17,10 +17,9 @@ from runtime.context import REPO_ROOT
 from runtime.types import ArtifactRecord
 
 if TYPE_CHECKING:
-    from runtime.cache import ProviderContext
     from runtime.context import RunContext
     from runtime.store import RunStore
-    from runtime.types import StateSnapshot
+    from runtime.types import ArtifactContext, StateSnapshot
 
 
 def hash_file(path: Path) -> str | None:
@@ -57,7 +56,7 @@ def provenance() -> dict[str, Any]:
     }
 
 
-def atomic_write(context: RunContext | ProviderContext, name: str, data: bytes) -> Path:
+def atomic_write(context: ArtifactContext, name: str, data: bytes) -> Path:
     path = context.path(name)
     temporary = None
     try:

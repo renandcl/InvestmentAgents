@@ -19,6 +19,7 @@ from runtime.errors import (
     RunNotWritable,
     SafeError,
 )
+from runtime.long_term_memory import snapshot_artifacts
 from runtime.memory import create_memory
 from runtime.resources import ResourceRegistry
 from runtime.store import RunStore
@@ -155,6 +156,7 @@ class RunRuntime:
             if not snapshot.values.get(required_report_key):
                 raise ContractError("Required root report is absent")
             artifacts = export_final(self.context, snapshot)
+            artifacts.extend(snapshot_artifacts(self, snapshot.sequence))
             stage = "status"
             self.store.commit_success(
                 artifacts=artifacts,

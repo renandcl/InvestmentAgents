@@ -10,8 +10,15 @@ import sys
 from pathlib import Path
 
 from agents.hooks.specs import AGENT_SPECS
+from runtime.artifacts import atomic_write
 from runtime.context import contained, validate_run_id
 from runtime.errors import RunContextMismatch
+from runtime.long_term_memory import (
+    MEMORY_LIMIT,
+    MEMORY_VERSION,
+    MemoryDirectory,
+    memory_texts,
+)
 from runtime.memory import memory_config
 
 
@@ -28,6 +35,7 @@ def serve(root: Path | str, agent_id: str) -> None:
     ):
         raise RunContextMismatch("Memory worker environment mismatch")
     memory = None
+    seed = None
     filters = {"user_id": run_id, "agent_id": agent_id}
     for line in sys.stdin:
         try:
@@ -35,11 +43,29 @@ def serve(root: Path | str, agent_id: str) -> None:
             with contextlib.redirect_stdout(sys.stderr):
                 method = request["method"]
                 if method == "initialize" and memory is None:
+                    if request.get("persistent"):
+                        seed = json.loads(
+                            contained(memory_root, "seed.json").read_text(
+                                encoding="utf-8"
+                            )
+                        )
+                        if (
+                            seed.get("version") != MEMORY_VERSION
+                            or seed.get("run_id") != run_id
+                            or seed.get("agent_id") != agent_id
+                            or not isinstance(seed.get("ticker"), str)
+                            or not isinstance(seed.get("analysis_date"), str)
+                        ):
+                            raise RunContextMismatch("Invalid persistent memory seed")
+                        memory_texts(seed.get("memories"))
                     # Mem0 has import-time persistence side effects. Import only
                     # after validating the private worker environment above.
                     from mem0 import Memory
 
                     memory = Memory.from_config(memory_config(memory_root))
+                    if seed is not None:
+                        for text in seed["memories"]:
+                            memory.add(text, **filters, infer=False)
                     result = None
                 elif memory is None:
                     raise ValueError("Worker is not initialized")
@@ -53,6 +79,20 @@ def serve(root: Path | str, agent_id: str) -> None:
                     result = memory.get_all(filters=dict(filters))
                 else:
                     raise ValueError("Unsupported memory operation")
+                if seed is not None and method in {"initialize", "add"}:
+                    records = memory.get_all(filters=dict(filters), top_k=MEMORY_LIMIT)[
+                        "results"
+                    ]
+                    snapshot = dict(
+                        seed, memories=memory_texts([row["memory"] for row in records])
+                    )
+                    atomic_write(
+                        MemoryDirectory(memory_root),
+                        "long_term.json",
+                        (
+                            json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n"
+                        ).encode("utf-8"),
+                    )
             response = {"ok": True, "result": result}
         except Exception:
             response = {

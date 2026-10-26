@@ -1,5 +1,11 @@
 # Run-isolation acceptance evidence
 
+**Persistent memory extension, 2026-10-25:** Spec 005 restores long-term memory by
+default with private vector/history stores, scoped and dated committed source
+snapshots, and atomic publication with successful runs. Its [evidence](../005-persistent-memory/evidence.md)
+records **127 passing offline tests**. Earlier OFF-default statements below describe
+the historical baseline superseded by this extension.
+
 **Type-hint review, 2026-10-25:** All 321 production functions/methods in the PR's
 Python files declare parameter and return types. Runtime collections, callback
 signatures, agent factories and memory interfaces also declare their data types;

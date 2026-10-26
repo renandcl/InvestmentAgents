@@ -11,7 +11,7 @@ retain their behavior.
 
 | Entity | Fields and invariants |
 |---|---|
-| RunConfig | Nonempty bounded ticker; valid ISO current_date; memory_mode OFF/RUN_ONLY; resolved local output_root; execution_mode in_process; host-resolved model config |
+| RunConfig | Nonempty bounded ticker; valid ISO current_date; memory_mode PERSISTENT/OFF/RUN_ONLY; resolved local output_root; execution_mode in_process; host-resolved model config |
 | RunContext | schema_version=1; UUID4 lowercase hex run_id; ticker; current_date; UTC created_at; run_root and derived roots; immutable |
 | RunRecord | Identity; status; started_at/finished_at; primary_error; cleanup_errors; provenance fields; unknown values explicit |
 | ReportValue | Key, text, revision >=1, writer_agent_id, invocation_id, operation_id, UTC updated_at |
@@ -136,3 +136,5 @@ abort the owned worker rather than risk consuming a late reply as a new response
 Reddit purge defaults to terminal runs. An explicitly named abandoned run may be
 purged only after the operator confirms that its owner and children are stopped.
 This changes neither status nor resume eligibility. Legacy purge options are removed.
+
+Persistent memory is now the default under spec 005. It seeds private run/agent stores from validated, hash-committed earlier successful snapshots of the same ticker/agent in the same output root. Finished sources must predate target creation. Its memory snapshots join final artifact hash receipts in the success transaction. Legacy global data remains untouched.

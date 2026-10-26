@@ -1,4 +1,4 @@
-"""OFF does nothing; RUN_ONLY owns an isolated Mem0 worker per agent."""
+"""Owned Mem0 workers with private stores and optional validated historical seeds."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from agents.hooks.contracts import ContractError
 from runtime.context import REPO_ROOT, MemoryMode
 from runtime.errors import RunContextMismatch
+from runtime.long_term_memory import prepare_seeds
 
 if TYPE_CHECKING:
     from runtime.lifecycle import RunRuntime
@@ -80,6 +81,8 @@ class RunMemory:
     def _start(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         self.runtime.context.path("memory", self.agent_id)
+        if self.runtime.config.memory_mode == MemoryMode.PERSISTENT:
+            prepare_seeds(self.runtime, self.agent_id)
         environment = dict(os.environ)
         environment.update(
             {
@@ -124,7 +127,12 @@ class RunMemory:
             target=read, daemon=True, name="run-memory-response"
         )
         self._reader.start()
-        self._request({"method": "initialize"})
+        self._request(
+            {
+                "method": "initialize",
+                "persistent": self.runtime.config.memory_mode == MemoryMode.PERSISTENT,
+            }
+        )
 
     def _request(self, request: dict[str, Any]) -> Any:
         self.runtime.assert_running()

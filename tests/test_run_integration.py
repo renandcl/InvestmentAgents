@@ -141,7 +141,9 @@ def simple_agent(runtime, agent_id="market_analyst", **model_options):
 
 def independent_worker(root, marker, barrier, queue):
     try:
-        runtime = create_run(RunConfig("AAPL", "2025-08-01", output_root=Path(root)))
+        runtime = create_run(
+            RunConfig("AAPL", "2025-08-01", output_root=Path(root), memory_mode="OFF")
+        )
         environment, cwd = dict(os.environ), Path.cwd()
 
         class Factory:
@@ -354,7 +356,10 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
                 )
             with patch("sys.stdout", new_callable=io.StringIO):
                 result = await main.run_analysis(
-                    "AAPL", "2025-08-01", output_root=fixture_data / "runs"
+                    "AAPL",
+                    "2025-08-01",
+                    output_root=fixture_data / "runs",
+                    memory_mode="OFF",
                 )
         self.assertEqual(result.status, "SUCCEEDED")
         state = json.loads(result.state_path.read_text(encoding="utf-8"))
@@ -402,7 +407,12 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
         for failure_kind in ("model", "memory"):
             with self.subTest(failure=failure_kind):
                 runtime = create_run(
-                    RunConfig("AAPL", "2025-08-01", output_root=Path(self.tmp.name))
+                    RunConfig(
+                        "AAPL",
+                        "2025-08-01",
+                        output_root=Path(self.tmp.name),
+                        memory_mode="OFF",
+                    )
                 )
                 fixture = test_debates.DebateIntegrationTests()
                 fixture.runtime, fixture.calls = runtime, []
@@ -481,7 +491,12 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
         for failure_kind in ("snapshot", "status", "round", "recursion"):
             with self.subTest(failure=failure_kind):
                 runtime = create_run(
-                    RunConfig("AAPL", "2025-08-01", output_root=Path(self.tmp.name))
+                    RunConfig(
+                        "AAPL",
+                        "2025-08-01",
+                        output_root=Path(self.tmp.name),
+                        memory_mode="OFF",
+                    )
                 )
                 observed = {}
 
@@ -596,6 +611,7 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
             "2025-08-01",
             output_root=Path(self.tmp.name),
             models=resolve_models(credentials),
+            memory_mode="OFF",
         )
         runtime = create_run(config)
         with patch.object(

@@ -56,6 +56,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.tmp.cleanup)
 
     def runtime(self, **kwargs):
+        kwargs.setdefault("memory_mode", MemoryMode.OFF)
         return create_run(
             RunConfig("AAPL", "2026-01-01", output_root=Path(self.tmp.name), **kwargs)
         )

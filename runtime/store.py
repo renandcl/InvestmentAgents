@@ -781,16 +781,27 @@ class RunStore:
         required_report_key: str,
         expected_sequence: int,
     ) -> dict[str, Any]:
-        if {item.kind for item in artifacts} != {"state", "report"} or len(
-            artifacts
-        ) != 2:
+        kinds = {item.kind for item in artifacts}
+        if not {"state", "report"} <= kinds or len(kinds) != len(artifacts):
             raise ContractError("Both final artifacts are required")
+        expected_paths = {"state": "shared_document.json", "report": "report.md"}
         if required_report_key not in {
             key for spec in AGENT_SPECS.values() for key in spec.output_keys
         }:
             raise ContractError("Unknown required report")
         with self._transaction(write=True) as db:
             self._running(db)
+            config = json.loads(db.execute("SELECT config FROM run").fetchone()[0])
+            if config["memory_mode"] == "PERSISTENT":
+                expected_paths.update(
+                    {
+                        f"memory:{agent_id}": f"memory/{agent_id}/long_term.json"
+                        for agent_id, spec in AGENT_SPECS.items()
+                        if spec.memory
+                    }
+                )
+            if not kinds <= expected_paths.keys():
+                raise ContractError("Unknown final artifact kind")
             if self._sequence(db) != expected_sequence:
                 raise StateConflict("State changed during export")
             if db.execute("SELECT 1 FROM debates WHERE outcome='active'").fetchone():
@@ -801,15 +812,13 @@ class RunStore:
             if not report or not report[0]:
                 raise ContractError("Required root report is absent")
             for item in artifacts:
-                expected_name = (
-                    "report.md" if item.kind == "report" else "shared_document.json"
-                )
+                expected_name = expected_paths[item.kind]
                 if (
                     item.relative_path != expected_name
                     or item.state_sequence != expected_sequence
                 ):
                     raise ContractError("Invalid artifact receipt")
-                data = self.context.path(item.relative_path).read_bytes()
+                data = self.context.path(*item.relative_path.split("/")).read_bytes()
                 if (
                     len(data) != item.byte_length
                     or hashlib.sha256(data).hexdigest() != item.sha256

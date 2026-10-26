@@ -103,8 +103,9 @@ Ollama at `http://localhost:11434/v1` with `qwen3:8b`. The template lists per-gr
 model and endpoint overrides.
 
 Logging defaults to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` in `.env` for diagnostics.
-Memory is optional and defaults to OFF; pass `memory_mode="RUN_ONLY"` to
-`run_analysis` to enable memory within that run.
+Long-term memory is enabled by default. It reuses memories from successful earlier
+analyses of the same ticker and agent, with a private vector store for each run.
+Pass `memory_mode="RUN_ONLY"` for one-run memory or `memory_mode="OFF"` to disable it.
 
 **Note:** Some MCP servers located in `mcp-servers/` also require their own `.env` files. Please check the individual server directories for specific configuration requirements.
 

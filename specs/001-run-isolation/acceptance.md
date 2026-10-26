@@ -34,6 +34,8 @@
 
 | AT-28 | Run the fourteen-agent tree offline with disjoint news/sentiment providers. Publish both sentiment aliases atomically and propagate sentiment separately through research/trader/risk prompts, memory queries and final exports. Verify private sessions, early A2A rejection, dated/deduplicated/bounded Reddit sampling, cache equivalence and purge of both Reddit tool names. | FR-003, FR-007, FR-009, FR-019, FR-022 |
 
+Persistent memory adds the six acceptance scenarios in [spec 005](../005-persistent-memory/spec.md). Tests that require no vendor calls explicitly select OFF; production defaults to PERSISTENT.
+
 ## Test guidance
 
 AT-29: exercise preparation failures through real SDK tool boundaries (snapshot,

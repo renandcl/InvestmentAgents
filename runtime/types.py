@@ -16,6 +16,10 @@ class AgentFactory(Protocol):
     def __call__(self, *, runtime: RunRuntime) -> Agent: ...
 
 
+class ArtifactContext(Protocol):
+    def path(self, *parts: str) -> Path: ...
+
+
 class MemoryService(Protocol):
     """Run-scoped operations; Mem0 owns the dynamic result record schema."""
 

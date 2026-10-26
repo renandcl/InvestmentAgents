@@ -32,6 +32,7 @@ MODEL_GROUPS = (
 class MemoryMode(StrEnum):
     OFF = "OFF"
     RUN_ONLY = "RUN_ONLY"
+    PERSISTENT = "PERSISTENT"
 
 
 def utc_now() -> str:
@@ -115,7 +116,7 @@ class RunConfig:
     ticker: str
     current_date: str
     output_root: Path = REPO_ROOT / "data" / "runs"
-    memory_mode: MemoryMode = MemoryMode.OFF
+    memory_mode: MemoryMode = MemoryMode.PERSISTENT
     execution_mode: str = "in_process"
     busy_timeout: float = 5.0
     cleanup_timeout: float = 30.0

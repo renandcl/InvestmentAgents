@@ -24,11 +24,11 @@ In scope: root in-process workflow, standalone agent examples, run identity, sta
 
 The runtime supports concurrent independent runs in one process and separate processes on the same host using a local filesystem. The current batch loop stays sequential. Shared SimFin downloads are read-only during execution; data acquisition remains an offline operation.
 
-Memory defaults to OFF. RUN_ONLY is the only enabled-memory option: it never imports or retrieves another run's memories.
+Memory defaults to PERSISTENT under spec 005: each run owns its vector/history stores and imports only validated earlier successful memories for the same agent/ticker. OFF and RUN_ONLY remain available. Legacy global memories are never imported.
 
 For the isolation release, all A2A constructors, servers and manual clients must reject execution before side effects. This extends the existing research/risk distributed-constructor guards; spec 003 currently permits A2A servers wrapping in-process managers, so the additional restriction must be explicitly documented. Distributed run-context propagation, shared server ownership and multi-host coordination are a separate feature. No port changes are required.
 
-Out of scope: changing financial prompts or roles, full financial-stage enforcement, temporal-data validation, experiment-memory reuse, model/provider upgrades, trading simulation, broker execution, scheduling, automatic crash recovery, resume and retention/deletion.
+Out of scope: changing financial prompts or roles, full financial-stage enforcement, temporal market-data validation, model/provider upgrades, trading simulation, broker execution, scheduling, automatic crash recovery, resume and retention/deletion.
 
 Existing global data, sessions, caches, memories and reports remain untouched. There is no automatic migration or legacy fallback. Package caches/model weights may remain shared only when they do not carry analysis state. Network filesystem semantics are unsupported.
 
@@ -54,9 +54,9 @@ Acceptance: a failure during agent construction after one MCP starts records a f
 
 ### US4 - Control memory use (P2)
 
-As a researcher, I can disable memory entirely or confine it to one execution.
+As a researcher, I can retain long-term memory with explicit scope/date boundaries, disable it entirely or confine it to one execution.
 
-Acceptance: OFF never initializes memory inference or storage; RUN_ONLY retrieval is restricted by run and agent, including auxiliary history storage.
+Acceptance: OFF never initializes memory inference or storage; RUN_ONLY retrieval is restricted by run and agent, including auxiliary history storage. PERSISTENT defaults to isolated stores seeded from validated earlier successful runs under spec 005.
 
 ### US5 - Use consistent entry points (P2)
 
@@ -75,7 +75,7 @@ Acceptance: examples allocate fresh contexts; A2A entry points reject before con
 | FR-005 | State updates must be atomic patches. Concurrent distinct-key writes must survive; readers must not observe partial commits; stale same-key writes must fail. |
 | FR-006 | Replaying an identical report operation must be idempotent. Reusing its operation ID with different content or ownership must fail. A later genuine invocation can replace its own report. |
 | FR-007 | Agent conversations and sessions must be fresh per run. Concurrent use of the same stateful agent instance must be serialized. |
-| FR-008 | OFF must perform no memory initialization, inference or persistence. RUN_ONLY must isolate vector stores, history stores and retrieval by run and agent. |
+| FR-008 | OFF must perform no memory initialization, inference or persistence. RUN_ONLY must isolate vector stores, history stores and retrieval by run and agent. PERSISTENT restores long-term reuse only through validated, hash-committed memory snapshots under spec 005; mutable stores remain private. |
 | FR-009 | MCP children must receive explicit private cache roots without parent environment/CWD mutation. Fresh and cached paths must not access another run's mutable cache. |
 | FR-010 | Persist lifecycle status, timestamps and structured errors. Success requires completed invocation, the required root report, successful cleanup and committed final artifacts. A failure in an owned agent invocation must prevent run success even when an SDK tool boundary converts the exception into an error result and the root model continues. |
 | FR-011 | Normal completion, catchable startup/invocation failure and cancellation must clean up owned resources. Cleanup is idempotent and never closes another run's resources. |

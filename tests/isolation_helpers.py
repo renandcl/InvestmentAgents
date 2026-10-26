@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from agents.hooks.specs import AGENT_SPECS
 from runtime.agent import Invocation
-from runtime.context import RunConfig, allocate_context
+from runtime.context import MemoryMode, RunConfig, allocate_context
 from runtime.lifecycle import RunRuntime
 from runtime.store import RunStore
 from runtime.types import Contribution
@@ -17,7 +17,9 @@ class State(dict):
 
 
 def new_runtime(root, ticker="AAPL", current_date="2025-08-01"):
-    config = RunConfig(ticker, current_date, output_root=root)
+    config = RunConfig(
+        ticker, current_date, output_root=root, memory_mode=MemoryMode.OFF
+    )
     context = allocate_context(config)
     store = RunStore(context)
     store.initialize(

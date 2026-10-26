@@ -160,3 +160,7 @@ Run offline unittest and the current pre-commit configuration (Ruff with import 
 5. Update repository usage instructions and reconcile public contract signatures with the final implementation. Run all regression tests and pre-commit on tracked and new files, then record evidence per acceptance scenario (T020).
 
 All five follow-ups above are implemented and verified. The runtime, thirteen agents, provider migration and entry-point integration are covered by 98 offline tests, the quality gate and the audit in evidence.md. The original task IDs are retained for traceability.
+
+## Persistent memory extension (2026-10-25)
+
+Spec 005 supersedes the earlier OFF default. PERSISTENT imports deduplicated extracted text from eligible successful same-agent/ticker lineage heads, re-embeds it into private run stores and keeps existing run/agent filters. No worker opens another run's writable vector/history store. Date and completion cutoffs exclude future, same-date and active sources. Snapshot hashes commit with final artifacts; failed/crashed runs cannot publish reusable memory. See specs/005-persistent-memory/spec.md for acceptance and costs.

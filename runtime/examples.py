@@ -20,7 +20,7 @@ def run_example(agent_factory: AgentFactory, required_report_key: str) -> RunRes
     parser.add_argument("--ticker", default="AAPL")
     parser.add_argument("--date", default="2025-08-01")
     parser.add_argument(
-        "--memory-mode", choices=list(MemoryMode), default=MemoryMode.OFF
+        "--memory-mode", choices=list(MemoryMode), default=MemoryMode.PERSISTENT
     )
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--memory-request-timeout", type=float, default=600.0)

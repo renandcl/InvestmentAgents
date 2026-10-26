@@ -22,7 +22,7 @@ uv run pre-commit run --all-files  # Ruff/import sorting, Black, secret/file che
 
 - Batch and standalone entry points configure logging through `runtime.logging.configure_logging`, defaulting to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` for diagnostics. Agent imports must not configure logging or change logger levels.
 - Every agent defaults to an OpenAI-compatible endpoint at `http://localhost:11434/v1` (Ollama) with model `qwen3:8b`. You can override this for each group with `{ANALYSTS,RESEARCHERS,TRADERS,RISK_MANAGERS,INVESTMENT_MANAGER}_{BASE_URL,API_KEY,MODEL_ID}` (see `.env.example`).
-- Memory defaults to OFF with no vendor initialization. RUN_ONLY uses an owned Mem0 worker per run/agent, with private Chroma/history/vendor stores and run/agent filters. Its existing Ollama settings (`qwen3:8b`, `qwen3-embedding:0.6b`, 1024 dims) do not use agent-group environment overrides. Memory requests default to a 600-second deadline; configure `RunConfig.memory_request_timeout` or the example `--memory-request-timeout` for slower hosts. Deadline expiry remains fatal and aborts only the owned worker. Never import Mem0 in the parent or switch a parent MEM0_DIR.
+- Memory defaults to PERSISTENT: each owned Mem0 worker has private Chroma/history/vendor stores and run/agent filters, seeded only from hash-committed successful PERSISTENT runs for the same agent/ticker in the same output root, with an earlier analysis date and completion before this run was created. RUN_ONLY keeps memory within one run; OFF performs no vendor initialization. Its existing Ollama settings (`qwen3:8b`, `qwen3-embedding:0.6b`, 1024 dims) do not use agent-group environment overrides. Memory requests default to a 600-second deadline; configure `RunConfig.memory_request_timeout` or the example `--memory-request-timeout` for slower hosts. Deadline expiry remains fatal and aborts only the owned worker. Never import Mem0 in the parent or switch a parent MEM0_DIR.
 - Some MCP servers need API keys (`FINNHUB_API_KEY`, `REDDIT_CLIENT_ID/SECRET/USERNAME`, `SIMFIN_API_KEY`). Some also need data downloaded beforehand with `mcp-servers/<server>/data/download_data.py`.
 
 ## Architecture
@@ -55,7 +55,7 @@ Every agent directory follows the same layout. When you add or change an agent, 
 
 ### State flow: `data/runs/<run_id>/run.sqlite3`
 
-Shared contracts/lifecycle and `runtime/` own isolation behavior; do not duplicate storage logic in agents. Update specs/001-run-isolation requirements and acceptance before changing behavior; specs 002/003 define inherited hook/debate semantics.
+Shared contracts/lifecycle and `runtime/` own isolation behavior; do not duplicate storage logic in agents. Update specs/001-run-isolation requirements and acceptance before changing behavior; specs 002/003 define inherited hook/debate semantics and spec 005 defines persistent memory.
 
 Agents coordinate through their bound transactional `RunStore`:
 
