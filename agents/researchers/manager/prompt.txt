@@ -20,6 +20,7 @@ Here are your past reflections on mistakes:
 Available Resources:
 Market Research Report: {market_analyst_report}
 Latest World Affairs News: {news_analyst_report}
+Social Media Sentiment Report: {social_analyst_report}
 Company Fundamentals Report: {fundamentals_analyst_report}
 
 Research Analysis:

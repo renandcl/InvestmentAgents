@@ -1,3 +1,14 @@
+# Validate host context before importing libraries that may initialize services.
+# ruff: noqa: E402
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from runtime.cache import provider_context
+
+provider_context("stockstats-market-data-server")
+
 from mcp.server.fastmcp import FastMCP
 
 from models import StockstatsIndicatorParameters

@@ -20,12 +20,16 @@ ANALYST_REPORTS = (
     StateField("fundamentals_analyst_report"),
     StateField("market_analyst_report"),
     StateField("news_analyst_report"),
+    StateField(
+        "social_analyst_report", default="No social sentiment report available."
+    ),
 )
 SITUATION = (
     ("Date", "current_date"),
     ("Ticker", "ticker"),
     ("Market Research Report", "market_analyst_report"),
     ("Latest World Affairs News", "news_analyst_report"),
+    ("Social Media Sentiment", "social_analyst_report"),
     ("Company Fundamentals Report", "fundamentals_analyst_report"),
 )
 
@@ -56,6 +60,13 @@ AGENT_SPECS = {
         prompt_bindings=IDENTITY_BINDINGS,
         output_keys=("news_analyst_report",),
     ),
+    "social_media_analyst": AgentSpec(
+        agent_id="social_media_analyst",
+        prompt_path=AGENTS_ROOT / "analysts/social_media/prompt.txt",
+        inputs=IDENTITY,
+        prompt_bindings=IDENTITY_BINDINGS,
+        output_keys=("social_media_analyst_report", "social_analyst_report"),
+    ),
     "analyst_coordinator": AgentSpec(
         agent_id="analyst_coordinator",
         prompt_path=AGENTS_ROOT / "analysts/analysts_coordinator/prompt.txt",
@@ -83,6 +94,7 @@ AGENT_SPECS = {
             "fundamentals_analyst_report",
             "market_analyst_report",
             "news_analyst_report",
+            "social_analyst_report",
             "bear_researcher_report",
             "past_memories",
             "research_debate_history",
@@ -103,6 +115,7 @@ AGENT_SPECS = {
             "fundamentals_analyst_report",
             "market_analyst_report",
             "news_analyst_report",
+            "social_analyst_report",
             "bull_researcher_report",
             "past_memories",
             "research_debate_history",
@@ -129,6 +142,7 @@ AGENT_SPECS = {
             "fundamentals_analyst_report",
             "market_analyst_report",
             "news_analyst_report",
+            "social_analyst_report",
             "bull_researcher_report",
             "bear_researcher_report",
             "past_memories",
@@ -167,7 +181,13 @@ AGENT_SPECS = {
                 default="No investment plan provided",
             ),
         ),
-        prompt_bindings=bindings("ticker", "investment_plan", "past_memories"),
+        prompt_bindings=bindings(
+            "ticker",
+            "investment_plan",
+            "past_memories",
+            "news_analyst_report",
+            "social_analyst_report",
+        ),
         output_keys=("trader_report", "trader_investment_plan"),
         memory=MemoryPolicy(
             SITUATION + (("Investment Plan", "research_manager_report"),),
@@ -188,6 +208,8 @@ AGENT_SPECS = {
         ),
         prompt_bindings=bindings(
             "trader_investment_plan",
+            "news_analyst_report",
+            "social_analyst_report",
             "risk_debate_history",
             "past_memories",
             "debate_rounds",

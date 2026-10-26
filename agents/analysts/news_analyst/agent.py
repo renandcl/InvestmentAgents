@@ -1,29 +1,34 @@
-import os
-import uuid
-from datetime import datetime
+from __future__ import annotations
 
-from mcp import StdioServerParameters, stdio_client
-from strands import Agent, tool
+import os
+from typing import TYPE_CHECKING
+
+from strands import tool
 from strands.agent import AgentResult
 from strands.models.openai import OpenAIModel
-from strands.session.file_session_manager import FileSessionManager
-from strands.tools.mcp import MCPClient
 
 from agents.analysts.news_analyst.hook import SharedDocument
+from runtime.agent import RunAgent as Agent
+from runtime.agent import require_runtime
+from runtime.examples import run_example
+from runtime.mcp import start_mcp
+
+if TYPE_CHECKING:
+    from runtime.lifecycle import RunRuntime
 
 
 class NewsAnalyst(Agent):
-    def __init__(
-        self,
-    ):
+    def __init__(self, *, runtime: RunRuntime) -> None:
+        self.runtime = require_runtime(runtime)
         self._init_system_prompt()
         self._init_model()
         self._init_mcps()
         self._init_tools()
-        self._init_session_manager("data/agents_sessions/analysts/news_analyst")
-        self._init_hooks(shared_document_file="data/shared_document.json")
+        self._init_session_manager()
+        self._init_hooks()
 
         super().__init__(
+            runtime=self.runtime,
             name="NewsAnalystAgent",
             agent_id="news_analyst",
             description="Analyzes recent news and trends for trading and macroeconomics by requesting the analysis for ticker and date.",
@@ -34,82 +39,39 @@ class NewsAnalyst(Agent):
             hooks=self.hooks,
         )
 
-    def _init_system_prompt(self):
-        with open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r") as f:
+    def _init_system_prompt(self) -> None:
+        with open(
+            os.path.join(os.path.dirname(__file__), "prompt.txt"), "r", encoding="utf-8"
+        ) as f:
             self.system_prompt = f.read()
 
-    def _init_model(self):
-        base_url = os.getenv("ANALYSTS_BASE_URL") or "http://localhost:11434/v1"
-        api_key = os.getenv("ANALYSTS_API_KEY") or "ollama"
-        model_id = os.getenv("ANALYSTS_MODEL_ID") or "qwen3:8b"
+    def _init_model(self) -> None:
+        settings = self.runtime.config.model_for("ANALYSTS")
         self.model = OpenAIModel(
-            client_args={
-                "base_url": base_url,
-                "api_key": api_key,
-            },
-            model_id=model_id,
+            client_args={"base_url": settings.base_url, "api_key": settings.api_key},
+            model_id=settings.model_id,
         )
 
-    def _init_mcps(self):
-        self.stdio_mcp_finnhub_news_client = MCPClient(
-            lambda: stdio_client(
-                StdioServerParameters(
-                    command="uv",
-                    args=[
-                        "run",
-                        "--env-file",
-                        "mcp-servers/finnhub-news-data-server/.env",
-                        "mcp-servers/finnhub-news-data-server/main.py",
-                    ],
-                )
-            )
+    def _init_mcps(self) -> None:
+        self.stdio_mcp_finnhub_news_client = start_mcp(
+            self.runtime, "finnhub-news-data-server", env_file=True
         )
-        self.stdio_mcp_reddit_news_client = MCPClient(
-            lambda: stdio_client(
-                StdioServerParameters(
-                    command="uv",
-                    args=[
-                        "run",
-                        "--env-file",
-                        "mcp-servers/reddit-news-data-server/.env",
-                        "mcp-servers/reddit-news-data-server/main.py",
-                    ],
-                )
-            )
-        )
-        self.stdio_mcp_duckduckgo_news_client = MCPClient(
-            lambda: stdio_client(
-                StdioServerParameters(
-                    command="uv",
-                    args=[
-                        "run",
-                        "mcp-servers/duckduckgo-news-data-server/main.py",
-                    ],
-                )
-            )
+        self.stdio_mcp_duckduckgo_news_client = start_mcp(
+            self.runtime, "duckduckgo-news-data-server", env_file=False
         )
 
-        self.stdio_mcp_finnhub_news_client.start()
-        self.stdio_mcp_reddit_news_client.start()
-        self.stdio_mcp_duckduckgo_news_client.start()
+    def _init_session_manager(self) -> None:
+        self.session_manager = self.runtime.session_for("news_analyst")
 
-    def _init_session_manager(self, storage_dir: str):
-        current_date = datetime.now().strftime("%Y%m%d%H%M%S")
-        self.session_manager = FileSessionManager(
-            session_id=f"{current_date}{uuid.uuid4().hex[:8]}",
-            storage_dir=storage_dir,
-        )
-
-    def _init_tools(self):
+    def _init_tools(self) -> None:
         self.tools = (
             self.stdio_mcp_finnhub_news_client.list_tools_sync()
-            + self.stdio_mcp_reddit_news_client.list_tools_sync()
             + self.stdio_mcp_duckduckgo_news_client.list_tools_sync()
         )
 
-    def _init_hooks(self, shared_document_file: str):
-        shared_document_handler_hook = SharedDocument(shared_document_file)
-        self.hooks = [shared_document_handler_hook]
+    def _init_hooks(self) -> None:
+        self.lifecycle_hooks = SharedDocument(runtime=self.runtime, memory=None)
+        self.hooks = [self.lifecycle_hooks]
 
     @tool
     async def get_news_analyst_insights(self, message: str) -> AgentResult:
@@ -118,17 +80,4 @@ class NewsAnalyst(Agent):
 
 
 if __name__ == "__main__":
-    import asyncio
-    import json
-
-    state = {
-        "ticker": "AAPL",
-        "current_date": "2025-08-01",
-    }
-    with open("data/shared_document.json", "w") as f:
-        json.dump(state, f)
-
-    test_message = "Provide the analysis"
-    agent = NewsAnalyst()
-    response = asyncio.run(agent.get_news_analyst_insights(test_message))
-    print(f"Response: {response}")
+    run_example(NewsAnalyst, "news_analyst_report")

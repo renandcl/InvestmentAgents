@@ -1,31 +1,10 @@
-import os
+import sys
+from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from models import MemoryParameters
-from services import MemoryService
+from runtime.errors import UnsupportedExecutionMode
 
-mcp = FastMCP("mem0-server")
-memory_service = MemoryService(os.getenv("MEM0_USER_ID", "default_user_id"))
-
-
-@mcp.tool()
-def handle_memory(payload: MemoryParameters) -> str:
-    """
-    Handle memory operations such as adding and retrieving memories.
-
-    Returns:
-        str: Confirmation message or retrieved memories.
-    """
-    if payload.action == "add":
-        memory_service.add_memory(payload.user_id, payload.memory)
-        return "Memory added successfully."
-    elif payload.action == "get":
-        memories = memory_service.get_memories(payload.user_id)
-        return memories
-    else:
-        return "Invalid action."
-
-
-if __name__ == "__main__":
-    mcp.run(transport="stdio")
+raise UnsupportedExecutionMode(
+    "This unused provider is disabled for the run-isolation milestone."
+)
