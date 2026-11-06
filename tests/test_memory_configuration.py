@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 
 from isolation_helpers import new_runtime
 
+from runtime.memory.snapshots import SEARCH_CANDIDATES
 from runtime.memory.worker import serve
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +29,7 @@ class MemoryConfigurationTests(unittest.TestCase):
             backend.get_all.return_value = {"results": []}
             factory = Mock(return_value=backend)
             requests = [
-                {"method": "initialize"},
+                {"method": "initialize", "analysis_date": "2026-01-01"},
                 {"method": "add", "memory": "example"},
                 {"method": "get_all"},
                 {"method": "search", "query": "query", "top_k": 3},
@@ -63,8 +64,15 @@ class MemoryConfigurationTests(unittest.TestCase):
             )
             filters = {"user_id": runtime.context.run_id, "agent_id": "trader"}
             backend.get_all.assert_called_once_with(filters=filters)
-            backend.search.assert_called_once_with("query", filters=filters, top_k=3)
-            backend.add.assert_called_once_with("example", **filters, infer=True)
+            backend.search.assert_called_once_with(
+                "query", filters=filters, top_k=SEARCH_CANDIDATES
+            )
+            backend.add.assert_called_once_with(
+                "example",
+                **filters,
+                metadata={"analysis_date": "2026-01-01"},
+                infer=True,
+            )
             config = factory.call_args.args[0]
             self.assertEqual(
                 config["history_db_path"],

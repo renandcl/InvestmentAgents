@@ -53,7 +53,7 @@ flowchart LR
     RMG -. Risk Assessment .- State
     IM -. Final Trade Decision .- State
     State@{ shape: db}
-    Memory["Run-only Memory (OFF by default)"]
+    Memory["Per-run memory seeded from earlier runs (PERSISTENT by default)"]
     Memory@{ shape: db}
     Memory -.- subGraph1 & subGraph2 & subGraph3
 ```
@@ -105,6 +105,9 @@ model and endpoint overrides.
 Logging defaults to INFO. Set `INVESTMENT_LOG_LEVEL=DEBUG` in `.env` for diagnostics.
 Long-term memory is enabled by default. It reuses memories from successful earlier
 analyses of the same ticker and agent, with a private vector store for each run.
+Seeds cover the last 365 days before the analysis date. Each lookup takes the 100
+nearest memories, weights them toward recent ones (90-day half-life) and gives the
+agent the best 10.
 Pass `memory_mode="RUN_ONLY"` for one-run memory or `memory_mode="OFF"` to disable it.
 
 **Note:** Some MCP servers located in `mcp-servers/` also require their own `.env` files. Please check the individual server directories for specific configuration requirements.

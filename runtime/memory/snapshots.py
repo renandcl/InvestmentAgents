@@ -7,7 +7,7 @@ import json
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -21,7 +21,11 @@ if TYPE_CHECKING:
     from runtime.execution.lifecycle import RunRuntime
 
 MEMORY_LIMIT = 10_000
-MEMORY_VERSION = 1
+MEMORY_VERSION = 2
+LOOKBACK_DAYS = 365
+HALF_LIFE_DAYS = 90
+SEARCH_CANDIDATES = 100
+MAX_RESULTS = 10
 
 
 @dataclass(frozen=True)
@@ -32,21 +36,39 @@ class MemoryDirectory:
         return contained(self.root, *parts)
 
 
-def memory_texts(records: object) -> list[str]:
-    if (
-        not isinstance(records, list)
-        or len(records) >= MEMORY_LIMIT
-        or any(not isinstance(text, str) or not text.strip() for text in records)
-    ):
-        raise ContractError("Invalid or oversized persistent memory snapshot")
-    return sorted(set(records))
+def memory_records(records: list[dict[str, str]]) -> list[dict[str, str]]:
+    newest: dict[str, str] = {}
+    for record in records:
+        text, when = record["memory"], record["analysis_date"]
+        date.fromisoformat(when)
+        if not isinstance(text, str) or not text.strip():
+            raise ContractError("Invalid persistent memory record")
+        newest[text] = max(newest.get(text, when), when)
+    if len(newest) >= MEMORY_LIMIT:
+        raise ContractError("Oversized persistent memory snapshot")
+    return [{"memory": text, "analysis_date": newest[text]} for text in sorted(newest)]
+
+
+def rank_memories(
+    results: list[dict[str, Any]], current_date: str, limit: int
+) -> list[dict[str, Any]]:
+    today = date.fromisoformat(current_date)
+
+    def weight(row: dict[str, Any]) -> float:
+        age = (today - date.fromisoformat(row["metadata"]["analysis_date"])).days
+        return row["score"] * 0.5 ** (max(age, 0) / HALF_LIFE_DAYS)
+
+    return sorted(results, key=weight, reverse=True)[:limit]
 
 
 def load_seeds(runtime: RunRuntime, agent_id: str) -> dict[str, Any]:
     context = runtime.context
-    texts: set[str] = set()
+    window_start = (
+        date.fromisoformat(context.current_date) - timedelta(days=LOOKBACK_DAYS)
+    ).isoformat()
+    records: list[dict[str, str]] = []
     sources: list[dict[str, str]] = []
-    candidates: dict[str, list[str]] = {}
+    candidates: dict[str, list[dict[str, str]]] = {}
     superseded: set[str] = set()
     for root in sorted(context.output_root.iterdir()):
         try:
@@ -108,10 +130,11 @@ def load_seeds(runtime: RunRuntime, agent_id: str) -> dict[str, Any]:
                 snapshot = json.loads(data)
                 if not isinstance(snapshot, dict):
                     raise ContractError("Invalid persistent memory snapshot")
+                if snapshot.get("version") != MEMORY_VERSION:
+                    continue
                 if any(
                     snapshot.get(key) != value
                     for key, value in {
-                        "version": MEMORY_VERSION,
                         "run_id": root.name,
                         "agent_id": agent_id,
                         "ticker": context.ticker,
@@ -119,7 +142,7 @@ def load_seeds(runtime: RunRuntime, agent_id: str) -> dict[str, Any]:
                     }.items()
                 ):
                     raise ContractError("Persistent memory snapshot scope mismatch")
-                candidates[root.name] = memory_texts(snapshot.get("memories"))
+                candidates[root.name] = memory_records(snapshot["memories"])
                 ancestors = snapshot.get("sources")
                 if not isinstance(ancestors, list) or any(
                     not isinstance(source, dict)
@@ -144,9 +167,11 @@ def load_seeds(runtime: RunRuntime, agent_id: str) -> dict[str, Any]:
             raise ContractError("Cannot validate persistent memory source") from None
     # A descendant may have updated/deleted an inherited fact through Mem0.
     # Merge independent heads, not obsolete ancestor versions of the same store.
-    for run_id, records in candidates.items():
+    for run_id, items in candidates.items():
         if run_id not in superseded:
-            texts.update(records)
+            records.extend(
+                item for item in items if item["analysis_date"] >= window_start
+            )
     return {
         "version": MEMORY_VERSION,
         "run_id": context.run_id,
@@ -154,7 +179,7 @@ def load_seeds(runtime: RunRuntime, agent_id: str) -> dict[str, Any]:
         "ticker": context.ticker,
         "analysis_date": context.current_date,
         "sources": sources,
-        "memories": memory_texts(sorted(texts)),
+        "memories": memory_records(records),
     }
 
 

@@ -24,7 +24,7 @@ class MemoryService(Protocol):
     """Run-scoped operations; Mem0 owns the dynamic result record schema."""
 
     def search_memories(
-        self, current_situation: str, ticker: str, n_matches: int = 2
+        self, current_situation: str, ticker: str, n_matches: int = 10
     ) -> dict[str, Any]: ...
 
     def get_memories(self) -> dict[str, Any]: ...

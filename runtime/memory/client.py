@@ -14,16 +14,16 @@ from typing import TYPE_CHECKING, Any
 from agents.hooks.contracts import ContractError
 from runtime.core.context import REPO_ROOT, MemoryMode
 from runtime.core.errors import RunContextMismatch
-from runtime.memory.snapshots import prepare_seeds
+from runtime.memory.snapshots import MAX_RESULTS, prepare_seeds
 
 if TYPE_CHECKING:
-    from runtime.core.types import MemoryService
     from runtime.execution.lifecycle import RunRuntime
+    from runtime.core.types import MemoryService
 
 
 class NullMemory:
     def search_memories(
-        self, current_situation: str, ticker: str, n_matches: int = 2
+        self, current_situation: str, ticker: str, n_matches: int = 10
     ) -> dict[str, Any]:
         return {"results": []}
 
@@ -131,6 +131,7 @@ class RunMemory:
             {
                 "method": "initialize",
                 "persistent": self.runtime.config.memory_mode == MemoryMode.PERSISTENT,
+                "analysis_date": self.runtime.context.current_date,
             }
         )
 
@@ -164,10 +165,10 @@ class RunMemory:
         return self._request({"method": "add", "memory": memory})
 
     def search_memories(
-        self, current_situation: str, ticker: str, n_matches: int = 2
+        self, current_situation: str, ticker: str, n_matches: int = 10
     ) -> dict[str, Any]:
         self._ticker(ticker)
-        if type(n_matches) is not int or not 1 <= n_matches <= 100:
+        if type(n_matches) is not int or not 1 <= n_matches <= MAX_RESULTS:
             raise ContractError("Invalid memory result limit")
         return self._request(
             {"method": "search", "query": current_situation, "top_k": n_matches}

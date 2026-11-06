@@ -16,8 +16,10 @@ from runtime.memory.client import memory_config
 from runtime.memory.snapshots import (
     MEMORY_LIMIT,
     MEMORY_VERSION,
+    SEARCH_CANDIDATES,
     MemoryDirectory,
-    memory_texts,
+    memory_records,
+    rank_memories,
 )
 from runtime.store.artifacts import atomic_write
 
@@ -36,6 +38,7 @@ def serve(root: Path | str, agent_id: str) -> None:
         raise RunContextMismatch("Memory worker environment mismatch")
     memory = None
     seed = None
+    analysis_date = None
     filters = {"user_id": run_id, "agent_id": agent_id}
     for line in sys.stdin:
         try:
@@ -43,6 +46,7 @@ def serve(root: Path | str, agent_id: str) -> None:
             with contextlib.redirect_stdout(sys.stderr):
                 method = request["method"]
                 if method == "initialize" and memory is None:
+                    analysis_date = request["analysis_date"]
                     if request.get("persistent"):
                         seed = json.loads(
                             contained(memory_root, "seed.json").read_text(
@@ -54,25 +58,42 @@ def serve(root: Path | str, agent_id: str) -> None:
                             or seed.get("run_id") != run_id
                             or seed.get("agent_id") != agent_id
                             or not isinstance(seed.get("ticker"), str)
-                            or not isinstance(seed.get("analysis_date"), str)
+                            or seed.get("analysis_date") != analysis_date
                         ):
                             raise RunContextMismatch("Invalid persistent memory seed")
-                        memory_texts(seed.get("memories"))
+                        memory_records(seed.get("memories"))
                     # Mem0 has import-time persistence side effects. Import only
                     # after validating the private worker environment above.
                     from mem0 import Memory
 
                     memory = Memory.from_config(memory_config(memory_root))
                     if seed is not None:
-                        for text in seed["memories"]:
-                            memory.add(text, **filters, infer=False)
+                        for record in seed["memories"]:
+                            memory.add(
+                                record["memory"],
+                                **filters,
+                                metadata={"analysis_date": record["analysis_date"]},
+                                infer=False,
+                            )
                     result = None
                 elif method == "add":
-                    result = memory.add(request["memory"], **filters, infer=True)
-                elif method == "search":
-                    result = memory.search(
-                        request["query"], filters=dict(filters), top_k=request["top_k"]
+                    result = memory.add(
+                        request["memory"],
+                        **filters,
+                        metadata={"analysis_date": analysis_date},
+                        infer=True,
                     )
+                elif method == "search":
+                    candidates = memory.search(
+                        request["query"],
+                        filters=dict(filters),
+                        top_k=SEARCH_CANDIDATES,
+                    )["results"]
+                    result = {
+                        "results": rank_memories(
+                            candidates, analysis_date, request["top_k"]
+                        )
+                    }
                 elif method == "get_all":
                     result = memory.get_all(filters=dict(filters))
                 else:
@@ -81,8 +102,19 @@ def serve(root: Path | str, agent_id: str) -> None:
                     records = memory.get_all(filters=dict(filters), top_k=MEMORY_LIMIT)[
                         "results"
                     ]
+                    if len(records) >= MEMORY_LIMIT:
+                        raise ValueError("Memory export may be truncated")
                     snapshot = dict(
-                        seed, memories=memory_texts([row["memory"] for row in records])
+                        seed,
+                        memories=memory_records(
+                            [
+                                {
+                                    "memory": row["memory"],
+                                    "analysis_date": row["metadata"]["analysis_date"],
+                                }
+                                for row in records
+                            ]
+                        ),
                     )
                     atomic_write(
                         MemoryDirectory(memory_root),

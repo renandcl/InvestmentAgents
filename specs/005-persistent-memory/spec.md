@@ -1,7 +1,7 @@
 # 005 - Persistent memory with isolated execution
 
 **Prepared:** 2026-10-25
-**Status:** Partly implemented and validated offline (see [evidence](evidence.md)); PM-007 and PM-008 are pending (see [tasks](tasks.md)).
+**Status:** Implemented and validated offline; see [evidence](evidence.md) and [tasks](tasks.md).
 **Extends:** [spec 001](../001-run-isolation/spec.md) FR-008, FR-012 and US4, which define the memory worker, its private vendor imports and the success commit used here.
 
 ## Outcome
@@ -53,7 +53,7 @@ memory.
   parent, so facts it updated or deleted do not return. Facts held by sibling branches
   can coexist or reappear (add-wins).
 - PM-007: Every memory carries the analysis date of the run that extracted it, in the
-  store and in snapshots. Retrieval takes up to 100 nearest candidates, ranks them by
+  store and in snapshots (version 2). Older version 1 snapshots are not reused. Retrieval takes up to 100 nearest candidates, ranks them by
   similarity × 0.5^(age in days / recency half-life, default 90 days) and gives the
   agent at most 10. PM-003 and PM-008 already keep later-dated and out-of-window
   memories out of the store.
@@ -81,9 +81,9 @@ memory.
 - A8: Source files remain byte-identical after retrieval. The parent process never
   imports Mem0 or changes environment variables or the working directory. Existing
   isolation, debate and cleanup tests pass.
-- A9 (pending): Retrieval returns at most 10 memories and ranks a recent memory above
+- A9: Retrieval returns at most 10 memories and ranks a recent memory above
   an older one of equal similarity.
-- A10 (pending): Seeds exclude source memories dated outside the lookback window.
+- A10: Seeds exclude source memories dated outside the lookback window.
 
 ## Tradeoffs and risks
 

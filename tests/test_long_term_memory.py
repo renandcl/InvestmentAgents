@@ -15,17 +15,19 @@ from unittest.mock import patch
 from test_run_store import publish
 
 from agents.hooks.contracts import ContractError
+from runtime.store.artifacts import export_final
 from runtime.core.context import MemoryMode, RunConfig
-from runtime.core.types import ArtifactRecord
 from runtime.execution.lifecycle import RunRuntime, create_run
 from runtime.memory.snapshots import (
+    MAX_RESULTS,
     MEMORY_LIMIT,
     MEMORY_VERSION,
     load_seeds,
-    memory_texts,
+    memory_records,
+    rank_memories,
     snapshot_artifacts,
 )
-from runtime.store.artifacts import export_final
+from runtime.core.types import ArtifactRecord
 
 
 def completed_source(
@@ -38,6 +40,7 @@ def completed_source(
     mode: MemoryMode = MemoryMode.PERSISTENT,
     outcome: str = "SUCCEEDED",
     sources: tuple[dict[str, str], ...] = (),
+    memory_dates: dict[str, str] | None = None,
 ) -> RunRuntime:
     runtime = create_run(RunConfig(ticker, date, output_root=root, memory_mode=mode))
     runtime.store.transition("CREATED", "RUNNING")
@@ -52,7 +55,13 @@ def completed_source(
                 "ticker": ticker,
                 "agent_id": agent_id,
                 "analysis_date": date,
-                "memories": texts,
+                "memories": [
+                    {
+                        "memory": text,
+                        "analysis_date": (memory_dates or {}).get(text, date),
+                    }
+                    for text in texts
+                ],
                 "sources": sources,
             }
         ),
@@ -82,6 +91,10 @@ def completed_source(
     return runtime
 
 
+def texts(seed: dict[str, Any]) -> list[str]:
+    return [record["memory"] for record in seed["memories"]]
+
+
 class PersistentSeedTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = TemporaryDirectory()
@@ -97,7 +110,10 @@ class PersistentSeedTests(unittest.TestCase):
         )
         source = completed_source(self.root, "2026-01-01")
         seed = load_seeds(self.target(), "trader")
-        self.assertEqual(seed["memories"], ["earlier fact"])
+        self.assertEqual(
+            seed["memories"],
+            [{"memory": "earlier fact", "analysis_date": "2026-01-01"}],
+        )
         self.assertEqual(seed["sources"][0]["run_id"], source.context.run_id)
 
     def test_other_scopes_dates_and_unsuccessful_runs_are_excluded(self) -> None:
@@ -112,7 +128,7 @@ class PersistentSeedTests(unittest.TestCase):
             completed_source(self.root, "2026-01-01", **options)
         completed_source(self.root, "2026-02-01")
         completed_source(self.root, "2026-03-01")
-        self.assertEqual(load_seeds(self.target(), "trader")["memories"], [])
+        self.assertEqual(texts(load_seeds(self.target(), "trader")), [])
 
     def test_sources_finishing_after_creation_are_excluded(self) -> None:
         target = self.target()
@@ -123,7 +139,7 @@ class PersistentSeedTests(unittest.TestCase):
         completed_source(self.root, "2026-01-01", texts=("A", "common"))
         completed_source(self.root, "2026-01-02", texts=("B", "common"))
         seed = load_seeds(self.target(), "trader")
-        self.assertEqual(seed["memories"], ["A", "B", "common"])
+        self.assertEqual(texts(seed), ["A", "B", "common"])
         self.assertEqual(len(seed["sources"]), 2)
 
     def test_corruption_fails_closed(self) -> None:
@@ -152,13 +168,28 @@ class PersistentSeedTests(unittest.TestCase):
                 },
             ),
         )
-        self.assertEqual(
-            load_seeds(self.target(), "trader")["memories"], ["updated fact"]
-        )
+        self.assertEqual(texts(load_seeds(self.target(), "trader")), ["updated fact"])
 
     def test_snapshot_limit_fails_instead_of_silently_truncating(self) -> None:
+        records = [
+            {"memory": f"fact {index}", "analysis_date": "2026-01-01"}
+            for index in range(MEMORY_LIMIT)
+        ]
         with self.assertRaises(ContractError):
-            memory_texts([f"fact {index}" for index in range(MEMORY_LIMIT)])
+            memory_records(records)
+
+    def test_seeds_exclude_memories_outside_the_lookback_window(self) -> None:
+        completed_source(self.root, "2025-01-31", texts=("too old run",))
+        completed_source(
+            self.root,
+            "2026-01-15",
+            texts=("recent", "inherited old"),
+            memory_dates={"inherited old": "2025-01-01"},
+        )
+        completed_source(self.root, "2025-02-01", texts=("window edge",))
+        self.assertEqual(
+            texts(load_seeds(self.target(), "trader")), ["recent", "window edge"]
+        )
 
     def test_altered_memory_cannot_commit_success(self) -> None:
         runtime = self.target()
@@ -183,6 +214,27 @@ class PersistentSeedTests(unittest.TestCase):
         self.assertEqual(runtime.store.inspect()["artifacts"], [])
 
 
+class RetrievalRankingTests(unittest.TestCase):
+    def test_recent_memories_rank_first_and_results_are_capped(self) -> None:
+        rows = [
+            {
+                "memory": f"old {index}",
+                "score": 0.5,
+                "metadata": {"analysis_date": "2025-06-01"},
+            }
+            for index in range(MAX_RESULTS)
+        ] + [
+            {
+                "memory": "recent",
+                "score": 0.5,
+                "metadata": {"analysis_date": "2026-01-25"},
+            }
+        ]
+        ranked = rank_memories(rows, "2026-02-01", MAX_RESULTS)
+        self.assertEqual(len(ranked), MAX_RESULTS)
+        self.assertEqual(ranked[0]["memory"], "recent")
+
+
 class PersistentWorkerTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_vector_memory_survives_across_private_runs(self) -> None:
         real_popen = subprocess.Popen
@@ -204,7 +256,7 @@ class PersistentWorkerTests(unittest.IsolatedAsyncioTestCase):
 
             async def invoke_async(self, message: str) -> SimpleNamespace:
                 memory = self.runtime.memory_for("trader")
-                before = memory.search_memories("query", "AAPL", n_matches=100)[
+                before = memory.search_memories("query", "AAPL", n_matches=MAX_RESULTS)[
                     "results"
                 ]
                 self.runtime.before = [row["memory"] for row in before]
@@ -233,6 +285,18 @@ class PersistentWorkerTests(unittest.IsolatedAsyncioTestCase):
             await later.execute(RememberingAgent, "later", "investment_manager_report")
             self.assertIn(f"sentinel-{earlier.context.run_id}-trader", later.before)
             self.assertEqual(path.read_bytes(), original)
+            exported = json.loads(
+                later.context.path("memory", "trader", "long_term.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertIn(
+                {
+                    "memory": f"sentinel-{earlier.context.run_id}-trader",
+                    "analysis_date": "2026-01-01",
+                },
+                exported["memories"],
+            )
             self.assertNotEqual(
                 earlier._memories["trader"].root, later._memories["trader"].root
             )

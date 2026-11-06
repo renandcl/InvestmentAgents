@@ -257,7 +257,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             " def add(self,text,**scope):\n"
             "  self.rows.append(dict(memory=text,**scope));return {}\n"
             " def search(self,query,*,filters,top_k):\n"
-            "  assert set(filters)=={'user_id','agent_id'};return {'results':[r for r in self.rows if all(r[k]==v for k,v in filters.items())][:top_k]}\n"
+            "  assert set(filters)=={'user_id','agent_id'};return {'results':[dict(r,score=1.0) for r in self.rows if all(r[k]==v for k,v in filters.items())][:top_k]}\n"
             " def get_all(self,*,filters):\n"
             "  return self.search('',filters=filters,top_k=100)\n",
             encoding="utf-8",
