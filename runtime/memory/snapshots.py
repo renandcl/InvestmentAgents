@@ -5,17 +5,19 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Iterable
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any
 
 from agents.hooks.contracts import ContractError
+from runtime.store.artifacts import atomic_write
 from runtime.core.context import MemoryMode, contained, validate_run_id
 from runtime.core.errors import StateStoreUnavailable
+from runtime.memory.models import MemoryRecord, MemorySnapshot, MemorySource
 from runtime.core.types import ArtifactRecord
-from runtime.store.artifacts import atomic_write
 
 if TYPE_CHECKING:
     from runtime.execution.lifecycle import RunRuntime
@@ -28,26 +30,6 @@ SEARCH_CANDIDATES = 100
 MAX_RESULTS = 10
 
 
-class MemoryRecord(TypedDict):
-    memory: str
-    analysis_date: str
-
-
-class MemorySource(TypedDict):
-    run_id: str
-    sha256: str
-
-
-class MemorySnapshot(TypedDict):
-    version: int
-    run_id: str
-    agent_id: str
-    ticker: str
-    analysis_date: str
-    sources: list[MemorySource]
-    memories: list[MemoryRecord]
-
-
 @dataclass(frozen=True)
 class MemoryDirectory:
     root: Path
@@ -56,17 +38,15 @@ class MemoryDirectory:
         return contained(self.root, *parts)
 
 
-def memory_records(records: list[MemoryRecord]) -> list[MemoryRecord]:
-    newest: dict[str, str] = {}
+def unique_records(records: Iterable[MemoryRecord]) -> list[MemoryRecord]:
+    newest: dict[str, MemoryRecord] = {}
     for record in records:
-        text, when = record["memory"], record["analysis_date"]
-        date.fromisoformat(when)
-        if not isinstance(text, str) or not text.strip():
-            raise ContractError("Invalid persistent memory record")
-        newest[text] = max(newest.get(text, when), when)
+        kept = newest.get(record.memory)
+        if kept is None or record.analysis_date > kept.analysis_date:
+            newest[record.memory] = record
     if len(newest) >= MEMORY_LIMIT:
         raise ContractError("Oversized persistent memory snapshot")
-    return [{"memory": text, "analysis_date": newest[text]} for text in sorted(newest)]
+    return [newest[text] for text in sorted(newest)]
 
 
 def rank_memories(
@@ -83,9 +63,9 @@ def rank_memories(
 
 def load_seeds(runtime: RunRuntime, agent_id: str) -> MemorySnapshot:
     context = runtime.context
-    window_start = (
-        date.fromisoformat(context.current_date) - timedelta(days=LOOKBACK_DAYS)
-    ).isoformat()
+    window_start = date.fromisoformat(context.current_date) - timedelta(
+        days=LOOKBACK_DAYS
+    )
     records: list[MemoryRecord] = []
     sources: list[MemorySource] = []
     candidates: dict[str, list[MemoryRecord]] = {}
@@ -147,32 +127,22 @@ def load_seeds(runtime: RunRuntime, agent_id: str) -> MemorySnapshot:
                 digest = hashlib.sha256(data).hexdigest()
                 if len(data) != receipt["byte_length"] or digest != receipt["sha256"]:
                     raise ContractError("Persistent memory artifact checksum mismatch")
-                snapshot = json.loads(data)
-                if not isinstance(snapshot, dict):
+                raw = json.loads(data)
+                if not isinstance(raw, dict):
                     raise ContractError("Invalid persistent memory snapshot")
-                if snapshot.get("version") != MEMORY_VERSION:
+                if raw.get("version") != MEMORY_VERSION:
                     continue
-                if any(
-                    snapshot.get(key) != value
-                    for key, value in {
-                        "run_id": root.name,
-                        "agent_id": agent_id,
-                        "ticker": context.ticker,
-                        "analysis_date": identity["current_date"],
-                    }.items()
+                snapshot = MemorySnapshot.model_validate(raw)
+                if (
+                    snapshot.run_id != root.name
+                    or snapshot.agent_id != agent_id
+                    or snapshot.ticker != context.ticker
+                    or snapshot.analysis_date.isoformat() != source_date
                 ):
                     raise ContractError("Persistent memory snapshot scope mismatch")
-                candidates[root.name] = memory_records(snapshot["memories"])
-                ancestors = snapshot.get("sources")
-                if not isinstance(ancestors, list) or any(
-                    not isinstance(source, dict)
-                    or not isinstance(source.get("run_id"), str)
-                    or not isinstance(source.get("sha256"), str)
-                    for source in ancestors
-                ):
-                    raise ContractError("Invalid persistent memory lineage")
-                superseded.update(source["run_id"] for source in ancestors)
-                sources.append({"run_id": root.name, "sha256": digest})
+                candidates[root.name] = snapshot.memories
+                superseded.update(source.run_id for source in snapshot.sources)
+                sources.append(MemorySource(run_id=root.name, sha256=digest))
         except sqlite3.OperationalError as error:
             # A sibling can be between exclusive allocation and schema creation.
             if "no such table: run" not in str(error):
@@ -189,25 +159,23 @@ def load_seeds(runtime: RunRuntime, agent_id: str) -> MemorySnapshot:
     # Merge independent heads, not obsolete ancestor versions of the same store.
     for run_id, items in candidates.items():
         if run_id not in superseded:
-            records.extend(
-                item for item in items if item["analysis_date"] >= window_start
-            )
-    return {
-        "version": MEMORY_VERSION,
-        "run_id": context.run_id,
-        "agent_id": agent_id,
-        "ticker": context.ticker,
-        "analysis_date": context.current_date,
-        "sources": sources,
-        "memories": memory_records(records),
-    }
+            records.extend(item for item in items if item.analysis_date >= window_start)
+    return MemorySnapshot(
+        version=MEMORY_VERSION,
+        run_id=context.run_id,
+        agent_id=agent_id,
+        ticker=context.ticker,
+        analysis_date=context.current_date,
+        sources=sources,
+        memories=unique_records(records),
+    )
 
 
 def prepare_seeds(runtime: RunRuntime, agent_id: str) -> None:
     seed = load_seeds(runtime, agent_id)
     root = runtime.context.path("memory", agent_id)
     root.mkdir(parents=True, exist_ok=True)
-    data = (json.dumps(seed, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    data = (seed.model_dump_json(indent=2) + "\n").encode("utf-8")
     atomic_write(MemoryDirectory(root), "seed.json", data)
 
 

@@ -1200,6 +1200,7 @@ dependencies = [
     { name = "chromadb" },
     { name = "mem0ai" },
     { name = "pandas" },
+    { name = "pydantic" },
     { name = "strands-agents", extra = ["ollama", "openai", "otel"] },
 ]
 
@@ -1213,6 +1214,7 @@ requires-dist = [
     { name = "chromadb", specifier = ">=1.5.9" },
     { name = "mem0ai", specifier = ">=2.2.1" },
     { name = "pandas", specifier = ">=3.0.6" },
+    { name = "pydantic", specifier = ">=2.13.5" },
     { name = "strands-agents", extras = ["ollama", "openai", "otel"], specifier = ">=1.57.2" },
 ]
 

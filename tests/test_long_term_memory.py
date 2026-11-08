@@ -23,10 +23,11 @@ from runtime.memory.snapshots import (
     MEMORY_LIMIT,
     MEMORY_VERSION,
     load_seeds,
-    memory_records,
     rank_memories,
     snapshot_artifacts,
+    unique_records,
 )
+from runtime.memory.models import MemoryRecord, MemorySnapshot
 from runtime.core.types import ArtifactRecord
 
 
@@ -91,8 +92,8 @@ def completed_source(
     return runtime
 
 
-def texts(seed: dict[str, Any]) -> list[str]:
-    return [record["memory"] for record in seed["memories"]]
+def texts(seed: MemorySnapshot) -> list[str]:
+    return [record.memory for record in seed.memories]
 
 
 class PersistentSeedTests(unittest.TestCase):
@@ -111,10 +112,10 @@ class PersistentSeedTests(unittest.TestCase):
         source = completed_source(self.root, "2026-01-01")
         seed = load_seeds(self.target(), "trader")
         self.assertEqual(
-            seed["memories"],
-            [{"memory": "earlier fact", "analysis_date": "2026-01-01"}],
+            seed.memories,
+            [MemoryRecord(memory="earlier fact", analysis_date="2026-01-01")],
         )
-        self.assertEqual(seed["sources"][0]["run_id"], source.context.run_id)
+        self.assertEqual(seed.sources[0].run_id, source.context.run_id)
 
     def test_other_scopes_dates_and_unsuccessful_runs_are_excluded(self) -> None:
         for options in (
@@ -133,14 +134,14 @@ class PersistentSeedTests(unittest.TestCase):
     def test_sources_finishing_after_creation_are_excluded(self) -> None:
         target = self.target()
         completed_source(self.root, "2026-01-01")
-        self.assertEqual(load_seeds(target, "trader")["sources"], [])
+        self.assertEqual(load_seeds(target, "trader").sources, [])
 
     def test_concurrent_branches_merge_without_duplicate_texts(self) -> None:
         completed_source(self.root, "2026-01-01", texts=("A", "common"))
         completed_source(self.root, "2026-01-02", texts=("B", "common"))
         seed = load_seeds(self.target(), "trader")
         self.assertEqual(texts(seed), ["A", "B", "common"])
-        self.assertEqual(len(seed["sources"]), 2)
+        self.assertEqual(len(seed.sources), 2)
 
     def test_corruption_fails_closed(self) -> None:
         source = completed_source(self.root, "2026-01-01")
@@ -172,11 +173,11 @@ class PersistentSeedTests(unittest.TestCase):
 
     def test_snapshot_limit_fails_instead_of_silently_truncating(self) -> None:
         records = [
-            {"memory": f"fact {index}", "analysis_date": "2026-01-01"}
+            MemoryRecord(memory=f"fact {index}", analysis_date="2026-01-01")
             for index in range(MEMORY_LIMIT)
         ]
         with self.assertRaises(ContractError):
-            memory_records(records)
+            unique_records(records)
 
     def test_seeds_exclude_memories_outside_the_lookback_window(self) -> None:
         completed_source(self.root, "2025-01-31", texts=("too old run",))

@@ -10,18 +10,19 @@ import sys
 from pathlib import Path
 
 from agents.hooks.specs import AGENT_SPECS
+from runtime.store.artifacts import atomic_write
 from runtime.core.context import contained, validate_run_id
 from runtime.core.errors import RunContextMismatch
-from runtime.memory.client import memory_config
 from runtime.memory.snapshots import (
     MEMORY_LIMIT,
     MEMORY_VERSION,
     SEARCH_CANDIDATES,
     MemoryDirectory,
-    memory_records,
     rank_memories,
+    unique_records,
 )
-from runtime.store.artifacts import atomic_write
+from runtime.memory.client import memory_config
+from runtime.memory.models import MemoryRecord, MemorySnapshot
 
 
 def serve(root: Path | str, agent_id: str) -> None:
@@ -48,31 +49,29 @@ def serve(root: Path | str, agent_id: str) -> None:
                 if method == "initialize" and memory is None:
                     analysis_date = request["analysis_date"]
                     if request.get("persistent"):
-                        seed = json.loads(
-                            contained(memory_root, "seed.json").read_text(
-                                encoding="utf-8"
-                            )
+                        seed = MemorySnapshot.model_validate_json(
+                            contained(memory_root, "seed.json").read_bytes()
                         )
                         if (
-                            seed.get("version") != MEMORY_VERSION
-                            or seed.get("run_id") != run_id
-                            or seed.get("agent_id") != agent_id
-                            or not isinstance(seed.get("ticker"), str)
-                            or seed.get("analysis_date") != analysis_date
+                            seed.version != MEMORY_VERSION
+                            or seed.run_id != run_id
+                            or seed.agent_id != agent_id
+                            or seed.analysis_date.isoformat() != analysis_date
                         ):
                             raise RunContextMismatch("Invalid persistent memory seed")
-                        memory_records(seed.get("memories"))
                     # Mem0 has import-time persistence side effects. Import only
                     # after validating the private worker environment above.
                     from mem0 import Memory
 
                     memory = Memory.from_config(memory_config(memory_root))
                     if seed is not None:
-                        for record in seed["memories"]:
+                        for record in seed.memories:
                             memory.add(
-                                record["memory"],
+                                record.memory,
                                 **filters,
-                                metadata={"analysis_date": record["analysis_date"]},
+                                metadata={
+                                    "analysis_date": record.analysis_date.isoformat()
+                                },
                                 infer=False,
                             )
                     result = None
@@ -104,24 +103,21 @@ def serve(root: Path | str, agent_id: str) -> None:
                     ]
                     if len(records) >= MEMORY_LIMIT:
                         raise ValueError("Memory export may be truncated")
-                    snapshot = dict(
-                        seed,
-                        memories=memory_records(
-                            [
-                                {
-                                    "memory": row["memory"],
-                                    "analysis_date": row["metadata"]["analysis_date"],
-                                }
+                    snapshot = seed.model_copy(
+                        update={
+                            "memories": unique_records(
+                                MemoryRecord(
+                                    memory=row["memory"],
+                                    analysis_date=row["metadata"]["analysis_date"],
+                                )
                                 for row in records
-                            ]
-                        ),
+                            )
+                        }
                     )
                     atomic_write(
                         MemoryDirectory(memory_root),
                         "long_term.json",
-                        (
-                            json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n"
-                        ).encode("utf-8"),
+                        (snapshot.model_dump_json(indent=2) + "\n").encode("utf-8"),
                     )
             response = {"ok": True, "result": result}
         except Exception:

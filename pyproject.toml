@@ -11,6 +11,7 @@ dependencies = [
     "mem0ai>=2.2.1",
     "chromadb>=1.5.9",
     "pandas>=3.0.6",
+    "pydantic>=2.13.5",
 ]
 
 [tool.uv.workspace]
