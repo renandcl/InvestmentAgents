@@ -15,7 +15,6 @@ REPORT_AGENT_ORDER = (
     "fundamentals_analyst",
     "market_analyst",
     "news_analyst",
-    "social_media_analyst",
     "analyst_coordinator",
     "bull_researcher",
     "bear_researcher",
