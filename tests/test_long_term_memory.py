@@ -14,12 +14,12 @@ from unittest.mock import patch
 
 from test_run_store import publish
 
-from agents.hooks.contracts import ContractError
-from runtime.store.artifacts import export_final
+from agents.hooks.contracts import MAX_MEMORY_MATCHES, ContractError
 from runtime.core.context import MemoryMode, RunConfig
+from runtime.core.types import ArtifactRecord
 from runtime.execution.lifecycle import RunRuntime, create_run
+from runtime.memory.models import MemoryRecord, MemorySnapshot
 from runtime.memory.snapshots import (
-    MAX_RESULTS,
     MEMORY_LIMIT,
     MEMORY_VERSION,
     load_seeds,
@@ -27,8 +27,7 @@ from runtime.memory.snapshots import (
     snapshot_artifacts,
     unique_records,
 )
-from runtime.memory.models import MemoryRecord, MemorySnapshot
-from runtime.core.types import ArtifactRecord
+from runtime.store.artifacts import export_final
 
 
 def completed_source(
@@ -223,7 +222,7 @@ class RetrievalRankingTests(unittest.TestCase):
                 "score": 0.5,
                 "metadata": {"analysis_date": "2025-06-01"},
             }
-            for index in range(MAX_RESULTS)
+            for index in range(MAX_MEMORY_MATCHES)
         ] + [
             {
                 "memory": "recent",
@@ -231,8 +230,8 @@ class RetrievalRankingTests(unittest.TestCase):
                 "metadata": {"analysis_date": "2026-01-25"},
             }
         ]
-        ranked = rank_memories(rows, "2026-02-01", MAX_RESULTS)
-        self.assertEqual(len(ranked), MAX_RESULTS)
+        ranked = rank_memories(rows, "2026-02-01", MAX_MEMORY_MATCHES)
+        self.assertEqual(len(ranked), MAX_MEMORY_MATCHES)
         self.assertEqual(ranked[0]["memory"], "recent")
 
 
@@ -257,9 +256,9 @@ class PersistentWorkerTests(unittest.IsolatedAsyncioTestCase):
 
             async def invoke_async(self, message: str) -> SimpleNamespace:
                 memory = self.runtime.memory_for("trader")
-                before = memory.search_memories("query", "AAPL", n_matches=MAX_RESULTS)[
-                    "results"
-                ]
+                before = memory.search_memories(
+                    "query", "AAPL", n_matches=MAX_MEMORY_MATCHES
+                )["results"]
                 self.runtime.before = [row["memory"] for row in before]
                 assert all(
                     row["user_id"] == self.runtime.context.run_id

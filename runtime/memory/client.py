@@ -11,14 +11,14 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from agents.hooks.contracts import ContractError
+from agents.hooks.contracts import MAX_MEMORY_MATCHES, ContractError
 from runtime.core.context import REPO_ROOT, MemoryMode
 from runtime.core.errors import RunContextMismatch
-from runtime.memory.snapshots import MAX_RESULTS, prepare_seeds
+from runtime.memory.snapshots import prepare_seeds
 
 if TYPE_CHECKING:
-    from runtime.execution.lifecycle import RunRuntime
     from runtime.core.types import MemoryService
+    from runtime.execution.lifecycle import RunRuntime
 
 
 class NullMemory:
@@ -168,7 +168,7 @@ class RunMemory:
         self, current_situation: str, ticker: str, n_matches: int = 2
     ) -> dict[str, Any]:
         self._ticker(ticker)
-        if type(n_matches) is not int or not 1 <= n_matches <= MAX_RESULTS:
+        if type(n_matches) is not int or not 1 <= n_matches <= MAX_MEMORY_MATCHES:
             raise ContractError("Invalid memory result limit")
         return self._request(
             {"method": "search", "query": current_situation, "top_k": n_matches}

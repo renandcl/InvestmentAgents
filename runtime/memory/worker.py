@@ -10,9 +10,10 @@ import sys
 from pathlib import Path
 
 from agents.hooks.specs import AGENT_SPECS
-from runtime.store.artifacts import atomic_write
 from runtime.core.context import contained, validate_run_id
 from runtime.core.errors import RunContextMismatch
+from runtime.memory.client import memory_config
+from runtime.memory.models import MemoryRecord, MemorySnapshot
 from runtime.memory.snapshots import (
     MEMORY_LIMIT,
     MEMORY_VERSION,
@@ -21,8 +22,7 @@ from runtime.memory.snapshots import (
     rank_memories,
     unique_records,
 )
-from runtime.memory.client import memory_config
-from runtime.memory.models import MemoryRecord, MemorySnapshot
+from runtime.store.artifacts import atomic_write
 
 
 def serve(root: Path | str, agent_id: str) -> None:

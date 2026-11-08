@@ -13,11 +13,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from agents.hooks.contracts import ContractError
-from runtime.store.artifacts import atomic_write
 from runtime.core.context import MemoryMode, contained, validate_run_id
 from runtime.core.errors import StateStoreUnavailable
-from runtime.memory.models import MemoryRecord, MemorySnapshot, MemorySource
 from runtime.core.types import ArtifactRecord
+from runtime.memory.models import MemoryRecord, MemorySnapshot, MemorySource
+from runtime.store.artifacts import atomic_write
 
 if TYPE_CHECKING:
     from runtime.execution.lifecycle import RunRuntime
@@ -27,7 +27,6 @@ MEMORY_VERSION = 2
 LOOKBACK_DAYS = 365
 HALF_LIFE_DAYS = 90
 SEARCH_CANDIDATES = 100
-MAX_RESULTS = 10
 
 
 @dataclass(frozen=True)
