@@ -12,6 +12,7 @@ Resources available:
 
 Market research report: {market_analyst_report}
 Latest world affairs news: {news_analyst_report}
+Social media sentiment report: {social_analyst_report}
 Company fundamentals report: {fundamentals_analyst_report}
 Last bull argument: {bull_researcher_report}
 Accepted research debate history: {research_debate_history}
