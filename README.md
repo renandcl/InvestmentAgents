@@ -107,7 +107,7 @@ Long-term memory is enabled by default. It reuses memories from successful earli
 analyses of the same ticker and agent, with a private vector store for each run.
 Seeds cover the last 365 days before the analysis date. Each lookup takes the 100
 nearest memories, weights them toward recent ones (90-day half-life) and gives the
-agent the best 10.
+agent the best 2 (at most 10).
 Pass `memory_mode="RUN_ONLY"` for one-run memory or `memory_mode="OFF"` to disable it.
 
 **Note:** Some MCP servers located in `mcp-servers/` also require their own `.env` files. Please check the individual server directories for specific configuration requirements.

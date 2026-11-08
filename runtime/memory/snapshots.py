@@ -9,7 +9,7 @@ from contextlib import closing
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from agents.hooks.contracts import ContractError
 from runtime.core.context import MemoryMode, contained, validate_run_id
@@ -28,6 +28,26 @@ SEARCH_CANDIDATES = 100
 MAX_RESULTS = 10
 
 
+class MemoryRecord(TypedDict):
+    memory: str
+    analysis_date: str
+
+
+class MemorySource(TypedDict):
+    run_id: str
+    sha256: str
+
+
+class MemorySnapshot(TypedDict):
+    version: int
+    run_id: str
+    agent_id: str
+    ticker: str
+    analysis_date: str
+    sources: list[MemorySource]
+    memories: list[MemoryRecord]
+
+
 @dataclass(frozen=True)
 class MemoryDirectory:
     root: Path
@@ -36,7 +56,7 @@ class MemoryDirectory:
         return contained(self.root, *parts)
 
 
-def memory_records(records: list[dict[str, str]]) -> list[dict[str, str]]:
+def memory_records(records: list[MemoryRecord]) -> list[MemoryRecord]:
     newest: dict[str, str] = {}
     for record in records:
         text, when = record["memory"], record["analysis_date"]
@@ -61,14 +81,14 @@ def rank_memories(
     return sorted(results, key=weight, reverse=True)[:limit]
 
 
-def load_seeds(runtime: RunRuntime, agent_id: str) -> dict[str, Any]:
+def load_seeds(runtime: RunRuntime, agent_id: str) -> MemorySnapshot:
     context = runtime.context
     window_start = (
         date.fromisoformat(context.current_date) - timedelta(days=LOOKBACK_DAYS)
     ).isoformat()
-    records: list[dict[str, str]] = []
-    sources: list[dict[str, str]] = []
-    candidates: dict[str, list[dict[str, str]]] = {}
+    records: list[MemoryRecord] = []
+    sources: list[MemorySource] = []
+    candidates: dict[str, list[MemoryRecord]] = {}
     superseded: set[str] = set()
     for root in sorted(context.output_root.iterdir()):
         try:

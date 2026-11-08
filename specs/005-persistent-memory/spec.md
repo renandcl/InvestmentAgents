@@ -53,10 +53,11 @@ memory.
   parent, so facts it updated or deleted do not return. Facts held by sibling branches
   can coexist or reappear (add-wins).
 - PM-007: Every memory carries the analysis date of the run that extracted it, in the
-  store and in snapshots (version 2). Older version 1 snapshots are not reused. Retrieval takes up to 100 nearest candidates, ranks them by
-  similarity × 0.5^(age in days / recency half-life, default 90 days) and gives the
-  agent at most 10. PM-003 and PM-008 already keep later-dated and out-of-window
-  memories out of the store.
+  store and in snapshots (version 2). Older version 1 snapshots are not reused.
+  Retrieval takes up to 100 nearest candidates, ranks them by similarity × 0.5^(age in
+  days / recency half-life, default 90 days) and gives the agent the best `n_matches`
+  (default 2, at most 10). PM-003 and PM-008 already keep later-dated and
+  out-of-window memories out of the store.
 - PM-008: Seeds include only memories within the lookback window (default 365 days)
   of the target run's analysis date. Source snapshots, merged seeds and exported
   snapshots each hold at most 9,999 memories. Reaching 10,000, the retrieval limit,

@@ -35,7 +35,7 @@ class MemoryPolicy:
     query_fields: tuple[tuple[str, str], ...]
     store_label: str
     empty_text: str = "No relevant past memories found."
-    n_matches: int = 10
+    n_matches: int = 2
 
 
 @dataclass(frozen=True)

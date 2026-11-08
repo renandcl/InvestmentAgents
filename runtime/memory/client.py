@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 class NullMemory:
     def search_memories(
-        self, current_situation: str, ticker: str, n_matches: int = 10
+        self, current_situation: str, ticker: str, n_matches: int = 2
     ) -> dict[str, Any]:
         return {"results": []}
 
@@ -165,7 +165,7 @@ class RunMemory:
         return self._request({"method": "add", "memory": memory})
 
     def search_memories(
-        self, current_situation: str, ticker: str, n_matches: int = 10
+        self, current_situation: str, ticker: str, n_matches: int = 2
     ) -> dict[str, Any]:
         self._ticker(ticker)
         if type(n_matches) is not int or not 1 <= n_matches <= MAX_RESULTS:
