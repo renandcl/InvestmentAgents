@@ -16,6 +16,13 @@ uv run pre-commit run --all-files  # Ruff/import sorting, Black, secret/file che
 - Tests use unittest, temporary directories, offline models/providers and owned subprocesses. Never call live models/providers to replace acceptance tests.
 - Each agent/memory `__main__` uses `runtime.execution.examples.run_example` to allocate a fresh managed run. Example: `uv run --env-file .env python -m agents.traders.trader.agent --ticker AAPL --date 2025-08-01 --memory-mode OFF`.
 
+## Development rules
+
+- Keep changes minimal: no comments that restate the code, no speculative compatibility paths, no defensive checks on values the caller or vendor already guarantees. Keep files short.
+- Write only the tests a required behavior needs: one offline test per spec'd behavior, not edge-case batteries.
+- Keep PRs small: few files and lines. Check `git diff --shortstat` before opening one, and split larger work into stacked PRs by concern (spec/docs, then code).
+- Keep process artifacts, such as review reports, out of git.
+
 ## Runtime requirements
 
 - Add parameter and return type hints to Python functions and methods. Use concrete domain types and typed collections; reserve `Any` for dynamic SDK/provider payloads. Keep annotation-only imports at the top under `TYPE_CHECKING` when needed to avoid import cycles.
