@@ -67,8 +67,6 @@ def serve(root: Path | str, agent_id: str) -> None:
                         for text in seed["memories"]:
                             memory.add(text, **filters, infer=False)
                     result = None
-                elif memory is None:
-                    raise ValueError("Worker is not initialized")
                 elif method == "add":
                     result = memory.add(request["memory"], **filters, infer=True)
                 elif method == "search":
