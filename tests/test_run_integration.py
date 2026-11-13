@@ -379,8 +379,6 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
             "bull_researcher",
             "bear_researcher",
             "research_manager",
-            "trader",
-            "risk_manager",
             "aggressive_risk_analyst",
             "conservative_risk_analyst",
             "neutral_risk_analyst",

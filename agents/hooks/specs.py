@@ -181,13 +181,7 @@ AGENT_SPECS = {
                 default="No investment plan provided",
             ),
         ),
-        prompt_bindings=bindings(
-            "ticker",
-            "investment_plan",
-            "past_memories",
-            "news_analyst_report",
-            "social_analyst_report",
-        ),
+        prompt_bindings=bindings("ticker", "investment_plan", "past_memories"),
         output_keys=("trader_report", "trader_investment_plan"),
         memory=MemoryPolicy(
             SITUATION + (("Investment Plan", "research_manager_report"),),
@@ -208,8 +202,6 @@ AGENT_SPECS = {
         ),
         prompt_bindings=bindings(
             "trader_investment_plan",
-            "news_analyst_report",
-            "social_analyst_report",
             "risk_debate_history",
             "past_memories",
             "debate_rounds",

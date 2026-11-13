@@ -36,7 +36,9 @@ warnings throughout downstream prompts.
   Base conclusions on post bodies and disclose sample/coverage limits; unavailable
   historical coverage means insufficient evidence, not neutral sentiment. Keep these
   instructions in the social analyst rather than repeating them downstream.
-- SM-006: Research, trader and risk receive separate news and sentiment report inputs.
+- SM-006: Researchers and risk debaters receive separate news and sentiment report
+  inputs. Trader and risk manager prompts stay unchanged; their memory queries
+  include both reports.
   Preserve debate scheduling, aliases and isolation behavior. Keep existing ports;
   reserve 9913 for disabled social-media A2A entry points.
 - SM-007: Existing Reddit purge support redacts both get_reddit_news and

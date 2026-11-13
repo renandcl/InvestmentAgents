@@ -140,8 +140,13 @@ class HookContractTests(unittest.TestCase):
             with self.subTest(consumer=agent_id):
                 hook, agent, registry = self.make_agent(agent_id)
                 registry.invoke_callbacks(BeforeModelCallEvent(agent=agent))
-                self.assertIn("Confirmed earnings event", agent.system_prompt)
-                self.assertIn("Sampled bullish Reddit opinion", agent.system_prompt)
+                check = (
+                    self.assertNotIn
+                    if agent_id in ("trader", "risk_manager")
+                    else self.assertIn
+                )
+                check("Confirmed earnings event", agent.system_prompt)
+                check("Sampled bullish Reddit opinion", agent.system_prompt)
                 if hook.spec.memory:
                     query = hook.memory.search_memories.call_args.args[0]
                     self.assertIn(
