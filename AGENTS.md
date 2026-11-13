@@ -13,7 +13,7 @@ uv run pre-commit run --all-files  # Ruff/import sorting, Black, secret/file che
 
 - Always run commands from the **repo root**. Imports are absolute. Runtime roots resolve from the repository; each run writes under `data/runs/<uuid>/` by default, with no parent CWD/environment switching.
 - No code calls `load_dotenv`. Root `.env` values reach the process only through `uv run --env-file .env` or the shell. MCP servers that need keys get their own `--env-file mcp-servers/<server>/.env` from the agent that spawns them.
-- Tests use unittest, temporary directories, offline models/providers and owned subprocesses. Never call live models/providers to replace acceptance tests. A2A manual clients now reject execution.
+- Tests use unittest, temporary directories, offline models/providers and owned subprocesses. Never call live models/providers to replace acceptance tests.
 - Each agent/memory `__main__` uses `runtime.execution.examples.run_example` to allocate a fresh managed run. Example: `uv run --env-file .env python -m agents.traders.trader.agent --ticker AAPL --date 2025-08-01 --memory-mode OFF`.
 
 ## Runtime requirements
@@ -44,14 +44,11 @@ Every agent directory follows the same layout. When you add or change an agent, 
 | File | Role |
 |---|---|
 | `agent.py` | `RunAgent` subclass requiring keyword-only `runtime=`; pass the same runtime to all in-process children. Public tools invoke through the shared whole-lifecycle gate. |
-| `a2a_agent.py` | Orchestrator compatibility entry point; rejects construction before side effects. |
-| `main.py` | Reserved A2A factory/port; rejects execution until distributed run ownership is specified. |
 | `hook.py` | Thin `AgentLifecycleHooks` selector for an immutable `AGENT_SPECS` contract. |
 | `prompt.txt` | Format template validated against contract bindings; double literal braces. Keep financial prompts unchanged for isolation work. |
 | `memory.py` | Thin adapter to `runtime.memory_for(agent_id)`; never instantiate a global Mem0 store. |
-| `test_a2a.py` | Reserved manual client; rejects before network or legacy state access. |
 
-`main.py` (root) uses the **in-process** path inside `RunRuntime.execute`. All A2A paths are disabled.
+`main.py` (root) uses the **in-process** path inside `RunRuntime.execute`. There are no A2A entry points.
 
 ### State flow: `data/runs/<run_id>/run.sqlite3`
 

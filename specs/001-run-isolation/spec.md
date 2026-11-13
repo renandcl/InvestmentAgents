@@ -119,6 +119,10 @@ Status checks read status alone rather than decoding the full inspection record.
 Explicitly named, operator-confirmed abandoned runs may have Reddit content purged
 without changing lifecycle status; legacy cleanup is unsupported under FR-014.
 
+A2A removal (2026-11-13): the disabled per-agent A2A servers, manual clients and
+distributed constructors, including spec 004's social-media paths and reserved port
+9913, were deleted. FR-013 no longer has an A2A surface and AT-14 does not apply.
+
 Implementation must follow [contracts](contracts.md) and [plan](plan.md). Change requirement and acceptance IDs before changing intended behavior. The task list tracks implementation separately from specification readiness.
 
 Future work must explicitly specify any experiment-scoped memory or shared cache reuse; neither may be introduced as an optimization that bypasses this contract.
