@@ -7,8 +7,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.13"
 dependencies = [
-    "strands-agents-tools[a2a-client]>=0.8.9",
-    "strands-agents[a2a,ollama,openai,otel]>=1.57.2",
+    "strands-agents[ollama,openai,otel]>=1.57.2",
     "mem0ai>=2.2.1",
     "chromadb>=1.5.9",
     "pandas>=3.0.6",
