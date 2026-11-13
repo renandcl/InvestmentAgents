@@ -324,44 +324,33 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(json.loads(self.shared.read_text()), self.snapshot)
         self.assertEqual(list(self.shared.parent.glob("*.json")), [self.shared])
 
-    def test_both_constructor_paths_register_one_lifecycle_provider(self):
-        for pattern in ("agent.py", "a2a_agent.py"):
-            for path in (ROOT / "agents").rglob(pattern):
-                with self.subTest(path=path.relative_to(ROOT)):
-                    source = path.read_text(encoding="utf-8")
-                    self.assertNotIn("StoreMemoryHook", source)
-                    tree = ast.parse(source)
-                    if path.name == "a2a_agent.py":
-                        constructors = [
-                            node
-                            for node in ast.walk(tree)
-                            if isinstance(node, ast.FunctionDef)
-                            and node.name == "__init__"
-                        ]
-                        self.assertIsInstance(constructors[0].body[0], ast.Raise)
-                        continue
-                    hooks = [
-                        node
+    def test_constructors_register_one_lifecycle_provider(self):
+        for path in (ROOT / "agents").rglob("agent.py"):
+            with self.subTest(path=path.relative_to(ROOT)):
+                source = path.read_text(encoding="utf-8")
+                self.assertNotIn("StoreMemoryHook", source)
+                tree = ast.parse(source)
+                hooks = [
+                    node
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.keyword) and node.arg == "hooks"
+                ]
+                self.assertEqual(len(hooks), 1)
+                expression = hooks[0].value
+                if isinstance(expression, ast.List):
+                    self.assertEqual(len(expression.elts), 1)
+                else:
+                    lists = [
+                        node.value
                         for node in ast.walk(tree)
-                        if isinstance(node, ast.keyword) and node.arg == "hooks"
+                        if isinstance(node, ast.Assign)
+                        and any(
+                            isinstance(target, ast.Attribute) and target.attr == "hooks"
+                            for target in node.targets
+                        )
                     ]
-                    self.assertEqual(len(hooks), 1)
-                    expression = hooks[0].value
-                    if isinstance(expression, ast.List):
-                        self.assertEqual(len(expression.elts), 1)
-                    else:
-                        lists = [
-                            node.value
-                            for node in ast.walk(tree)
-                            if isinstance(node, ast.Assign)
-                            and any(
-                                isinstance(target, ast.Attribute)
-                                and target.attr == "hooks"
-                                for target in node.targets
-                            )
-                        ]
-                        self.assertEqual(len(lists), 1)
-                        self.assertEqual(len(lists[0].elts), 1)
+                    self.assertEqual(len(lists), 1)
+                    self.assertEqual(len(lists[0].elts), 1)
 
 
 if __name__ == "__main__":

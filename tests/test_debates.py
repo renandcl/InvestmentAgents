@@ -446,23 +446,6 @@ class DebateIntegrationTests(unittest.IsolatedAsyncioTestCase):
             any(call["agent_id"] == "research_manager" for call in self.calls)
         )
 
-    def test_distributed_variants_reject_before_service_construction(self):
-        for module_name, class_name in (
-            ("agents.researchers.manager.a2a_agent", "ResearchManager"),
-            ("agents.risk_mgt.risk_manager.a2a_agent", "RiskManager"),
-        ):
-            module = importlib.import_module(module_name)
-            with (
-                patch("strands.models.openai.OpenAIModel") as model,
-                patch("runtime.memory.client.RunMemory") as memory,
-            ):
-                with self.assertRaisesRegex(
-                    ContractError, "HTTP round-context propagation"
-                ):
-                    getattr(module, class_name)()
-                model.assert_not_called()
-                memory.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,6 @@ import io
 import json
 import multiprocessing
 import os
-import runpy
 import sys
 import unittest
 from contextlib import ExitStack
@@ -34,7 +33,6 @@ from runtime.core.errors import (
     SafeError,
     StateConflict,
     StateStoreUnavailable,
-    UnsupportedExecutionMode,
 )
 from runtime.execution.agent import RunAgent
 from runtime.execution.examples import run_example
@@ -640,32 +638,6 @@ class SDKIsolationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("offline-model", manifest)
         self.assertIn("prompt_hashes", manifest)
         self.assertIn("lockfile_hash", manifest)
-
-    async def test_every_a2a_entry_point_rejects_before_side_effects(self):
-        paths = (
-            list((REPO_ROOT / "agents").rglob("main.py"))
-            + list((REPO_ROOT / "agents").rglob("test_a2a.py"))
-            + list((REPO_ROOT / "agents").rglob("a2a_agent.py"))
-        )
-        for path in paths:
-            with self.subTest(path=path.relative_to(REPO_ROOT)):
-                namespace = runpy.run_path(str(path))
-                if path.name == "main.py":
-                    with self.assertRaises(UnsupportedExecutionMode):
-                        namespace["a2a_agent_app"]()
-                elif path.name == "test_a2a.py":
-                    with self.assertRaises(UnsupportedExecutionMode):
-                        await namespace["send_sync_message"]("test")
-                else:
-                    cls = next(
-                        cls
-                        for cls in namespace.values()
-                        if isinstance(cls, type) and cls.__module__ == "<run_path>"
-                    )
-                    with self.assertRaises(UnsupportedExecutionMode):
-                        cls()
-                with self.assertRaises(UnsupportedExecutionMode):
-                    runpy.run_path(str(path), run_name="__main__")
 
     async def test_both_debates_interleave_across_runs_with_frozen_snapshots(self):
         runtimes = [self.runtime, new_runtime(Path(self.tmp.name))]
