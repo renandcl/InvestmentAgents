@@ -30,6 +30,9 @@ class StateField:
         return self.default if value is None else value
 
 
+MAX_MEMORY_MATCHES = 10
+
+
 @dataclass(frozen=True)
 class MemoryPolicy:
     query_fields: tuple[tuple[str, str], ...]
@@ -85,9 +88,10 @@ class AgentSpec:
         computed = set()
         if self.memory:
             computed.add("past_memories")
-            if self.memory.n_matches < 1:
+            if not 1 <= self.memory.n_matches <= MAX_MEMORY_MATCHES:
                 raise ContractError(
-                    f"{self.agent_id}: memory n_matches must be positive"
+                    f"{self.agent_id}: memory n_matches must be between 1 and "
+                    f"{MAX_MEMORY_MATCHES}"
                 )
         if self.workflow:
             self.workflow.validate()
