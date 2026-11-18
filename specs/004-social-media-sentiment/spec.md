@@ -70,3 +70,14 @@ Prompt reference: [TradingAgents sentiment analyst](https://github.com/TauricRes
 - A5: Purge fixtures redact both Reddit tool names while retaining unrelated results.
 
 This extends run-isolation FR-022 / AT-28 and the shared contracts in specs 002/003.
+
+## Spec 006 amendments
+
+Effective as the [spec 006](../006-time-cut-dataset/spec.md) PRs land:
+
+- SM-001: NewsAnalyst uses Finnhub and GDELT.
+- SM-003: Search the symbol, the `$` symbol and the company name, up to 250 posts per search,
+  with no engagement metadata in the output.
+- SM-004, A2: Samples come from the frozen copy instead of the run cache.
+- Implementation plan step 3: `get_reddit_news` is removed.
+- SM-007 is unchanged: the purge still recognises the old tool name.

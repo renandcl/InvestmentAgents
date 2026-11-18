@@ -14,6 +14,12 @@ This run-owned MCP server supplies bounded Reddit post samples for social sentim
   NewsAnalyst does not connect to this server, and SocialMediaAnalyst exposes only
   the sentiment tool.
 
+## Planned changes
+
+[Spec 006](../../specs/006-time-cut-dataset/spec.md) changes this server as its PRs land: dates become
+inclusive New York dates, output drops engagement, searches stop at 250 posts, `get_reddit_news` is
+removed, and study runs read a frozen copy with no Reddit keys.
+
 ## Runtime and credentials
 
 SocialMediaAnalyst starts this server over stdio with a validated run context and

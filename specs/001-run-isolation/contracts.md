@@ -11,7 +11,7 @@ retain their behavior.
 
 | Entity | Fields and invariants |
 |---|---|
-| RunConfig | Nonempty bounded ticker; valid ISO current_date; memory_mode PERSISTENT/OFF/RUN_ONLY; resolved local output_root; execution_mode in_process; host-resolved model config |
+| RunConfig | Nonempty bounded ticker; valid ISO current_date; memory_mode PERSISTENT/OFF/RUN_ONLY; resolved local output_root; execution_mode in_process; host-resolved model config; from spec 006, dataset_id, dataset_hash and dataset_root |
 | RunContext | schema_version=1; UUID4 lowercase hex run_id; ticker; current_date; UTC created_at; run_root and derived roots; immutable |
 | RunRecord | Identity; status; started_at/finished_at; primary_error; cleanup_errors; provenance fields; unknown values explicit |
 | ReportValue | Key, text, revision >=1, writer_agent_id, invocation_id, operation_id, UTC updated_at |
@@ -27,7 +27,7 @@ retain their behavior.
 | RoundReceipt | Committed generation/round, resulting revisions, event sequence and duplicate flag |
 | Tombstone | Deleted output key and monotonically increasing revision; prevents stale writes after reset |
 
-current_date retains the current date-only meaning. It is not an evidence-availability cutoff. A later point-in-time contract owns as_of semantics.
+current_date retains the current date-only meaning. It is not an evidence-availability cutoff. [Spec 006](../006-time-cut-dataset/spec.md) owns evidence-availability semantics.
 
 Exported state contains run_id, schema_version, ticker, current_date, status, existing report keys and accepted research_debate_history/risk_debate_history. Preserve trader_investment_plan and final_trade_decision aliases. Identity cannot be changed by a report patch.
 
@@ -109,6 +109,7 @@ The runtime retains failures of owned agent invocations independently of SDK too
 
 - INVESTMENT_RUN_ID: host-generated validated identity.
 - INVESTMENT_CACHE_ROOT: resolved absolute cache/<provider_id> root within that run.
+- From spec 006, INVESTMENT_DATASET_DIR, INVESTMENT_DATASET_HASH, INVESTMENT_COPY_KEY, INVESTMENT_TICKER and INVESTMENT_CUTOFF: reserved, host-set values for the run's frozen copy.
 - Missing/conflicting/invalid context rejects startup before service initialization.
 - Run-specific environment is passed to the child only.
 - Shared SimFin inputs are separate read-only paths.
