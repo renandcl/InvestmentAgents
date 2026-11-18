@@ -1,14 +1,46 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Literal
+from datetime import date, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Literal
 
 import yfinance as yf
 
 from runtime.providers.cache import configure_yfinance, service_cache
+from runtime.providers.capture import read_slice, slice_finished, write_slice
+from runtime.providers.timecut import Record, public_at_from_date
 
 if TYPE_CHECKING:
     from runtime.providers.cache import RunCache
+
+HISTORY_SLICE = "history"
+PRICE_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
+
+
+def fetch(request: dict[str, Any], output: Path) -> None:
+    """Store the full unrounded adjusted daily history once."""
+    if slice_finished(output, HISTORY_SLICE):
+        return
+    cache = output / ".yfinance"
+    cache.mkdir(parents=True, exist_ok=True)
+    yf.set_tz_cache_location(str(cache))
+    history = yf.Ticker(request["ticker"]).history(period="max", auto_adjust=True)
+    bars = [
+        {"Date": index.date().isoformat(), **{c: float(row[c]) for c in PRICE_COLUMNS}}
+        for index, row in history.iterrows()
+    ]
+    if not bars:
+        raise ValueError(f"No price history returned for {request['ticker']}")
+    write_slice(output, HISTORY_SLICE, bars)
+
+
+def normalize(request: dict[str, Any], raw: Path) -> list[Record]:
+    records = []
+    for bar in read_slice(raw, HISTORY_SLICE):
+        payload = {column: bar[column] for column in PRICE_COLUMNS}
+        public_at = public_at_from_date(date.fromisoformat(bar["Date"]))
+        records.append(Record(bar["Date"], public_at, "prices", payload))
+    return records
 
 
 class YFinMarketDataService:
