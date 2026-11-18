@@ -170,7 +170,8 @@ investment advice. Dependencies and the default models (`qwen3:8b`,
 
 The data sources are the real limit. Yahoo Finance (`yfinance`), the Finnhub and
 SimFin free tiers, Reddit's Data API and DuckDuckGo (`ddgs`, unofficial) are for
-personal, non-commercial use. Don't redistribute their data or publish run
+personal, non-commercial use. [Spec 006](specs/006-time-cut-dataset/spec.md) replaces
+DuckDuckGo with GDELT as its PRs land. Don't redistribute their data or publish run
 directories, and get licensed feeds before any commercial use. Set
 `REDDIT_USERNAME` for the user agent Reddit requires.
 

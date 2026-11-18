@@ -108,6 +108,13 @@ Zero observed contamination in these tests is the release gate; it is not a clai
 
 ## Specification maintenance
 
+Spec 006 amendments (2026-11-18), effective as its PRs land: temporal market-data validation
+moves from out of scope to [spec 006](../006-time-cut-dataset/spec.md). A study batch restart
+starts new runs for unfinished dates; no run is resumed. FR-009: providers keep private cache
+roots and also receive the read-only study dataset root. FR-013: standalone examples take the
+dataset arguments. FR-014: the frozen study dataset is a shared read-only input. FR-016: a study
+batch stops one ticker's chain after two retries, and other tickers continue.
+
 PR review corrections (2026-10-11): the owned-invocation failure boundary includes
 gate acquisition and all preparation checks (FR-010). Batch initialization failures
 are counted without stopping later items (FR-016). Exports must never predict a
