@@ -29,6 +29,8 @@ def fetch(request: dict[str, Any], output: Path) -> None:
         {"Date": index.date().isoformat(), **{c: float(row[c]) for c in PRICE_COLUMNS}}
         for index, row in history.iterrows()
     ]
+    if not bars:
+        raise ValueError(f"No price history returned for {request['ticker']}")
     write_slice(output, HISTORY_SLICE, bars)
 
 

@@ -20,6 +20,11 @@ class TimeRuleTests(unittest.TestCase):
         dates = study_dates(date(2026, 3, 30), date(2026, 4, 10), sessions)
         self.assertEqual(dates, [date(2026, 4, 2), date(2026, 4, 10)])
 
+    def test_closed_friday_fallback_stays_inside_the_range(self) -> None:
+        sessions = [*WEEK, date(2026, 4, 10)]
+        dates = study_dates(date(2026, 4, 3), date(2026, 4, 10), sessions)
+        self.assertEqual(dates, [date(2026, 4, 10)])
+
     def test_cutoff_is_midnight_new_york_across_daylight_saving(self) -> None:
         winter = cutoff_for(date(2026, 1, 9), [date(2026, 1, 8), date(2026, 1, 9)])
         summer = cutoff_for(date(2026, 7, 10), [date(2026, 7, 9), date(2026, 7, 10)])

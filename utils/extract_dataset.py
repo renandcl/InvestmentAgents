@@ -11,13 +11,14 @@ import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from runtime.core.context import REPO_ROOT
+from runtime.core.context import REPO_ROOT, identifier
 from runtime.providers.capture import record_from_dict, record_to_dict
 from runtime.providers.timecut import (
+    FRIDAY,
     NEW_YORK,
     Record,
     admit,
@@ -33,6 +34,8 @@ TICKERS = ("AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA")
 MARKET_CLOSE = time(16, 0)
 DATA_ROOT = REPO_ROOT / "data"
 PURGED_MARKER = "purged.json"
+VENDOR_KEYS = ("FINNHUB_API_KEY", "SIMFIN_API_KEY")
+VENDOR_KEY_PREFIXES = ("REDDIT_",)
 
 
 @dataclass(frozen=True)
@@ -66,6 +69,18 @@ def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def child_environment(action: str) -> dict[str, str]:
+    """Give vendor keys only to the step that contacts a vendor."""
+    environment = {**os.environ, "PYTHONPATH": str(REPO_ROOT)}
+    if action == "fetch":
+        return environment
+    return {
+        name: value
+        for name, value in environment.items()
+        if name not in VENDOR_KEYS and not name.startswith(VENDOR_KEY_PREFIXES)
+    }
+
+
 def run_provider(
     provider: Provider,
     action: str,
@@ -87,7 +102,7 @@ def run_provider(
             [*command, action, "--request", str(request_path), "--output", str(output)],
             check=True,
             cwd=REPO_ROOT,
-            env={**os.environ, "PYTHONPATH": str(REPO_ROOT)},
+            env=child_environment(action),
         )
 
 
@@ -141,6 +156,15 @@ def closed_sessions(records: Sequence[Record], started_at: datetime) -> list[dat
     return sessions
 
 
+def last_closed_friday(started_at: datetime) -> date:
+    """Return the latest scheduled Friday whose market close has passed."""
+    now = started_at.astimezone(NEW_YORK)
+    friday = now.date() - timedelta(days=(now.weekday() - FRIDAY) % 7)
+    if friday == now.date() and now.time() < MARKET_CLOSE:
+        friday -= timedelta(days=7)
+    return friday
+
+
 def candidate_dates(
     start: date, end: date, min_date: date, sessions: Sequence[date]
 ) -> list[dict[str, str]]:
@@ -167,21 +191,21 @@ def capture(
     provider_commands: Mapping[str, Sequence[str]] | None = None,
 ) -> Path:
     """Fetch every source once; a repeated call resumes unfinished slices."""
-    root = captures_root / capture_id
+    root = captures_root / identifier(capture_id)
     meta_path = root / "capture.json"
+    scope = {
+        "capture_id": capture_id,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "min_date": min_date.isoformat(),
+        "tickers": list(tickers),
+    }
     if not meta_path.exists():
-        write_json(
-            meta_path,
-            {
-                "capture_id": capture_id,
-                "start": start.isoformat(),
-                "end": end.isoformat(),
-                "min_date": min_date.isoformat(),
-                "tickers": list(tickers),
-                "started_at": format_instant(datetime.now(timezone.utc)),
-            },
-        )
+        started = format_instant(datetime.now(timezone.utc))
+        write_json(meta_path, {**scope, "started_at": started})
     meta = read_json(meta_path)
+    if {name: meta[name] for name in scope} != scope:
+        raise ValueError(f"Capture {capture_id} was started with different arguments")
     for ticker in meta["tickers"]:
         request = provider_request(root, MARKET, ticker, meta, [])
         run_provider(
@@ -202,7 +226,12 @@ def capture(
             sessions.update(closed_sessions(records, started_at))
         write_json(
             candidates_path,
-            candidate_dates(start, end, min_date, sorted(sessions)),
+            candidate_dates(
+                start,
+                min(end, last_closed_friday(started_at)),
+                min_date,
+                sorted(sessions),
+            ),
         )
     candidates = read_json(candidates_path)
     for provider in CAPTURE_PROVIDERS:
@@ -283,8 +312,8 @@ def build(
     provider_commands: Mapping[str, Sequence[str]] | None = None,
 ) -> str:
     """Write one frozen dataset offline and return its manifest hash."""
-    root = captures_root / capture_id
-    dataset = datasets_root / dataset_id
+    root = captures_root / identifier(capture_id)
+    dataset = datasets_root / identifier(dataset_id)
     if dataset.exists():
         raise FileExistsError(f"Dataset {dataset_id} already exists")
     if (root / PURGED_MARKER).exists():

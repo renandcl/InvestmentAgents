@@ -1,12 +1,24 @@
+import importlib.util
 import json
+import os
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+import pandas as pd
+
+from runtime.core.errors import InvalidRunConfig
 from runtime.store.artifacts import hash_file
-from utils.extract_dataset import build, capture, copy_key
+from utils.extract_dataset import (
+    build,
+    capture,
+    child_environment,
+    copy_key,
+    last_closed_friday,
+)
 
 FAKE_PROVIDER = """
 import json
@@ -137,6 +149,62 @@ class ExtractDatasetTests(unittest.TestCase):
         self.assertIn("2026-01-02", excluded)
         self.assertIn("2026-01-09", excluded)
         self.assertEqual({key.split("|")[1] for key in manifest["copies"]}, set(dates))
+
+    def test_resumed_capture_refuses_different_arguments(self) -> None:
+        self.run_capture({"AAPL": self.days})
+        with self.assertRaises(ValueError):
+            capture(
+                "cap",
+                date(2026, 1, 1),
+                date(2026, 1, 30),
+                date(2025, 4, 1),
+                tickers=("AAPL",),
+                captures_root=self.root / "captures",
+                provider_commands=self.commands,
+            )
+
+    def test_identifiers_cannot_leave_their_storage_root(self) -> None:
+        with self.assertRaises(InvalidRunConfig):
+            capture(
+                "../escape",
+                date(2026, 1, 1),
+                date(2026, 1, 30),
+                date(2025, 4, 1),
+                captures_root=self.root / "captures",
+            )
+        with self.assertRaises(InvalidRunConfig):
+            build("cap", "../escape", captures_root=self.root / "captures")
+
+    def test_friday_that_has_not_closed_is_not_scheduled(self) -> None:
+        thursday = datetime(2026, 1, 8, 22, tzinfo=timezone.utc)
+        before_close = datetime(2026, 1, 9, 20, tzinfo=timezone.utc)
+        after_close = datetime(2026, 1, 9, 22, tzinfo=timezone.utc)
+        self.assertEqual(last_closed_friday(thursday), date(2026, 1, 2))
+        self.assertEqual(last_closed_friday(before_close), date(2026, 1, 2))
+        self.assertEqual(last_closed_friday(after_close), date(2026, 1, 9))
+
+    def test_only_fetch_receives_vendor_keys(self) -> None:
+        keys = {
+            "FINNHUB_API_KEY": "fixture",  # pragma: allowlist secret
+            "REDDIT_CLIENT_ID": "fixture",
+        }
+        with patch.dict(os.environ, keys):
+            self.assertIn("FINNHUB_API_KEY", child_environment("fetch"))
+            offline = child_environment("normalize")
+        self.assertNotIn("FINNHUB_API_KEY", offline)
+        self.assertNotIn("REDDIT_CLIENT_ID", offline)
+
+    def test_empty_price_history_is_not_marked_finished(self) -> None:
+        path = Path("mcp-servers/yfin-market-data-server/services/yfin_service.py")
+        spec = importlib.util.spec_from_file_location("yfin_capture_service", path)
+        service = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(service)
+        output = self.root / "raw"
+        with patch.object(service.yf, "Ticker") as ticker:
+            ticker.return_value.history.return_value = pd.DataFrame()
+            with self.assertRaises(ValueError):
+                service.fetch({"ticker": "AAPL"}, output)
+        self.assertFalse((output / "history.done").exists())
 
 
 if __name__ == "__main__":

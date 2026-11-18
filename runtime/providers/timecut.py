@@ -53,7 +53,7 @@ def study_dates(start: date, end: date, trading_days: Sequence[date]) -> list[da
     while friday <= end:
         monday = friday - timedelta(days=FRIDAY)
         index = bisect_right(sessions, friday) - 1
-        if index >= 0 and sessions[index] >= monday:
+        if index >= 0 and sessions[index] >= max(monday, start):
             dates.append(sessions[index])
         friday += timedelta(days=7)
     return dates
