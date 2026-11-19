@@ -6,9 +6,9 @@ import json
 import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from http.client import HTTPException
 from pathlib import Path
 from typing import Any
-from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -66,7 +66,7 @@ def _articles(query: str, cutoff: datetime) -> list[dict[str, Any]] | None:
         try:
             with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
                 return json.loads(response.read() or b"{}").get("articles") or []
-        except (URLError, TimeoutError, ValueError):
+        except (OSError, HTTPException, ValueError):
             if wait is None:
                 return None
             time.sleep(wait)

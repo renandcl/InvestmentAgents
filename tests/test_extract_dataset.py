@@ -4,6 +4,7 @@ import os
 import sys
 import unittest
 from datetime import date, datetime, timedelta, timezone
+from http.client import IncompleteRead
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -412,7 +413,11 @@ class NewsCaptureTests(unittest.TestCase):
         service = load_service("gdelt_retry_capture", GDELT_PATH)
         with (
             patch.object(service.time, "sleep"),
-            patch.object(service, "urlopen", side_effect=URLError("refused")),
+            patch.object(
+                service,
+                "urlopen",
+                side_effect=[URLError("refused"), *[IncompleteRead(b"")] * 4] * 2,
+            ),
         ):
             service.fetch(self.request, self.raw)
         entry = service.coverage(self.request, self.raw)["2026-01-09"]["gdelt_news"]
