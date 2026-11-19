@@ -90,7 +90,7 @@ uv run pre-commit run --all-files
 
 Review major-version changes and update the minimum versions in each affected
 `pyproject.toml` after validating compatibility. Keep explicit upper bounds when
-required by a service; DuckDuckGo news currently stays on `ddgs` 9.x.
+required by a service.
 The pre-commit runner stays on 4.5.x for compatibility with Git 2.25 in the
 WSL environment; newer runner versions require a newer Git for full-repo scans.
 
@@ -169,9 +169,8 @@ investment advice. Dependencies and the default models (`qwen3:8b`,
 `*_BASE_URL` brings its own terms.
 
 The data sources are the real limit. Yahoo Finance (`yfinance`), the Finnhub
-free tier, Reddit's Data API and DuckDuckGo (`ddgs`, unofficial) are for
-personal, non-commercial use. [Spec 006](specs/006-time-cut-dataset/spec.md) replaces
-DuckDuckGo with GDELT as its PRs land. Don't redistribute their data or publish run
+free tier and Reddit's Data API are for personal, non-commercial use. SEC EDGAR and
+GDELT are free public sources; GDELT asks to be cited. Don't redistribute their data or publish run
 directories, and get licensed feeds before any commercial use. Set
 `REDDIT_USERNAME` for the user agent Reddit requires.
 

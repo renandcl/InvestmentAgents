@@ -817,7 +817,7 @@ The outer key in each example names the file; the file holds the value.
 | `insider_transactions` | `<filing id>\|<name>\|<transactionDate>\|<transactionCode>\|<share>\|<transactionPrice>` | `filingDate` is missing or invalid |
 | `insider_sentiment` | `YYYY-MM` | The year or month is missing |
 | `finnhub_news` | vendor article `id`, else URL | `datetime` is missing or invalid |
-| `gdelt_news` | URL | `seendate` is missing or invalid |
+| `gdelt_news` | `<D>\|<URL>`, so each copy keeps only its own date's window | `seendate` is missing or invalid |
 | `reddit_posts` | post ID | `created_utc` is missing |
 
 Duplicate IDs keep the first record. Dropped rows are counted in `coverage.json` as `dropped_rows`.
@@ -913,7 +913,7 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 #### 6. `README.md` and `mcp-servers/reddit-news-data-server/README.md` (Modify)
 
 *   **Type / Scope**: Documentation.
-*   **Proposed Changes**: Add forward notes that point to spec 006, because the code still uses DuckDuckGo and `get_reddit_news` until PR 9.
+*   **Proposed Changes**: Add forward notes that point to spec 006, because the code still uses DuckDuckGo until PR 4 and `get_reddit_news` until PR 9.
 
 ### PR 2: Time rules, extractor and market capture
 
@@ -983,12 +983,13 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 *   **Type / Scope**: MCP service and extractor.
 *   **Proposed Changes**: `fetch` uses 30-day sub-windows, halving a saturated one down to one day; `normalize` emits one record per article. Measure `NEWS_PAGE_MAX` live and register the provider.
 
-#### 16. `mcp-servers/gdelt-news-data-server/pyproject.toml`, `mcp-servers/gdelt-news-data-server/README.md`, `mcp-servers/gdelt-news-data-server/__init__.py`, `mcp-servers/gdelt-news-data-server/capture.py`, `mcp-servers/gdelt-news-data-server/services/__init__.py`, `mcp-servers/gdelt-news-data-server/services/gdelt_news_service.py` (Create); `utils/extract_dataset.py` (Modify)
+#### 16. `mcp-servers/gdelt-news-data-server/` with `pyproject.toml`, `README.md`, `__init__.py`, `main.py`, `models/`, `capture.py`, `services/__init__.py`, `services/gdelt_news_service.py` (Create); `utils/extract_dataset.py`, `runtime/providers/mcp.py`, `agents/analysts/news_analyst/agent.py`, `agents/analysts/news_analyst/prompt.txt`, `README.md`, `AGENTS.md`, `CLAUDE.md`, `tests/test_provider_isolation.py`, `tests/test_social_sentiment.py` (Modify); `mcp-servers/duckduckgo-news-data-server/` (Delete)
 
 *   **Type / Scope**: New workspace package and extractor.
-*   **Proposed Changes**: The package uses the standard library `urllib` and declares `packages = ["services"]` until PR 9 adds `models`. `fetch` requests
+*   **Proposed Changes**: The package follows the other servers' layout and uses the standard library `urllib`. Its `get_gdelt_news(query, start_date, end_date)` tool searches GDELT live for the inclusive New York dates, 5 seconds after the previous request with two retries, caches the response per run and lists up to 50 unique URLs, newest first. `PROVIDERS` and the news analyst use GDELT in place of DuckDuckGo, the news prompt names GDELT, and the DuckDuckGo server is removed. `fetch` requests
     `https://api.gdeltproject.org/api/v2/doc/doc?query=<query> sourcelang:english&mode=artlist&format=json&maxrecords=250&sort=hybridrel&startdatetime=<YYYYMMDDHHMMSS>&enddatetime=<YYYYMMDDHHMMSS>` once per pool and
-    candidate date, 20 seconds apart, with a 60-second timeout and five attempts waiting 30, 60, 120 and 240 seconds. Exhausted retries set `reachable: false` for that window. `normalize` reads each candidate's
+    candidate date, 20 seconds apart, with a 60-second timeout and five attempts waiting 30, 60, 120 and 240 seconds. Exhausted retries leave that window unfinished, so coverage reports
+    `reachable: false` and a resumed capture retries it. The macro pool is stored once under `gdelt_news/macro/` and shared by every ticker. `normalize` reads each candidate's
     cutoff from the request, applies the `seendate` cut, removes duplicate URLs, sets `pool` to `ticker` or `macro` (a URL in both stays `ticker`) and marks a window truncated at 250 articles. A copy uses only date D's window.
     The live check passes when the macro query and one ticker query each return at least one article.
 
@@ -1110,17 +1111,17 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 *   **Type / Scope**: Unit tests.
 *   **Proposed Changes**: Add rows for the three statement tools and both insider tools (AT-02, AT-03, AT-05). Remove the insider case of `test_finnhub_and_duckduckgo_fresh_then_cached_do_not_share_runs` and the insider live-fetch cases at `tests/test_pr_review.py:100-136`.
 
-### PR 9: News and Reddit serving, DuckDuckGo removal
+### PR 9: News and Reddit serving
 
 #### 36. `mcp-servers/finnhub-news-data-server/main.py`, `mcp-servers/finnhub-news-data-server/services/finnhub_news_service.py` (Modify)
 
 *   **Type / Scope**: MCP server.
 *   **Proposed Changes**: The tool calls `serve`: 7-day window, newest first, cap 50.
 
-#### 37. `mcp-servers/gdelt-news-data-server/main.py`, `mcp-servers/gdelt-news-data-server/models/__init__.py`, `mcp-servers/gdelt-news-data-server/models/gdelt_news_models.py` (Create); `mcp-servers/gdelt-news-data-server/services/gdelt_news_service.py`, `mcp-servers/gdelt-news-data-server/pyproject.toml` (Modify)
+#### 37. `mcp-servers/gdelt-news-data-server/main.py`, `mcp-servers/gdelt-news-data-server/services/gdelt_news_service.py` (Modify)
 
 *   **Type / Scope**: MCP server.
-*   **Proposed Changes**: Tool `get_gdelt_news(query, start_date, end_date)`. Search terms are tokenised with `[a-z0-9]+(?:[&.'-][a-z0-9]+)*` after lower-casing, then stop words are removed. Pool terms per ticker are the lower-cased words of its capture query, so "Meta Platforms" gives `meta` and `platforms`. The score is the count of distinct
+*   **Proposed Changes**: `get_gdelt_news` serves the frozen copy instead of searching live. Search terms are tokenised with `[a-z0-9]+(?:[&.'-][a-z0-9]+)*` after lower-casing, then stop words are removed. Pool terms per ticker are the lower-cased words of its capture query, so "Meta Platforms" gives `meta` and `platforms`. The score is the count of distinct
     matched words, plus 1 when a search word is a pool term and the article is in the ticker pool. For example, the search "Tesla recall" on the headline "Tesla issues recall" scores 3. Results rank by score, then newest, then `id`.
 
 #### 38. `mcp-servers/reddit-news-data-server/main.py`, `mcp-servers/reddit-news-data-server/services/reddit_news_service.py` (Modify)
@@ -1128,28 +1129,23 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 *   **Type / Scope**: MCP server.
 *   **Proposed Changes**: `get_reddit_sentiment` calls `serve` and returns the JSON in Data contracts. Remove the `get_reddit_news` tool and delete `RedditNewsService.get_news`.
 
-#### 39. `runtime/providers/mcp.py` (Modify)
-
-*   **Type / Scope**: Python module.
-*   **Proposed Changes**: Replace `duckduckgo-news-data-server` with `gdelt-news-data-server` in `PROVIDERS`.
-
-#### 40. `agents/analysts/news_analyst/agent.py`, `agents/analysts/news_analyst/prompt.txt`, `agents/analysts/social_media/agent.py`, `agents/analysts/social_media/prompt.txt` (Modify)
+#### 39. `agents/analysts/news_analyst/agent.py`, `agents/analysts/social_media/agent.py`, `agents/analysts/social_media/prompt.txt` (Modify)
 
 *   **Type / Scope**: Agents.
-*   **Proposed Changes**: Start GDELT, set `env_file=False` for the Finnhub news and Reddit providers, and replace the provider name in the news prompt. In the social prompt, replace the sentence "Engagement counts are observed at retrieval time, and any sentiment ratios must come from the returned sample."
+*   **Proposed Changes**: Set `env_file=False` for the Finnhub news and Reddit providers. In the social prompt, replace the sentence "Engagement counts are observed at retrieval time, and any sentiment ratios must come from the returned sample."
     with exactly "Any sentiment ratios must come from the returned sample."
 
-#### 41. `mcp-servers/duckduckgo-news-data-server/` (Delete); `pyproject.toml`, `uv.lock`, `README.md`, `AGENTS.md`, `CLAUDE.md`, `mcp-servers/reddit-news-data-server/README.md` (Modify)
+#### 40. `mcp-servers/reddit-news-data-server/README.md` (Modify)
 
-*   **Type / Scope**: Package, build configuration and documentation.
-*   **Proposed Changes**: Remove the DuckDuckGo server and workspace member. Replace the remaining DuckDuckGo references, the forward notes from PR 1, the standalone example, and the
+*   **Type / Scope**: Documentation.
+*   **Proposed Changes**: Replace the forward notes from PR 1 and the
     Reddit README's `get_reddit_news` description, dates, engagement, post limit and runtime key text.
 
-#### 42. `tests/test_time_cut_sources.py`, `tests/test_provider_isolation.py`, `tests/test_social_sentiment.py`, `tests/test_regressions.py` (Modify)
+#### 41. `tests/test_time_cut_sources.py`, `tests/test_provider_isolation.py`, `tests/test_social_sentiment.py`, `tests/test_regressions.py` (Modify)
 
 *   **Type / Scope**: Unit tests.
 *   **Proposed Changes**: Add rows for Finnhub news, GDELT and Reddit sentiment (AT-02, AT-03). These three tools also request a start before the lookback (AT-05). Add GDELT match, `no_usable_terms` and `no_term_overlap` cases. Remove the rest of
-    `test_finnhub_and_duckduckgo_fresh_then_cached_do_not_share_runs` and `RedditTests`. Update `test_news_and_sentiment_have_disjoint_providers_and_tools` to expect the GDELT provider and `env_file=False`, and rewrite the sentiment tests to use a frozen copy. Check that output has no engagement fields (AT-07).
+    `test_finnhub_and_gdelt_fresh_then_cached_do_not_share_runs` and `RedditTests`. Update `test_news_and_sentiment_have_disjoint_providers_and_tools` to expect `env_file=False`, and rewrite the sentiment tests to use a frozen copy. Check that output has no engagement fields (AT-07).
 
 ### Acceptance criteria (spec 006)
 

@@ -4,10 +4,12 @@ import os
 import sys
 import unittest
 from datetime import date, datetime, timedelta, timezone
+from http.client import IncompleteRead
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 from unittest.mock import patch
+from urllib.error import URLError
 
 import pandas as pd
 
@@ -120,6 +122,8 @@ class ExtractDatasetTests(unittest.TestCase):
                 str(sources),
                 "insider_transactions,insider_sentiment",
             ],
+            "finnhub_news": [sys.executable, "-B", str(sources), "finnhub_news"],
+            "gdelt": [sys.executable, "-B", str(sources), "gdelt_news"],
         }
         self.days = weekdays(date(2025, 12, 1), date(2026, 1, 30))
 
@@ -405,6 +409,79 @@ class FundamentalsCaptureTests(unittest.TestCase):
         (record,) = service.normalize({}, self.raw)
         self.assertEqual(record.id, "2025-12")
         self.assertEqual(format_instant(record.public_at), "2026-01-06T04:59:59Z")
+
+
+GDELT_PATH = "mcp-servers/gdelt-news-data-server/services/gdelt_news_service.py"
+NEWS_PATH = "mcp-servers/finnhub-news-data-server/services/finnhub_news_service.py"
+
+
+class NewsCaptureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.raw = Path(folder.name) / "ticker"
+        self.request = {
+            "ticker": "AAPL",
+            "candidates": [candidate("2026-01-09", "2026-01-09T05:00:00Z")],
+        }
+
+    def test_finnhub_news_is_public_at_its_epoch(self) -> None:
+        service = load_service("finnhub_news_capture", NEWS_PATH)
+        rows = [{"id": 7, "datetime": 1767934800}, {"id": 8, "datetime": None}]
+        write_slice(
+            self.raw,
+            "finnhub_news-2026-01-02-2026-01-08",
+            {
+                "start": "2026-01-02",
+                "end": "2026-01-08",
+                "saturated": False,
+                "rows": rows,
+            },
+        )
+        (record,) = service.normalize(self.request, self.raw)
+        self.assertEqual(format_instant(record.public_at), "2026-01-09T05:00:00Z")
+        entry = service.coverage(self.request, self.raw)["2026-01-09"]["finnhub_news"]
+        self.assertEqual((entry["records"], entry["dropped_rows"]), (1, 1))
+        self.assertTrue(entry["coverage_rule_met"])
+
+    def test_gdelt_tool_lists_unique_articles_newest_first(self) -> None:
+        service = load_service("gdelt_tool", GDELT_PATH)
+        older = {"url": "u1", "title": "Old", "seendate": "20260105T100000Z"}
+        newer = {"url": "u2", "title": "New", "seendate": "20260107T100000Z"}
+        text = service.format_news(
+            "Apple", "2026-01-02", "2026-01-08", [older, newer, dict(older)]
+        )
+        self.assertLess(text.index("### New"), text.index("### Old"))
+        self.assertEqual(text.count("URL: u1"), 1)
+
+    def test_gdelt_cuts_late_articles_and_keeps_truncated_window(self) -> None:
+        service = load_service("gdelt_capture", GDELT_PATH)
+        early = {"url": "u1", "seendate": "20260109T050000Z", "title": "Apple"}
+        late = {"url": "u2", "seendate": "20260109T050100Z", "title": "Apple"}
+        filler = [{"url": f"m{n}", "seendate": "20260105T120000Z"} for n in range(250)]
+        write_slice(self.raw, "ticker-2026-01-09", [early, late])
+        write_slice(self.raw.parent / "macro", "macro-2026-01-09", filler)
+        urls = {r.payload["url"] for r in service.normalize(self.request, self.raw)}
+        self.assertIn("u1", urls)
+        self.assertNotIn("u2", urls)
+        entry = service.coverage(self.request, self.raw)["2026-01-09"]["gdelt_news"]
+        self.assertTrue(entry["truncated"])
+        self.assertTrue(entry["coverage_rule_met"])
+
+    def test_gdelt_exhausted_retries_leave_window_unreachable(self) -> None:
+        service = load_service("gdelt_retry_capture", GDELT_PATH)
+        with (
+            patch.object(service.time, "sleep"),
+            patch.object(
+                service,
+                "urlopen",
+                side_effect=[URLError("refused"), *[IncompleteRead(b"")] * 4] * 2,
+            ),
+        ):
+            service.fetch(self.request, self.raw)
+        entry = service.coverage(self.request, self.raw)["2026-01-09"]["gdelt_news"]
+        self.assertFalse(entry["reachable"])
+        self.assertFalse(entry["coverage_rule_met"])
 
 
 if __name__ == "__main__":

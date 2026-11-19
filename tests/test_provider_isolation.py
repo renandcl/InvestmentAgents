@@ -193,7 +193,7 @@ class CacheTests(unittest.TestCase):
         with self.assertRaises(UnsupportedExecutionMode):
             runpy.run_path(str(REPO_ROOT / "utils" / "report.py"), run_name="__main__")
 
-    def test_finnhub_and_duckduckgo_fresh_then_cached_do_not_share_runs(self):
+    def test_finnhub_and_gdelt_fresh_then_cached_do_not_share_runs(self):
         for provider, file, cls, method, fetch in (
             (
                 "finnhub-news-data-server",
@@ -237,36 +237,25 @@ class CacheTests(unittest.TestCase):
                 getattr(service, method)("../../ticker", "2025-08-01", 30)
             # Each run fetched once even with identical arguments.
             self.assertEqual(getattr(factory.return_value, fetch).call_count, 2)
-        provider = "duckduckgo-news-data-server"
+        provider = "gdelt-news-data-server"
         namespace = runpy.run_path(
             str(
                 REPO_ROOT
                 / "mcp-servers"
                 / provider
                 / "services"
-                / "duckduckgo_news_service.py"
+                / "gdelt_news_service.py"
             )
         )
-        service = namespace["DuckDuckGoNewsService"](
+        service = namespace["GdeltNewsService"](
             cache=RunCache.for_run(self.runtime, provider)
         )
-        client = Mock()
-        client.news.return_value = []
-        with patch.dict(
-            service.get_news.__globals__,
-            {
-                "DDGS": Mock(
-                    return_value=Mock(
-                        __enter__=Mock(return_value=client),
-                        __exit__=Mock(return_value=False),
-                    )
-                )
-            },
-        ):
-            first = service.get_news("../../query", "2025-08-01", 30)
-            cached = service.get_news("../../query", "2025-08-01", 30)
+        search = Mock(return_value=[])
+        with patch.dict(service.get_news.__globals__, {"search": search}):
+            first = service.get_news("../../query", "2025-07-02", "2025-08-01")
+            cached = service.get_news("../../query", "2025-07-02", "2025-08-01")
         self.assertEqual(first, cached)
-        client.news.assert_called_once()
+        search.assert_called_once()
 
     def test_yfinance_cookie_timezone_and_isin_roots_are_private(self):
         cache = RunCache.for_run(self.runtime, "yfin-market-data-server")

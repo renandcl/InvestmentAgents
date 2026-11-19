@@ -20,7 +20,7 @@ members = [
     "mcp-servers/finnhub-fundamentals-data-server",
     "mcp-servers/finnhub-news-data-server",
     "mcp-servers/reddit-news-data-server",
-    "mcp-servers/duckduckgo-news-data-server",
+    "mcp-servers/gdelt-news-data-server",
     "mcp-servers/yfin-market-data-server",
     "mcp-servers/stockstats-market-data-server",
     "mcp-servers/mem0-server",

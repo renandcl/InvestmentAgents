@@ -77,7 +77,7 @@ Each MCP server is a uv workspace member built on FastMCP with a `models/` (pyda
 
 - market_analyst → `yfin-market-data-server`, `stockstats-market-data-server`
 - fundamentals_analyst → `edgar-fundamentals-data-server`, `finnhub-fundamentals-data-server`
-- news_analyst → `finnhub-news-data-server`, `duckduckgo-news-data-server`
+- news_analyst → `finnhub-news-data-server`, `gdelt-news-data-server`
 - social_media_analyst → `reddit-news-data-server` (only `get_reddit_sentiment`)
 - `mem0-server` is unused and rejects startup.
 
@@ -85,6 +85,6 @@ Register cleanup before acquisition; close only owned handles in reverse order, 
 
 ### Study dataset (spec 006, in delivery)
 
-[Spec 006](specs/006-time-cut-dataset/spec.md) and its [design](docs/designs/time-cut-dataset.md) are delivered through stacked PRs, and the code changes as each lands. `utils.extract_dataset capture` stores raw vendor responses once, and `build` writes frozen copies under `data/datasets/<dataset-id>/`. Study runs then read only those copies through the reserved `INVESTMENT_DATASET_DIR`, `INVESTMENT_DATASET_HASH`, `INVESTMENT_COPY_KEY`, `INVESTMENT_TICKER` and `INVESTMENT_CUTOFF` variables. From PR 6, `main.py` and the standalone examples require `--dataset-id` and `--dataset-hash`. From PR 9, GDELT replaces DuckDuckGo for the news analyst.
+[Spec 006](specs/006-time-cut-dataset/spec.md) and its [design](docs/designs/time-cut-dataset.md) are delivered through stacked PRs, and the code changes as each lands. `utils.extract_dataset capture` stores raw vendor responses once, and `build` writes frozen copies under `data/datasets/<dataset-id>/`. Study runs then read only those copies through the reserved `INVESTMENT_DATASET_DIR`, `INVESTMENT_DATASET_HASH`, `INVESTMENT_COPY_KEY`, `INVESTMENT_TICKER` and `INVESTMENT_CUTOFF` variables. From PR 6, `main.py` and the standalone examples require `--dataset-id` and `--dataset-hash`.
 
 Reddit maintenance: `utils.purge_reddit` preserves legacy data. Finished runs are eligible by default; explicitly name a confirmed-stopped run with `--abandoned-run <run_id>` after a hard kill. Cleanup does not authorize resume or change run status.

@@ -60,7 +60,11 @@ INSIDERS = Provider(
     ("insider_transactions", "insider_sentiment"),
     env_file=True,
 )
-CAPTURE_PROVIDERS = (MARKET, STATEMENTS, INSIDERS)
+COMPANY_NEWS = Provider(
+    "finnhub_news", "finnhub-news-data-server", ("finnhub_news",), env_file=True
+)
+GDELT = Provider("gdelt", "gdelt-news-data-server", ("gdelt_news",))
+CAPTURE_PROVIDERS = (MARKET, STATEMENTS, INSIDERS, COMPANY_NEWS, GDELT)
 LOOKBACK_DAYS: dict[str, int | None] = {
     "prices": None,
     "edgar_balance": None,
@@ -68,6 +72,8 @@ LOOKBACK_DAYS: dict[str, int | None] = {
     "edgar_income": None,
     "insider_transactions": 30,
     "insider_sentiment": 100,
+    "finnhub_news": 7,
+    "gdelt_news": 7,
 }
 
 
@@ -312,10 +318,12 @@ def longest_run(
 
 
 def admitted_records(
-    records: Sequence[Record], cutoff: datetime, source: str
+    records: Sequence[Record], cutoff: datetime, source: str, day: str
 ) -> list[dict[str, Any]]:
     lookback = LOOKBACK_DAYS[source]
     kept = [record for record in records if admit(record.public_at, cutoff)]
+    if source == "gdelt_news":
+        kept = [record for record in kept if record.payload["window"] == day]
     if lookback is not None:
         kept = [
             record
@@ -391,7 +399,7 @@ def build(
             key = copy_key(ticker, day)
             folder = building / "copies" / key
             for source in sources:
-                items = admitted_records(records[ticker, source], cutoff, source)
+                items = admitted_records(records[ticker, source], cutoff, source, day)
                 write_json(
                     folder / f"{source}.json", {"source": source, "records": items}
                 )
