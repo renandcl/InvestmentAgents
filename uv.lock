@@ -13,6 +13,7 @@ resolution-markers = [
 [manifest]
 members = [
     "duckduckgo-news-data-server",
+    "edgar-fundamentals-data-server",
     "financial-data-server",
     "finnhub-news-server",
     "gdelt-news-data-server",
@@ -747,6 +748,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/b0/5d/5f8571bd5dedc8086
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e6/c4/ebdf7837bc4ef6fd98cfb013c28855bb358467bf86c1af011bbc21e21df0/durationpy-0.11-py3-none-any.whl", hash = "sha256:a739fe2b8972c250ff72f8e2c488d18cf25f7b852f49ee76048775d5171df30c", size = 4133, upload-time = "2026-08-26T13:55:59.456Z" },
 ]
+
+[[package]]
+name = "edgar-fundamentals-data-server"
+version = "0.1.0"
+source = { virtual = "mcp-servers/edgar-fundamentals-data-server" }
+dependencies = [
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "requests", specifier = ">=2.34.2" }]
 
 [[package]]
 name = "filelock"

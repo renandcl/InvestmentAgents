@@ -208,8 +208,11 @@ Decided by the author on 2026-11-18. The Technical Plan builds on these.
 *   **SEC EDGAR replaces SimFin for financial statements** (decided 2026-11-19). The
     author's SimFin CSVs end in August 2024, before the study window, so no date could meet
     the 120-day rule. EDGAR's XBRL company facts are free, carry each filing's `filed` date
-    and need only a contact `SEC_USER_AGENT`. The fundamentals server keeps its folder and
-    tool names; its statements come from 10-K and 10-Q filings.
+    and need only a contact `SEC_USER_AGENT`. EDGAR gets its own server,
+    `edgar-fundamentals-data-server`, with its own `.env` and tools named for it
+    (`get_edgar_balance_sheet`, `get_edgar_cashflow`, `get_edgar_income_statement`), because each
+    server maps to one vendor. PR 8 switches the fundamentals analyst to it and removes the
+    SimFin server.
 
 ## Open Questions
 
@@ -454,7 +457,7 @@ cycle. `finance` is excluded from the Reddit count because it holds almost no ti
 expected value, refuses a purged dataset and resolves the copy. `safe_config` records
 the dataset ID, hash and cutoff, plus the memory LLM and embedding model IDs.
 `server_parameters` passes the two reserved variables and removes vendor key names
-(`FINNHUB_API_KEY`, `SIMFIN_API_KEY`, `SEC_USER_AGENT` and `REDDIT_*`) from the child environment. At finish,
+(`FINNHUB_API_KEY`, `SEC_USER_AGENT` and `REDDIT_*`) from the child environment. At finish,
 the run gathers each provider's `misses.jsonl` into one hashed `misses.json` artifact. All
 study providers start with `env_file=False`.
 
@@ -841,7 +844,7 @@ says "inclusive New York date". A reversed window returns "no data available" wi
 |---|---|---|---|
 | `get_yfin_market_data` | Today's table, rounded to 2 decimals | `start_date`, `end_date`, end inclusive | End date is inclusive |
 | `get_stockstats_indicators_report` | Today's text | `curr_date`, `look_back_days` from the clamped date | Inclusive New York date |
-| `get_balance_sheet`, `get_cashflow`, `get_income_statements` | Today's text, latest admitted statement | `curr_date` | Inclusive New York date |
+| `get_edgar_balance_sheet`, `get_edgar_cashflow`, `get_edgar_income_statement` | Today's text, latest admitted statement | `curr_date` | New tools; inclusive New York date |
 | `get_insider_transactions` | Today's text, 30 days by `filingDate` | `curr_date` | Filing date window |
 | `get_insider_sentiment` | Today's text, latest admitted month with a row, at most three months before the cutoff | `curr_date` | Latest admitted month |
 | `get_finnhub_news` | Today's text | `start_date`, `end_date` | Inclusive New York date |
@@ -951,7 +954,7 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 
 ### PR 3: Fundamentals capture
 
-#### 12. `mcp-servers/simfin-fundamentals-data-server/capture.py`, `mcp-servers/simfin-fundamentals-data-server/services/edgar_service.py`, `mcp-servers/simfin-fundamentals-data-server/.env.example` (Create); `runtime/providers/capture.py`, `utils/extract_dataset.py` (Modify)
+#### 12. `mcp-servers/edgar-fundamentals-data-server/` with `pyproject.toml`, `README.md`, `capture.py`, `services/edgar_service.py`, `.env.example` (Create); `pyproject.toml`, `runtime/providers/capture.py`, `utils/extract_dataset.py` (Modify)
 
 *   **Type / Scope**: MCP service and extractor.
 *   **Proposed Changes**: `fetch` stores each ticker's EDGAR company facts once, using `SEC_USER_AGENT` from the server's `.env`. `normalize` emits one record per 10-K or 10-Q filing and
@@ -1054,7 +1057,7 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 #### 27. `runtime/providers/mcp.py` (Modify)
 
 *   **Type / Scope**: Python module.
-*   **Proposed Changes**: `server_parameters` passes the five reserved variables from `runtime.dataset`, rejects a provider `.env` that sets them, and removes `FINNHUB_API_KEY`, `SIMFIN_API_KEY`, `SEC_USER_AGENT` and `REDDIT_*` from the child environment.
+*   **Proposed Changes**: `server_parameters` passes the five reserved variables from `runtime.dataset`, rejects a provider `.env` that sets them, and removes `FINNHUB_API_KEY`, `SEC_USER_AGENT` and `REDDIT_*` from the child environment.
 
 #### 28. `runtime/execution/examples.py` (Modify)
 
@@ -1091,16 +1094,17 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 
 ### PR 8: Fundamentals serving
 
-#### 33. `mcp-servers/simfin-fundamentals-data-server/main.py`, `mcp-servers/simfin-fundamentals-data-server/services/balance_sheet_service.py`, `mcp-servers/simfin-fundamentals-data-server/services/cashflow_service.py`, `mcp-servers/simfin-fundamentals-data-server/services/income_service.py`, `mcp-servers/finnhub-fundamentals-data-server/main.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py` (Modify)
+#### 33. `mcp-servers/edgar-fundamentals-data-server/main.py` (Create); `mcp-servers/finnhub-fundamentals-data-server/main.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py`, `pyproject.toml`, `runtime/providers/mcp.py`, `CLAUDE.md`, `AGENTS.md`, `README.md` (Modify); `mcp-servers/simfin-fundamentals-data-server/` (Delete)
 
 *   **Type / Scope**: MCP servers.
-*   **Proposed Changes**: Tools call `serve` as the tool table states, and the two insider tool descriptions are updated. The statement tools serve the `edgar_*` records; the CSV
-    reads and their `print()` calls are removed.
+*   **Proposed Changes**: Tools call `serve` as the tool table states, and the two insider tool descriptions are updated. The EDGAR server's three tools serve the `edgar_*` records.
+    The SimFin server, its workspace member, its `PROVIDERS` entry and `SIMFIN_API_KEY` are removed, and the docs list
+    `edgar-fundamentals-data-server` for the fundamentals analyst.
 
 #### 34. `agents/analysts/fundamentals_analyst/agent.py` (Modify)
 
 *   **Type / Scope**: Agent.
-*   **Proposed Changes**: Start the Finnhub fundamentals provider with `env_file=False`.
+*   **Proposed Changes**: Start `edgar-fundamentals-data-server` in place of the SimFin server, and start the Finnhub fundamentals provider with `env_file=False`.
 
 #### 35. `tests/test_time_cut_sources.py`, `tests/test_provider_isolation.py`, `tests/test_pr_review.py` (Modify)
 

@@ -284,7 +284,7 @@ class ExtractDatasetTests(unittest.TestCase):
         self.assertFalse((output / "history.done").exists())
 
 
-EDGAR_PATH = "mcp-servers/simfin-fundamentals-data-server/services/edgar_service.py"
+EDGAR_PATH = "mcp-servers/edgar-fundamentals-data-server/services/edgar_service.py"
 FUNDAMENTALS = "mcp-servers/finnhub-fundamentals-data-server/services"
 
 

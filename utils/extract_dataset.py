@@ -35,7 +35,7 @@ MARKET_CLOSE = time(16, 0)
 DATA_ROOT = REPO_ROOT / "data"
 PURGED_MARKER = "purged.json"
 UNREACHABLE = {"reachable": False, "coverage_rule_met": False}
-VENDOR_KEYS = ("FINNHUB_API_KEY", "SIMFIN_API_KEY", "SEC_USER_AGENT")
+VENDOR_KEYS = ("FINNHUB_API_KEY", "SEC_USER_AGENT")
 VENDOR_KEY_PREFIXES = ("REDDIT_",)
 
 
@@ -50,7 +50,7 @@ class Provider:
 MARKET = Provider("yfinance", "yfin-market-data-server", ("prices",))
 STATEMENTS = Provider(
     "edgar",
-    "simfin-fundamentals-data-server",
+    "edgar-fundamentals-data-server",
     ("edgar_balance", "edgar_cashflow", "edgar_income"),
     env_file=True,
 )
