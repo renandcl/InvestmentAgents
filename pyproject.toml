@@ -17,7 +17,6 @@ dependencies = [
 [tool.uv.workspace]
 members = [
     "mcp-servers/edgar-fundamentals-data-server",
-    "mcp-servers/simfin-fundamentals-data-server",
     "mcp-servers/finnhub-fundamentals-data-server",
     "mcp-servers/finnhub-news-data-server",
     "mcp-servers/reddit-news-data-server",
