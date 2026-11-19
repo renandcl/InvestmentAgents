@@ -34,7 +34,8 @@ TICKERS = ("AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA")
 MARKET_CLOSE = time(16, 0)
 DATA_ROOT = REPO_ROOT / "data"
 PURGED_MARKER = "purged.json"
-VENDOR_KEYS = ("FINNHUB_API_KEY", "SIMFIN_API_KEY")
+UNREACHABLE = {"reachable": False, "coverage_rule_met": False}
+VENDOR_KEYS = ("FINNHUB_API_KEY", "SIMFIN_API_KEY", "SEC_USER_AGENT")
 VENDOR_KEY_PREFIXES = ("REDDIT_",)
 
 
@@ -47,8 +48,27 @@ class Provider:
 
 
 MARKET = Provider("yfinance", "yfin-market-data-server", ("prices",))
-CAPTURE_PROVIDERS = (MARKET,)
-LOOKBACK_DAYS: dict[str, int | None] = {"prices": None}
+STATEMENTS = Provider(
+    "edgar",
+    "simfin-fundamentals-data-server",
+    ("edgar_balance", "edgar_cashflow", "edgar_income"),
+    env_file=True,
+)
+INSIDERS = Provider(
+    "finnhub_fundamentals",
+    "finnhub-fundamentals-data-server",
+    ("insider_transactions", "insider_sentiment"),
+    env_file=True,
+)
+CAPTURE_PROVIDERS = (MARKET, STATEMENTS, INSIDERS)
+LOOKBACK_DAYS: dict[str, int | None] = {
+    "prices": None,
+    "edgar_balance": None,
+    "edgar_cashflow": None,
+    "edgar_income": None,
+    "insider_transactions": 30,
+    "insider_sentiment": 100,
+}
 
 
 def short_key(value: str) -> str:
@@ -133,16 +153,19 @@ def normalized_records(
     meta: Mapping[str, Any],
     candidates: Sequence[Mapping[str, str]],
     provider_commands: Mapping[str, Sequence[str]] | None,
-) -> list[Record]:
+) -> tuple[list[Record], dict[str, dict[str, Any]]]:
+    """Return a provider's records, first per id, and its coverage by date."""
     request = provider_request(root, provider, ticker, meta, candidates)
     with tempfile.TemporaryDirectory() as folder:
         run_provider(provider, "normalize", request, Path(folder), provider_commands)
         lines = (Path(folder) / "records.jsonl").read_text(encoding="utf-8")
+        coverage_path = Path(folder) / "coverage.json"
+        coverage = read_json(coverage_path) if coverage_path.exists() else {}
     records = {}
     for line in lines.splitlines():
         record = record_from_dict(json.loads(line))
-        records.setdefault(record.id, record)
-    return list(records.values())
+        records.setdefault((record.source, record.id), record)
+    return list(records.values()), coverage
 
 
 def closed_sessions(records: Sequence[Record], started_at: datetime) -> list[date]:
@@ -220,7 +243,7 @@ def capture(
         started_at = parse_instant(meta["started_at"])
         sessions: set[date] = set()
         for ticker in meta["tickers"]:
-            records = normalized_records(
+            records, _ = normalized_records(
                 root, MARKET, ticker, meta, [], provider_commands
             )
             sessions.update(closed_sessions(records, started_at))
@@ -321,25 +344,29 @@ def build(
     meta = read_json(root / "capture.json")
     candidates = read_json(root / "candidates.json")
     tickers = meta["tickers"]
-    records = {
-        (ticker, source): [item for item in items if item.source == source]
-        for provider in CAPTURE_PROVIDERS
-        for ticker in tickers
-        for items in [
-            normalized_records(
+    sources = [source for item in CAPTURE_PROVIDERS for source in item.sources]
+    records: dict[tuple[str, str], list[Record]] = {}
+    coverage: dict[tuple[str, str], dict[str, Any]] = {}
+    for ticker in tickers:
+        for provider in CAPTURE_PROVIDERS:
+            items, entries = normalized_records(
                 root, provider, ticker, meta, candidates, provider_commands
             )
-        ]
-        for source in provider.sources
-    }
-    sources = [source for item in CAPTURE_PROVIDERS for source in item.sources]
-    coverage = {
-        (ticker, candidate["date"]): {
-            "prices": price_coverage(records[ticker, "prices"], candidate)
-        }
-        for ticker in tickers
-        for candidate in candidates
-    }
+            for source in provider.sources:
+                records[ticker, source] = [i for i in items if i.source == source]
+            for candidate in candidates:
+                found = entries.get(candidate["date"], {})
+                coverage.setdefault((ticker, candidate["date"]), {}).update(
+                    {
+                        source: found.get(source, UNREACHABLE)
+                        for source in provider.sources
+                        if provider != MARKET
+                    }
+                )
+        for candidate in candidates:
+            coverage[ticker, candidate["date"]]["prices"] = price_coverage(
+                records[ticker, "prices"], candidate
+            )
     complete = {
         candidate["date"]
         for candidate in candidates

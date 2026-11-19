@@ -205,6 +205,11 @@ Decided by the author on 2026-11-18. The Technical Plan builds on these.
     pipeline triggers it.
 *   **Scoring prices live outside the agent dataset** and are read only by the
     scoring step.
+*   **SEC EDGAR replaces SimFin for financial statements** (decided 2026-11-19). The
+    author's SimFin CSVs end in August 2024, before the study window, so no date could meet
+    the 120-day rule. EDGAR's XBRL company facts are free, carry each filing's `filed` date
+    and need only a contact `SEC_USER_AGENT`. The fundamentals server keeps its folder and
+    tool names; its statements come from 10-K and 10-Q filings.
 
 ## Open Questions
 
@@ -216,20 +221,18 @@ Decided by the author on 2026-11-18. The Technical Plan builds on these.
     settles the first study date.
 *   **Finnhub page maximums.** The maximum records per response for company news and insider
     transactions are unmeasured, so PRs 3 and 4 measure them live.
-*   **SimFin freshness.** How recent the author's SimFin CSVs are is unmeasured, so `capture`
-    checks it first.
+*   **SimFin freshness.** Resolved: the CSVs end in August 2024, so SEC EDGAR replaces SimFin
+    (Design Decisions).
 
 ## Critical User Journeys (CUJs)
 
 ### CUJ 1: Capture and build a study dataset
 
-*   **Given**: API keys for Finnhub and Reddit, the SimFin CSVs (downloaded with
-    `mcp-servers/simfin-fundamentals-data-server/data/download_data.py`), a capture ID, a
+*   **Given**: API keys for Finnhub and Reddit, an SEC contact `SEC_USER_AGENT`, a capture ID, a
     dataset ID, the seven tickers, a candidate date range and the latest model
     training cutoff.
 *   **When**: The author runs `capture` once and then `build`.
-*   **Then**: `capture` first reports each ticker's latest SimFin `Publish Date` and stops if
-    any ticker cannot meet the 120-day rule. Raw responses are stored once. For every covered (ticker, date) there
+*   **Then**: Raw responses are stored once. For every covered (ticker, date) there
     is a frozen copy holding only records public by that date's cutoff, plus a
     coverage report, a separate scoring-price file and a printed dataset hash.
 
@@ -335,7 +338,7 @@ Every frozen record has the shape
 | Source / tool | `public_at` | Lookback in a copy |
 |---|---|---|
 | yfinance bars, stockstats | the bar's trading day (date-only rule) | full history |
-| SimFin statements | `Publish Date` (date-only rule) | all published statements |
+| SEC EDGAR statements | the filing's `filed` date (date-only rule) | all published statements |
 | Finnhub insider transactions | `filingDate` (date-only rule) | 30 days by `filingDate` |
 | Finnhub insider sentiment | third weekday (Monday to Friday) of the following month (date-only rule), to allow for late filings | latest admitted month with a row, at most three months old |
 | Finnhub company news | `datetime` epoch | 7 days |
@@ -352,7 +355,7 @@ Each service module has three parts:
 *   `serve` reads the frozen copy, applies the time rules and filters. News, social and
     insider tools sort newest first then by `id` and apply a cap; GDELT ranks by matched words
     first. Price, indicator and
-    SimFin tools keep their chronological output and have no cap.
+    statement tools keep their chronological output and have no cap.
 
 A small `capture.py` beside each server's `main.py` exposes `fetch` and `normalize`
 to the extractor. Tool functions in `main.py` call only `serve`.
@@ -403,7 +406,7 @@ and removing a leading `$`. The returned text for a miss is "no data available",
 #### Component 6: Extractor (`utils/extract_dataset.py`, new command)
 
 *   `capture` takes a capture ID, a candidate date range and a minimum study date (the
-    latest model training cutoff). It first checks SimFin freshness against the end of the candidate range, then captures market bars, derives each
+    latest model training cutoff). It first captures market bars, derives each
     candidate's cutoff, execution date and exit date, and writes `candidates.json`,
     which the GDELT and Reddit children read.
 *   `capture` starts one child process per provider through `uv run`, passing that
@@ -431,13 +434,13 @@ and removing a leading `$`. The returned text for a miss is "no data available",
 `coverage_rule_met` follows one rule per source. A *saturated page* is one that returns the
 vendor's maximum number of records, which PRs 3 and 4 measure live and record in Fixed values.
 `fetch` splits a saturated sub-window until it is unsaturated, and coverage fails only if a
-one-day window still saturates. The 120-day SimFin rule allows one quarterly reporting
+one-day window still saturates. The 120-day statement rule allows one quarterly reporting
 cycle. `finance` is excluded from the Reddit count because it holds almost no ticker posts.
 
 | Source | `coverage_rule_met` is true when |
 |---|---|
 | Prices | Bars exist for the last trading day before D, for D and for the exit date. |
-| SimFin | The latest admitted quarterly statement was published at most 120 days before the cutoff. |
+| SEC EDGAR statements | The latest admitted 10-Q or 10-K statement was filed at most 120 days before the cutoff. |
 | Finnhub insider transactions | Capture reached `required_start` (30 days) with no saturated page. |
 | Finnhub insider sentiment | The response was reachable. A month with no row is reported as `no_records` and does not break the calendar. |
 | Finnhub company news | Capture reached `required_start` (7 days) with no saturated page. |
@@ -451,7 +454,7 @@ cycle. `finance` is excluded from the Reddit count because it holds almost no ti
 expected value, refuses a purged dataset and resolves the copy. `safe_config` records
 the dataset ID, hash and cutoff, plus the memory LLM and embedding model IDs.
 `server_parameters` passes the two reserved variables and removes vendor key names
-(`FINNHUB_API_KEY`, `SIMFIN_API_KEY` and `REDDIT_*`) from the child environment. At finish,
+(`FINNHUB_API_KEY`, `SIMFIN_API_KEY`, `SEC_USER_AGENT` and `REDDIT_*`) from the child environment. At finish,
 the run gathers each provider's `misses.jsonl` into one hashed `misses.json` artifact. All
 study providers start with `env_file=False`.
 
@@ -758,7 +761,7 @@ data/datasets/<dataset-id>/copies/<copy-key>/coverage.json
 data/scoring/<dataset-id>/scoring.json
 ```
 
-*   Source keys: `prices`, `simfin_balance`, `simfin_cashflow`, `simfin_income`, `insider_transactions`,
+*   Source keys: `prices`, `edgar_balance`, `edgar_cashflow`, `edgar_income`, `insider_transactions`,
     `insider_sentiment`, `finnhub_news`, `gdelt_news`, `reddit_posts`.
 *   The ticker key is the first 16 hex characters of SHA-256 over the ticker. The copy key is the same over
     `<ticker>|<YYYY-MM-DD>`.
@@ -806,7 +809,7 @@ The outer key in each example names the file; the file holds the value.
 | Source key | `id` | Row dropped when |
 |---|---|---|
 | `prices` | bar date | The date or close is missing |
-| `simfin_*` | `<freq>\|<Report Date>\|<Publish Date>` | `Publish Date` is missing or invalid |
+| `edgar_*` | `<freq>\|<Report Date>\|<Publish Date>`, where `freq` is `annual` (10-K) or `quarterly` (10-Q) | `filed` is missing or invalid |
 | `insider_transactions` | `<filing id>\|<name>\|<transactionDate>\|<transactionCode>\|<share>\|<transactionPrice>` | `filingDate` is missing or invalid |
 | `insider_sentiment` | `YYYY-MM` | The year or month is missing |
 | `finnhub_news` | vendor article `id`, else URL | `datetime` is missing or invalid |
@@ -948,23 +951,25 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 
 ### PR 3: Fundamentals capture
 
-#### 12. `mcp-servers/simfin-fundamentals-data-server/capture.py` (Create); `mcp-servers/simfin-fundamentals-data-server/services/balance_sheet_service.py`, `mcp-servers/simfin-fundamentals-data-server/services/cashflow_service.py`, `mcp-servers/simfin-fundamentals-data-server/services/income_service.py`, `utils/extract_dataset.py` (Modify)
+#### 12. `mcp-servers/simfin-fundamentals-data-server/capture.py`, `mcp-servers/simfin-fundamentals-data-server/services/edgar_service.py`, `mcp-servers/simfin-fundamentals-data-server/.env.example` (Create); `runtime/providers/capture.py`, `utils/extract_dataset.py` (Modify)
 
-*   **Type / Scope**: MCP services and extractor.
-*   **Proposed Changes**: `fetch` reads the CSVs once; `normalize` emits one record per statement. Remove the `print()` calls that write to the stdio protocol channel. Register SimFin in
-    `CAPTURE_PROVIDERS`. `capture` runs the SimFin freshness check first, against the end of the candidate range.
+*   **Type / Scope**: MCP service and extractor.
+*   **Proposed Changes**: `fetch` stores each ticker's EDGAR company facts once, using `SEC_USER_AGENT` from the server's `.env`. `normalize` emits one record per 10-K or 10-Q filing and
+    statement, from a fixed list of US GAAP concepts. Each statement uses one span: a 10-Q income statement uses the quarter, a 10-Q cash flow statement the year to date (the only span
+    10-Qs report), and a 10-K the full year. Providers may return coverage by date and source from `normalize`, which `build` merges; a date a provider does not cover counts as
+    unreachable. Register the provider in `CAPTURE_PROVIDERS`.
 
 #### 13. `mcp-servers/finnhub-fundamentals-data-server/capture.py` (Create); `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py`, `utils/extract_dataset.py` (Modify)
 
 *   **Type / Scope**: MCP services and extractor.
 *   **Proposed Changes**: Transactions `fetch` starts 30 days before the earliest `required_start` and uses 30-day sub-windows, halving a saturated one down to one day. Filings of trades older than
-    that start are not captured. Sentiment `fetch` covers the 12 months before the last candidate. `normalize` applies the `public_at` rules. Measure `INSIDER_PAGE_MAX` live and register the provider.
+    that start are not captured. Sentiment `fetch` covers four months before the first candidate through the last, so every candidate's three-month lookback is reached. `normalize` applies the `public_at` rules. Measure `INSIDER_PAGE_MAX` live and register the provider.
 
 #### 14. `tests/test_extract_dataset.py` (Modify)
 
 *   **Type / Scope**: Unit tests.
-*   **Proposed Changes**: Normalisation cases for SimFin and both insider sources, including a late filing, the third-weekday rule, the SimFin freshness stop, the 120-day rule, saturated splitting and
-    one-day saturation (AT-08).
+*   **Proposed Changes**: Normalisation cases for EDGAR and both insider sources, including each filing's own statement span, a late filing, the third-weekday rule, the 120-day rule,
+    saturated splitting, one-day saturation and a provider gap that excludes a date from the calendar (AT-08).
 
 ### PR 4: News capture
 
@@ -1047,7 +1052,7 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 #### 27. `runtime/providers/mcp.py` (Modify)
 
 *   **Type / Scope**: Python module.
-*   **Proposed Changes**: `server_parameters` passes the five reserved variables from `runtime.dataset`, rejects a provider `.env` that sets them, and removes `FINNHUB_API_KEY`, `SIMFIN_API_KEY` and `REDDIT_*` from the child environment.
+*   **Proposed Changes**: `server_parameters` passes the five reserved variables from `runtime.dataset`, rejects a provider `.env` that sets them, and removes `FINNHUB_API_KEY`, `SIMFIN_API_KEY`, `SEC_USER_AGENT` and `REDDIT_*` from the child environment.
 
 #### 28. `runtime/execution/examples.py` (Modify)
 
@@ -1087,7 +1092,8 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 #### 33. `mcp-servers/simfin-fundamentals-data-server/main.py`, `mcp-servers/simfin-fundamentals-data-server/services/balance_sheet_service.py`, `mcp-servers/simfin-fundamentals-data-server/services/cashflow_service.py`, `mcp-servers/simfin-fundamentals-data-server/services/income_service.py`, `mcp-servers/finnhub-fundamentals-data-server/main.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py` (Modify)
 
 *   **Type / Scope**: MCP servers.
-*   **Proposed Changes**: Tools call `serve` as the tool table states, and the two insider tool descriptions are updated.
+*   **Proposed Changes**: Tools call `serve` as the tool table states, and the two insider tool descriptions are updated. The statement tools serve the `edgar_*` records; the CSV
+    reads and their `print()` calls are removed.
 
 #### 34. `agents/analysts/fundamentals_analyst/agent.py` (Modify)
 
@@ -1097,7 +1103,7 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 #### 35. `tests/test_time_cut_sources.py`, `tests/test_provider_isolation.py`, `tests/test_pr_review.py` (Modify)
 
 *   **Type / Scope**: Unit tests.
-*   **Proposed Changes**: Add rows for the three SimFin tools and both insider tools (AT-02, AT-03, AT-05). Remove the insider case of `test_finnhub_and_duckduckgo_fresh_then_cached_do_not_share_runs` and the insider live-fetch cases at `tests/test_pr_review.py:100-136`.
+*   **Proposed Changes**: Add rows for the three statement tools and both insider tools (AT-02, AT-03, AT-05). Remove the insider case of `test_finnhub_and_duckduckgo_fresh_then_cached_do_not_share_runs` and the insider live-fetch cases at `tests/test_pr_review.py:100-136`.
 
 ### PR 9: News and Reddit serving, DuckDuckGo removal
 

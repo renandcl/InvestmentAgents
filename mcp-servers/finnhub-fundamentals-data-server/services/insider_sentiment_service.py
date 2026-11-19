@@ -1,18 +1,84 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
-from typing import TYPE_CHECKING
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import finnhub
 from dateutil.relativedelta import relativedelta
 
 from runtime.providers.cache import service_cache
+from runtime.providers.capture import read_slice, slice_finished, write_slice
+from runtime.providers.timecut import Record, parse_instant, public_at_from_date
 
 if TYPE_CHECKING:
     from runtime.providers.cache import RunCache
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+SOURCE = "insider_sentiment"
+HISTORY_DAYS = 124
+
+
+def fetch(request: dict[str, Any], output: Path) -> None:
+    """One request from four months before the first candidate to the last."""
+    if slice_finished(output, SOURCE):
+        return
+    client = finnhub.Client(api_key=os.environ["FINNHUB_API_KEY"])
+    days = [date.fromisoformat(item["date"]) for item in request["candidates"]]
+    start = (min(days) - timedelta(days=HISTORY_DAYS)).isoformat()
+    response = client.stock_insider_sentiment(
+        request["ticker"], start, max(days).isoformat()
+    )
+    write_slice(output, SOURCE, response.get("data") or [])
+
+
+def third_weekday(year: int, month: int) -> date:
+    day = date(year, month, 1)
+    weekdays = 0
+    while True:
+        weekdays += day.weekday() < 5
+        if weekdays == 3:
+            return day
+        day += timedelta(days=1)
+
+
+def _records(raw: Path) -> tuple[list[Record], int]:
+    records = []
+    dropped = 0
+    for row in read_slice(raw, SOURCE):
+        year, month = row.get("year"), row.get("month")
+        if not year or not month:
+            dropped += 1
+            continue
+        following = date(year + month // 12, month % 12 + 1, 1)
+        public_at = public_at_from_date(third_weekday(following.year, following.month))
+        records.append(Record(f"{year:04d}-{month:02d}", public_at, SOURCE, row))
+    return records, dropped
+
+
+def normalize(request: dict[str, Any], raw: Path) -> list[Record]:
+    return _records(raw)[0]
+
+
+def coverage(request: dict[str, Any], raw: Path) -> dict[str, dict[str, Any]]:
+    """A reachable response meets the rule; an empty month is not a gap."""
+    records, dropped = _records(raw)
+    entries = {}
+    for item in request["candidates"]:
+        cutoff = parse_instant(item["cutoff"])
+        admitted = sorted(r.id for r in records if r.public_at <= cutoff)
+        entries[item["date"]] = {
+            "reachable": True,
+            "records": len(admitted),
+            "truncated": False,
+            "earliest_reached": admitted[0] if admitted else None,
+            "latest_reached": admitted[-1] if admitted else None,
+            "required_start": None,
+            "coverage_rule_met": True,
+            "dropped_rows": dropped,
+        }
+    return entries
 
 
 class FinnhubInsiderSentimentService:

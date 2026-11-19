@@ -1,18 +1,84 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
-from typing import TYPE_CHECKING
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import finnhub
 from dateutil.relativedelta import relativedelta
 
 from runtime.providers.cache import service_cache
+from runtime.providers.capture import fetch_windows, read_windows, window_coverage
+from runtime.providers.timecut import (
+    NEW_YORK,
+    Record,
+    last_admitted_date,
+    parse_instant,
+    public_at_from_date,
+)
 
 if TYPE_CHECKING:
     from runtime.providers.cache import RunCache
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+SOURCE = "insider_transactions"
+LOOKBACK_DAYS = 30
+INSIDER_PAGE_MAX: int | None = None
+ID_FIELDS = ("id", "name", "transactionDate", "transactionCode", "share")
+
+
+def fetch(request: dict[str, Any], output: Path) -> None:
+    """Start 30 days before the earliest lookback so late filings are reached."""
+    client = finnhub.Client(api_key=os.environ["FINNHUB_API_KEY"])
+    cutoffs = [parse_instant(item["cutoff"]) for item in request["candidates"]]
+    first = (min(cutoffs).astimezone(NEW_YORK) - timedelta(days=LOOKBACK_DAYS)).date()
+
+    def window(start: date, end: date) -> list[dict[str, Any]]:
+        response = client.stock_insider_transactions(
+            request["ticker"], start.isoformat(), end.isoformat()
+        )
+        return response.get("data") or []
+
+    fetch_windows(
+        output,
+        SOURCE,
+        first - timedelta(days=LOOKBACK_DAYS),
+        last_admitted_date(max(cutoffs)),
+        window,
+        INSIDER_PAGE_MAX,
+    )
+
+
+def _records(raw: Path) -> tuple[list[Record], int]:
+    records = []
+    dropped = 0
+    for window in read_windows(raw, SOURCE):
+        for row in window["rows"]:
+            try:
+                filed = date.fromisoformat(row.get("filingDate") or "")
+            except ValueError:
+                dropped += 1
+                continue
+            fields = [str(row.get(name, "")) for name in ID_FIELDS]
+            identifier = "|".join([*fields, str(row.get("transactionPrice", ""))])
+            records.append(Record(identifier, public_at_from_date(filed), SOURCE, row))
+    return records, dropped
+
+
+def normalize(request: dict[str, Any], raw: Path) -> list[Record]:
+    return _records(raw)[0]
+
+
+def coverage(request: dict[str, Any], raw: Path) -> dict[str, dict[str, Any]]:
+    records, dropped = _records(raw)
+    windows = read_windows(raw, SOURCE)
+    return {
+        item["date"]: window_coverage(
+            records, windows, item, LOOKBACK_DAYS, INSIDER_PAGE_MAX, dropped
+        )
+        for item in request["candidates"]
+    }
 
 
 class FinnhubInsiderTransactionsService:
