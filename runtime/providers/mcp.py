@@ -24,7 +24,7 @@ PROVIDERS = frozenset(
         "finnhub-fundamentals-data-server",
         "finnhub-news-data-server",
         "reddit-news-data-server",
-        "duckduckgo-news-data-server",
+        "gdelt-news-data-server",
     }
 )
 RESERVED = ("INVESTMENT_RUN_ID", "INVESTMENT_CACHE_ROOT")

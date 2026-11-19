@@ -444,6 +444,16 @@ class NewsCaptureTests(unittest.TestCase):
         self.assertEqual((entry["records"], entry["dropped_rows"]), (1, 1))
         self.assertTrue(entry["coverage_rule_met"])
 
+    def test_gdelt_tool_lists_unique_articles_newest_first(self) -> None:
+        service = load_service("gdelt_tool", GDELT_PATH)
+        older = {"url": "u1", "title": "Old", "seendate": "20260105T100000Z"}
+        newer = {"url": "u2", "title": "New", "seendate": "20260107T100000Z"}
+        text = service.format_news(
+            "Apple", "2026-01-02", "2026-01-08", [older, newer, dict(older)]
+        )
+        self.assertLess(text.index("### New"), text.index("### Old"))
+        self.assertEqual(text.count("URL: u1"), 1)
+
     def test_gdelt_cuts_late_articles_and_keeps_truncated_window(self) -> None:
         service = load_service("gdelt_capture", GDELT_PATH)
         early = {"url": "u1", "seendate": "20260109T050000Z", "title": "Apple"}

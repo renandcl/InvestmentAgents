@@ -65,7 +65,7 @@ class SocialSentimentTests(unittest.TestCase):
             [call.args[1] for call in start.call_args_list],
             [
                 "finnhub-news-data-server",
-                "duckduckgo-news-data-server",
+                "gdelt-news-data-server",
             ],
         )
         with patch.object(social_module, "start_mcp", return_value=client) as start:

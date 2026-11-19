@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 
-class DuckDuckGoNewsParameters(BaseModel):
+class GdeltNewsParameters(BaseModel):
     query: str = Field(
         ..., description="Query string to search for (company name or topic)"
     )
