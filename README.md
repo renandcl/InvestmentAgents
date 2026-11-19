@@ -8,7 +8,7 @@ This project implements a multi-agent system for investment analysis. It orchest
 - **Automated Workflow**: Runs a complete investment decision from data gathering to final decision.
 - **Report Generation**: Generates detailed Markdown reports for each analysis session.
 - **Independent runs**: Each analysis has its own state, sessions, caches and report.
-- **Model Context Protocol (MCP) Integration**: Leverages MCP servers for data retrieval from various sources (e.g., Finnhub, SimFin).
+- **Model Context Protocol (MCP) Integration**: Leverages MCP servers for data retrieval from various sources (e.g., Finnhub, SEC EDGAR).
 
 ## Architecture
 
@@ -111,7 +111,7 @@ Pass `memory_mode="RUN_ONLY"` for one-run memory or `memory_mode="OFF"` to disab
 
 ### Data Preparation
 
-Some MCP servers require pre-downloading data before they can be used. You may need to run `download_data.py` scripts located in the `data/` subdirectory of specific MCP servers (e.g., `simfin-fundamentals-data-server`, `finnhub-news-data-server`, `finnhub-fundamentals-data-server`).
+Some MCP servers require pre-downloading data before they can be used. You may need to run `download_data.py` scripts located in the `data/` subdirectory of specific MCP servers (e.g., `finnhub-news-data-server`, `finnhub-fundamentals-data-server`).
 
 ## Usage
 
@@ -168,8 +168,8 @@ investment advice. Dependencies and the default models (`qwen3:8b`,
 `qwen3-embedding`) are permissively licensed. A hosted provider set through
 `*_BASE_URL` brings its own terms.
 
-The data sources are the real limit. Yahoo Finance (`yfinance`), the Finnhub and
-SimFin free tiers, Reddit's Data API and DuckDuckGo (`ddgs`, unofficial) are for
+The data sources are the real limit. Yahoo Finance (`yfinance`), the Finnhub
+free tier, Reddit's Data API and DuckDuckGo (`ddgs`, unofficial) are for
 personal, non-commercial use. [Spec 006](specs/006-time-cut-dataset/spec.md) replaces
 DuckDuckGo with GDELT as its PRs land. Don't redistribute their data or publish run
 directories, and get licensed feeds before any commercial use. Set
