@@ -53,8 +53,8 @@ class FundamentalsAnalyst(Agent):
         )
 
     def _init_mcps(self) -> None:
-        self.stdio_mcp_simfin_client = start_mcp(
-            self.runtime, "simfin-fundamentals-data-server", env_file=False
+        self.stdio_mcp_edgar_client = start_mcp(
+            self.runtime, "edgar-fundamentals-data-server", env_file=True
         )
         self.stdio_mcp_finnhub_client = start_mcp(
             self.runtime, "finnhub-fundamentals-data-server", env_file=True
@@ -65,7 +65,7 @@ class FundamentalsAnalyst(Agent):
 
     def _init_tools(self) -> None:
         self.tools = (
-            self.stdio_mcp_simfin_client.list_tools_sync()
+            self.stdio_mcp_edgar_client.list_tools_sync()
             + self.stdio_mcp_finnhub_client.list_tools_sync()
         )
 
