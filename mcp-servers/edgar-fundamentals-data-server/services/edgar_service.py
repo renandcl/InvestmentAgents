@@ -1,4 +1,4 @@
-"""SEC EDGAR financial statements for the study dataset (spec 006)."""
+"""SEC EDGAR financial statements from XBRL company facts (spec 006)."""
 
 from __future__ import annotations
 
@@ -80,25 +80,26 @@ STATEMENTS = {
 }
 
 
-def fetch(request: dict[str, Any], output: Path) -> None:
-    """Store the company's XBRL facts once; SEC asks for a contact User-Agent."""
-    if slice_finished(output, FACTS_SLICE):
-        return
+def download(ticker: str) -> dict[str, Any]:
+    """The company's XBRL facts; SEC asks for a contact User-Agent."""
     headers = {"User-Agent": os.environ["SEC_USER_AGENT"]}
     listing = requests.get(TICKERS_URL, headers=headers, timeout=60)
     listing.raise_for_status()
     cik = next(
-        item["cik_str"]
-        for item in listing.json().values()
-        if item["ticker"] == request["ticker"]
+        item["cik_str"] for item in listing.json().values() if item["ticker"] == ticker
     )
     facts = requests.get(FACTS_URL.format(cik=cik), headers=headers, timeout=60)
     facts.raise_for_status()
-    write_slice(output, FACTS_SLICE, facts.json())
+    return facts.json()
 
 
-def _facts(raw: Path) -> dict[str, list[dict[str, Any]]]:
-    gaap = read_slice(raw, FACTS_SLICE)["facts"].get("us-gaap", {})
+def fetch(request: dict[str, Any], output: Path) -> None:
+    if not slice_finished(output, FACTS_SLICE):
+        write_slice(output, FACTS_SLICE, download(request["ticker"]))
+
+
+def _facts(companyfacts: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    gaap = companyfacts["facts"].get("us-gaap", {})
     return {
         concept: next(iter(gaap[concept]["units"].values()))
         for concepts in STATEMENTS.values()
@@ -163,8 +164,8 @@ def _statement(
     return values if len(values) > bool(start) else {}
 
 
-def _records(raw: Path) -> tuple[list[Record], int]:
-    facts = _facts(raw)
+def statements(companyfacts: dict[str, Any]) -> tuple[list[Record], int]:
+    facts = _facts(companyfacts)
     filings, dropped = _filings(facts)
     records = []
     for accession, filing in sorted(filings.items()):
@@ -192,6 +193,10 @@ def _records(raw: Path) -> tuple[list[Record], int]:
             identifier = f"{freq}|{filing['end']}|{filing['filed']}"
             records.append(Record(identifier, public_at, source, payload))
     return records, dropped
+
+
+def _records(raw: Path) -> tuple[list[Record], int]:
+    return statements(read_slice(raw, FACTS_SLICE))
 
 
 def normalize(request: dict[str, Any], raw: Path) -> list[Record]:
@@ -225,3 +230,40 @@ def coverage(request: dict[str, Any], raw: Path) -> dict[str, dict[str, Any]]:
                 "dropped_rows": dropped,
             }
     return entries
+
+
+DESCRIPTIONS = {
+    "edgar_balance": "balance sheet",
+    "edgar_cashflow": "cash flow statement",
+    "edgar_income": "income statement",
+}
+
+
+def latest_statement(
+    companyfacts: dict[str, Any], source: str, ticker: str, freq: str, curr_date: str
+) -> str:
+    """The latest 10-K (annual) or 10-Q (quarterly) statement filed on or before curr_date."""
+    records = [
+        record
+        for record in statements(companyfacts)[0]
+        if record.source == source
+        and record.id.startswith(f"{freq}|")
+        and record.payload["Publish Date"] <= curr_date
+    ]
+    name = DESCRIPTIONS[source]
+    if not records:
+        return f"No {freq} {name} available for {ticker} on or before {curr_date}."
+    latest = max(
+        records,
+        key=lambda record: (
+            record.payload["Publish Date"],
+            record.payload["Report Date"],
+        ),
+    )
+    lines = "\n".join(f"{field}: {value}" for field, value in latest.payload.items())
+    return (
+        f"## {freq} {name} for {ticker} filed on {latest.payload['Publish Date']}:\n"
+        + lines
+        + "\n\nValues are US GAAP facts as reported in the SEC filing, in USD"
+        " (per-share values in USD per share, share counts in shares)."
+    )

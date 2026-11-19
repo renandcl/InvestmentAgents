@@ -211,8 +211,9 @@ Decided by the author on 2026-11-18. The Technical Plan builds on these.
     and need only a contact `SEC_USER_AGENT`. EDGAR gets its own server,
     `edgar-fundamentals-data-server`, with its own `.env` and tools named for it
     (`get_edgar_balance_sheet`, `get_edgar_cashflow`, `get_edgar_income_statement`), because each
-    server maps to one vendor. PR 8 switches the fundamentals analyst to it and removes the
-    SimFin server.
+    server maps to one vendor. PR 3 adds it with live tools in the same layout as the other
+    servers; PR 8 makes them serve the frozen copy, switches the fundamentals analyst to it and
+    removes the SimFin server.
 
 ## Open Questions
 
@@ -954,13 +955,13 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 
 ### PR 3: Fundamentals capture
 
-#### 12. `mcp-servers/edgar-fundamentals-data-server/` with `pyproject.toml`, `README.md`, `capture.py`, `services/edgar_service.py`, `.env.example` (Create); `pyproject.toml`, `runtime/providers/capture.py`, `utils/extract_dataset.py` (Modify)
+#### 12. `mcp-servers/edgar-fundamentals-data-server/` with `pyproject.toml`, `README.md`, `main.py`, `models/`, `capture.py`, `services/edgar_service.py`, `services/statements_service.py`, `.env.example` (Create); `pyproject.toml`, `runtime/providers/capture.py`, `runtime/providers/mcp.py`, `utils/extract_dataset.py` (Modify)
 
 *   **Type / Scope**: MCP service and extractor.
 *   **Proposed Changes**: `fetch` stores each ticker's EDGAR company facts once, using `SEC_USER_AGENT` from the server's `.env`. `normalize` emits one record per 10-K or 10-Q filing and
     statement, from a fixed list of US GAAP concepts. Each statement uses one span: a 10-Q income statement uses the quarter, a 10-Q cash flow statement the year to date (the only span
     10-Qs report), and a 10-K the full year. The span comes from the filing's fiscal period, every duration value in a statement shares one start, and
-    a trailing-year value never replaces year to date. Provider `.env` files are loaded only for `fetch`, so `build` runs offline without them. Providers may return coverage by date and source from `normalize`, which `build` merges; a date a provider does not cover counts as
+    a trailing-year value never replaces year to date. The server's `get_edgar_*` tools return the latest statement filed on or before `curr_date` from the same records, fetched live and cached per run until PR 8. Provider `.env` files are loaded only for `fetch`, so `build` runs offline without them. Providers may return coverage by date and source from `normalize`, which `build` merges; a date a provider does not cover counts as
     unreachable. Register the provider in `CAPTURE_PROVIDERS`.
 
 #### 13. `mcp-servers/finnhub-fundamentals-data-server/capture.py` (Create); `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py`, `utils/extract_dataset.py` (Modify)
@@ -1093,10 +1094,10 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 
 ### PR 8: Fundamentals serving
 
-#### 33. `mcp-servers/edgar-fundamentals-data-server/main.py` (Create); `mcp-servers/finnhub-fundamentals-data-server/main.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py`, `pyproject.toml`, `runtime/providers/mcp.py`, `CLAUDE.md`, `AGENTS.md`, `README.md` (Modify); `mcp-servers/simfin-fundamentals-data-server/` (Delete)
+#### 33. `mcp-servers/edgar-fundamentals-data-server/main.py`, `mcp-servers/edgar-fundamentals-data-server/services/statements_service.py`, `mcp-servers/finnhub-fundamentals-data-server/main.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py`, `pyproject.toml`, `runtime/providers/mcp.py`, `CLAUDE.md`, `AGENTS.md`, `README.md` (Modify); `mcp-servers/simfin-fundamentals-data-server/` (Delete)
 
 *   **Type / Scope**: MCP servers.
-*   **Proposed Changes**: Tools call `serve` as the tool table states, and the two insider tool descriptions are updated. The EDGAR server's three tools serve the `edgar_*` records.
+*   **Proposed Changes**: Tools call `serve` as the tool table states, and the two insider tool descriptions are updated. The EDGAR server's three tools serve the `edgar_*` records instead of fetching live.
     The SimFin server, its workspace member, its `PROVIDERS` entry and `SIMFIN_API_KEY` are removed, and the docs list
     `edgar-fundamentals-data-server` for the fundamentals analyst.
 

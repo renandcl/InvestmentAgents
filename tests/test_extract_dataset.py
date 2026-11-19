@@ -295,6 +295,25 @@ class FundamentalsCaptureTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.raw = Path(folder.name)
 
+    def test_edgar_tool_returns_latest_statement_filed_by_curr_date(self) -> None:
+        service = load_service("edgar_tool_service", EDGAR_PATH)
+        units = [
+            fact("k", "2025-10-31", "2025-09-27", 40, "2024-09-29"),
+            fact("q1", "2026-01-30", "2025-12-27", 10, "2025-09-28"),
+            fact("q2", "2026-04-30", "2026-03-28", 15, "2025-12-28"),
+        ]
+        units[1]["fp"] = "Q1"
+        facts = {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": units}}}}}
+        text = service.latest_statement(
+            facts, "edgar_income", "AAPL", "quarterly", "2026-04-29"
+        )
+        self.assertIn("filed on 2026-01-30", text)
+        self.assertIn("NetIncomeLoss: 10", text)
+        annual = service.latest_statement(
+            facts, "edgar_income", "AAPL", "annual", "2025-10-30"
+        )
+        self.assertTrue(annual.startswith("No annual income statement"))
+
     def test_edgar_statements_use_each_filings_own_period(self) -> None:
         service = load_service("edgar_capture_service", EDGAR_PATH)
         units = {
