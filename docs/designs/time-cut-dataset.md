@@ -813,7 +813,7 @@ The outer key in each example names the file; the file holds the value.
 | `insider_transactions` | `<filing id>\|<name>\|<transactionDate>\|<transactionCode>\|<share>\|<transactionPrice>` | `filingDate` is missing or invalid |
 | `insider_sentiment` | `YYYY-MM` | The year or month is missing |
 | `finnhub_news` | vendor article `id`, else URL | `datetime` is missing or invalid |
-| `gdelt_news` | URL | `seendate` is missing or invalid |
+| `gdelt_news` | `<D>\|<URL>`, so each copy keeps only its own date's window | `seendate` is missing or invalid |
 | `reddit_posts` | post ID | `created_utc` is missing |
 
 Duplicate IDs keep the first record. Dropped rows are counted in `coverage.json` as `dropped_rows`.
@@ -983,7 +983,8 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 *   **Type / Scope**: New workspace package and extractor.
 *   **Proposed Changes**: The package uses the standard library `urllib` and declares `packages = ["services"]` until PR 9 adds `models`. `fetch` requests
     `https://api.gdeltproject.org/api/v2/doc/doc?query=<query> sourcelang:english&mode=artlist&format=json&maxrecords=250&sort=hybridrel&startdatetime=<YYYYMMDDHHMMSS>&enddatetime=<YYYYMMDDHHMMSS>` once per pool and
-    candidate date, 20 seconds apart, with a 60-second timeout and five attempts waiting 30, 60, 120 and 240 seconds. Exhausted retries set `reachable: false` for that window. `normalize` reads each candidate's
+    candidate date, 20 seconds apart, with a 60-second timeout and five attempts waiting 30, 60, 120 and 240 seconds. Exhausted retries leave that window unfinished, so coverage reports
+    `reachable: false` and a resumed capture retries it. The macro pool is stored once under `gdelt_news/macro/` and shared by every ticker. `normalize` reads each candidate's
     cutoff from the request, applies the `seendate` cut, removes duplicate URLs, sets `pool` to `ticker` or `macro` (a URL in both stays `ticker`) and marks a window truncated at 250 articles. A copy uses only date D's window.
     The live check passes when the macro query and one ticker query each return at least one article.
 

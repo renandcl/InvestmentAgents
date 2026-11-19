@@ -1,0 +1,10 @@
+[project]
+name = "gdelt-news-data-server"
+version = "0.1.0"
+description = "GDELT DOC 2.0 news capture for the frozen study dataset."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.setuptools]
+packages = ["services"]
