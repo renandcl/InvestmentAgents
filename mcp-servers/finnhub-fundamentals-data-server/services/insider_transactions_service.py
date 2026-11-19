@@ -75,7 +75,13 @@ def coverage(request: dict[str, Any], raw: Path) -> dict[str, dict[str, Any]]:
     windows = read_windows(raw, SOURCE)
     return {
         item["date"]: window_coverage(
-            records, windows, item, LOOKBACK_DAYS, INSIDER_PAGE_MAX, dropped
+            records,
+            windows,
+            item,
+            LOOKBACK_DAYS,
+            INSIDER_PAGE_MAX,
+            dropped,
+            filing_lag_days=LOOKBACK_DAYS,
         )
         for item in request["candidates"]
     }
