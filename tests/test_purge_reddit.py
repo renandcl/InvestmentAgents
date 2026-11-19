@@ -174,6 +174,60 @@ class PurgeRedditTests(unittest.TestCase):
             },
         )
 
+    def test_study_capture_dataset_and_nested_runs_are_purged_and_marked(self):
+        captures, datasets, study = (
+            self.root / "captures",
+            self.root / "datasets",
+            self.root / "study",
+        )
+        write_json(captures / "cap" / "reddit_posts" / "k" / "stocks-symbol.json", [])
+        write_json(captures / "cap" / "prices" / "k" / "history.json", [])
+        write_json(datasets / "ds" / "copies" / "c" / "reddit_posts.json", {})
+        write_json(datasets / "ds" / "copies" / "c" / "prices.json", {})
+        write_json(study / "t1" / "ticker_key.json", {})
+        nested, nested_message = make_run(study / "t1", "run", "SUCCEEDED")
+        (study / "unmarked").mkdir()
+        roots = {
+            "capture_root": captures,
+            "dataset_root": datasets,
+            "study_root": study,
+        }
+        dry = purge(self.runs, **roots)
+        self.assertFalse((captures / "cap" / "purged.json").exists())
+        self.assertIn((study / "unmarked", None), dry.skipped_runs)
+        purge(self.runs, apply=True, **roots)
+        self.assertFalse((captures / "cap" / "reddit_posts").exists())
+        self.assertTrue((captures / "cap" / "prices").exists())
+        self.assertFalse((datasets / "ds/copies/c/reddit_posts.json").exists())
+        self.assertTrue((datasets / "ds/copies/c/prices.json").exists())
+        for folder in (captures / "cap", datasets / "ds"):
+            self.assertEqual(read_json(folder / "purged.json")["version"], 1)
+        self.assertFalse((nested / "cache" / "reddit-news-data-server").exists())
+        self.assertEqual(results(nested_message)["r1"], REDACTED)
+
+    def test_study_purge_skips_links_and_reuses_abandoned_ids(self):
+        outside = self.root / "outside"
+        write_json(outside / "reddit_posts" / "k" / "posts.json", [])
+        captures = self.root / "captures"
+        captures.mkdir()
+        (captures / "linked").symlink_to(outside, target_is_directory=True)
+        study = self.root / "study"
+        for ticker in ("t1", "t2"):
+            write_json(study / ticker / "ticker_key.json", {})
+            make_run(study / ticker, "stuck", "RUNNING")
+        purge(
+            self.runs,
+            abandoned_runs=iter(["stuck"]),
+            apply=True,
+            capture_root=captures,
+            study_root=study,
+        )
+        self.assertTrue((outside / "reddit_posts").exists())
+        self.assertFalse((outside / "purged.json").exists())
+        for ticker in ("t1", "t2"):
+            cache = study / ticker / "stuck" / "cache" / "reddit-news-data-server"
+            self.assertFalse(cache.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

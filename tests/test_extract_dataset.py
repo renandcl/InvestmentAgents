@@ -124,6 +124,7 @@ class ExtractDatasetTests(unittest.TestCase):
             ],
             "finnhub_news": [sys.executable, "-B", str(sources), "finnhub_news"],
             "gdelt": [sys.executable, "-B", str(sources), "gdelt_news"],
+            "reddit": [sys.executable, "-B", str(sources), "reddit_posts"],
         }
         self.days = weekdays(date(2025, 12, 1), date(2026, 1, 30))
 
@@ -482,6 +483,54 @@ class NewsCaptureTests(unittest.TestCase):
         entry = service.coverage(self.request, self.raw)["2026-01-09"]["gdelt_news"]
         self.assertFalse(entry["reachable"])
         self.assertFalse(entry["coverage_rule_met"])
+
+
+REDDIT_PATH = "mcp-servers/reddit-news-data-server/services/reddit_news_service.py"
+
+
+class RedditCaptureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.raw = Path(folder.name)
+        self.service = load_service("reddit_capture", REDDIT_PATH)
+        self.request = {
+            "ticker": "AAPL",
+            "candidates": [candidate("2026-01-09", "2026-01-09T05:00:00Z")],
+        }
+
+    def write_searches(self, reached: set[str]) -> Path:
+        raw = self.raw / "-".join(sorted(reached))
+        recent = datetime(2026, 1, 8, tzinfo=timezone.utc).timestamp()
+        old = datetime(2025, 12, 1, tzinfo=timezone.utc).timestamp()
+        for name in self.service.SENTIMENT_SUBREDDITS:
+            for variant in ("symbol", "cashtag", "name"):
+                posts = [
+                    {"id": f"{name}{variant}{n}", "created_utc": recent}
+                    for n in range(200)
+                ]
+                if name in reached:
+                    posts.append({"id": f"{name}{variant}old", "created_utc": old})
+                write_slice(raw, f"{name}-{variant}", posts)
+        return raw
+
+    def test_posts_hold_no_engagement_and_200_posts_are_capped(self) -> None:
+        recent = datetime(2026, 1, 8, tzinfo=timezone.utc).timestamp()
+        self.assertTrue(self.service.search_reached([{}] * 199, recent))
+        self.assertFalse(self.service.search_reached([{}] * 200, recent))
+        raw = self.write_searches(set())
+        record = self.service.normalize(self.request, raw)[0]
+        self.assertNotIn("score", record.payload)
+        self.assertNotIn("num_comments", record.payload)
+
+    def test_three_of_five_active_subreddits_must_reach_lookback(self) -> None:
+        def met(reached: set[str]) -> bool:
+            raw = self.write_searches(reached)
+            entries = self.service.coverage(self.request, raw)
+            return entries["2026-01-09"]["reddit_posts"]["coverage_rule_met"]
+
+        self.assertFalse(met({"stocks", "investing", "finance"}))
+        self.assertTrue(met({"stocks", "investing", "options"}))
 
 
 if __name__ == "__main__":

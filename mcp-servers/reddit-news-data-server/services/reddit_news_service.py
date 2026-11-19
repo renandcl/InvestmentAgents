@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import datetime
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import praw
 from praw.models import Submission
 
 from runtime.providers.cache import service_cache
+from runtime.providers.capture import read_slice, slice_finished, write_slice
+from runtime.providers.timecut import NEW_YORK, Record, parse_instant
 
 if TYPE_CHECKING:
     from runtime.providers.cache import RunCache
@@ -27,7 +30,130 @@ SENTIMENT_SUBREDDITS = (
     "Daytrading",
     "options",
 )
-SENTIMENT_SEARCH_LIMIT = 1000
+SENTIMENT_SEARCH_LIMIT = 250
+SENTIMENT_CAPPED_POSTS = 200
+ACTIVE_SUBREDDITS = ("stocks", "investing", "ValueInvesting", "Daytrading", "options")
+REACHED_SUBREDDITS = 3
+SOURCE = "reddit_posts"
+LOOKBACK_DAYS = 7
+COMPANY_NAMES = {
+    "AAPL": "Apple",
+    "MSFT": "Microsoft",
+    "GOOGL": "Alphabet",
+    "AMZN": "Amazon",
+    "META": "Meta Platforms",
+    "TSLA": "Tesla",
+    "NVDA": "Nvidia",
+}
+POST_FIELDS = ("id", "title", "selftext", "created_utc", "subreddit", "reddit_url")
+
+
+def _queries(ticker: str) -> dict[str, str]:
+    return {"symbol": ticker, "cashtag": f"${ticker}", "name": COMPANY_NAMES[ticker]}
+
+
+def fetch(request: dict[str, Any], output: Path) -> None:
+    """Store newest-first searches without engagement counts, which postdate D."""
+    reddit = praw.Reddit(
+        client_id=os.environ["REDDIT_CLIENT_ID"],
+        client_secret=os.environ["REDDIT_CLIENT_SECRET"],
+        user_agent=REDDIT_USER_AGENT,
+    )
+    reddit.read_only = True
+    for name in SENTIMENT_SUBREDDITS:
+        for variant, query in _queries(request["ticker"]).items():
+            slice_name = f"{name}-{variant}"
+            if slice_finished(output, slice_name):
+                continue
+            posts = [
+                {
+                    "id": str(post.id),
+                    "title": post.title,
+                    "selftext": post.selftext,
+                    "created_utc": post.created_utc,
+                    "subreddit": post.subreddit.display_name,
+                    "reddit_url": "https://www.reddit.com" + post.permalink,
+                }
+                for post in reddit.subreddit(name).search(
+                    query, sort="new", time_filter="all", limit=SENTIMENT_SEARCH_LIMIT
+                )
+            ]
+            write_slice(output, slice_name, posts)
+
+
+def _searches(request: dict[str, Any], raw: Path) -> dict[str, list[list[dict]]]:
+    return {
+        name: [
+            read_slice(raw, f"{name}-{variant}")
+            for variant in _queries(request["ticker"])
+        ]
+        for name in SENTIMENT_SUBREDDITS
+    }
+
+
+def normalize(request: dict[str, Any], raw: Path) -> list[Record]:
+    records = []
+    for searches in _searches(request, raw).values():
+        for posts in searches:
+            for post in posts:
+                if post.get("created_utc") is None:
+                    continue
+                public_at = datetime.datetime.fromtimestamp(
+                    post["created_utc"], tz=datetime.timezone.utc
+                )
+                payload = {field: post.get(field) for field in POST_FIELDS}
+                records.append(Record(payload["id"], public_at, SOURCE, payload))
+    return records
+
+
+def search_reached(posts: list[dict[str, Any]], required: float) -> bool:
+    """A capped search reaches the start only when it holds an older post."""
+    if len(posts) < SENTIMENT_CAPPED_POSTS:
+        return True
+    return any((post.get("created_utc") or required) < required for post in posts)
+
+
+def coverage(request: dict[str, Any], raw: Path) -> dict[str, dict[str, Any]]:
+    """Three of the five active subreddits must reach the 7-day lookback."""
+    searches = _searches(request, raw)
+    records = normalize(request, raw)
+    dropped = sum(
+        post.get("created_utc") is None
+        for found in searches.values()
+        for posts in found
+        for post in posts
+    )
+    entries = {}
+    for item in request["candidates"]:
+        cutoff = parse_instant(item["cutoff"])
+        required = cutoff - datetime.timedelta(days=LOOKBACK_DAYS)
+        subreddits = {
+            name: {
+                "reached": (
+                    reached := all(
+                        search_reached(posts, required.timestamp()) for posts in found
+                    )
+                ),
+                "truncated": not reached,
+            }
+            for name, found in searches.items()
+        }
+        admitted = {r.id for r in records if required <= r.public_at <= cutoff}
+        entries[item["date"]] = {
+            SOURCE: {
+                "reachable": True,
+                "records": len(admitted),
+                "truncated": any(s["truncated"] for s in subreddits.values()),
+                "required_start": required.astimezone(NEW_YORK).date().isoformat(),
+                "coverage_rule_met": sum(
+                    subreddits[name]["reached"] for name in ACTIVE_SUBREDDITS
+                )
+                >= REACHED_SUBREDDITS,
+                "subreddits": subreddits,
+                "dropped_rows": dropped,
+            }
+        }
+    return entries
 
 
 class RedditNewsService:
@@ -106,7 +232,7 @@ class RedditNewsService:
                 "scanned": scanned,
                 "oldest_returned_utc": oldest,
                 "window_reached": oldest is not None and oldest < cutoff.timestamp(),
-                "capped": scanned >= SENTIMENT_SEARCH_LIMIT and not reached_start,
+                "capped": scanned >= SENTIMENT_CAPPED_POSTS and not reached_start,
             }
         sample = sorted(
             posts.values(), key=lambda post: (-post["created_utc"], post["id"])

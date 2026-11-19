@@ -6,6 +6,10 @@ so this purges every verbatim copy the system keeps:
 - run provider caches: ``data/runs/<run_id>/cache/reddit-news-data-server/``
 - ``get_reddit_news`` and ``get_reddit_sentiment`` tool results in run session transcripts, replaced with a
   redaction marker so the conversations stay readable
+- study dataset captures and copies (spec 006): ``reddit_posts`` folders under ``--capture-root`` and
+  ``reddit_posts.json`` copy files under ``--dataset-root``; each purged capture and dataset gets a
+  ``purged.json`` marker, so ``build`` and new runs refuse it
+- study runs nested under an architecture's ``--study-root``, in ticker folders marked by ``ticker_key.json``
 
 Finished runs are eligible by default. Use --abandoned-run RUN_ID only after
 confirming that its owner and children have stopped; this allows cleanup after
@@ -15,7 +19,8 @@ committed artifact hashes stay valid.
 
 Dry run by default; pass ``--apply`` to delete:
 
-    uv run python -B -m utils.purge_reddit [--abandoned-run RUN_ID] [--apply]
+    uv run python -B -m utils.purge_reddit [--abandoned-run RUN_ID] [--capture-root DIR]
+        [--dataset-root DIR] [--study-root DIR] [--apply]
 """
 
 from __future__ import annotations
@@ -30,6 +35,7 @@ import tempfile
 from collections.abc import Iterable, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +45,9 @@ from runtime.store import TERMINAL
 REDDIT_PROVIDER = "reddit-news-data-server"
 REDDIT_TOOLS = frozenset({"get_reddit_news", "get_reddit_sentiment"})
 REDACTED = "[Reddit content removed after research completed]"
+REDDIT_SOURCE = "reddit_posts"
+PURGED_MARKER = "purged.json"
+TICKER_MARKER = "ticker_key.json"
 
 
 @dataclass
@@ -46,6 +55,8 @@ class PurgeReport:
     cache_dirs: list[Path] = field(default_factory=list)
     redacted_messages: list[Path] = field(default_factory=list)
     skipped_runs: list[tuple[Path, str | None]] = field(default_factory=list)
+    dataset_paths: list[Path] = field(default_factory=list)
+    marked_roots: list[Path] = field(default_factory=list)
 
 
 def run_status(run_root: Path) -> str | None:
@@ -109,11 +120,62 @@ def redact_sessions(sessions_root: Path, report: PurgeReport, *, apply: bool) ->
                     _write_json(path, data)
 
 
+def purge_study_data(
+    root: Path, pattern: str, report: PurgeReport, *, apply: bool
+) -> None:
+    """Remove Reddit files from each capture or dataset and mark it purged."""
+    for folder in sorted(p for p in root.iterdir() if p.is_dir()):
+        if not folder.resolve().is_relative_to(root.resolve()):
+            report.skipped_runs.append((folder, None))
+            continue
+        for path in sorted(folder.glob(pattern)):
+            if not path.resolve().is_relative_to(folder.resolve()):
+                raise ValueError("Reddit data escapes its study folder")
+            report.dataset_paths.append(path)
+            if apply:
+                shutil.rmtree(path) if path.is_dir() else path.unlink()
+        report.marked_roots.append(folder)
+        if apply:
+            purged_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            _write_json(folder / PURGED_MARKER, {"version": 1, "purged_at": purged_at})
+
+
 def purge(
-    runs_root: Path, *, abandoned_runs: Iterable[str] = (), apply: bool = False
+    runs_root: Path,
+    *,
+    abandoned_runs: Iterable[str] = (),
+    apply: bool = False,
+    capture_root: Path | None = None,
+    dataset_root: Path | None = None,
+    study_root: Path | None = None,
 ) -> PurgeReport:
     report = PurgeReport()
+    if capture_root is not None and capture_root.is_dir():
+        purge_study_data(capture_root, REDDIT_SOURCE, report, apply=apply)
+    if dataset_root is not None and dataset_root.is_dir():
+        pattern = f"copies/*/{REDDIT_SOURCE}.json"
+        purge_study_data(dataset_root, pattern, report, apply=apply)
+    roots = [runs_root]
+    if study_root is not None and study_root.is_dir():
+        for folder in sorted(p for p in study_root.iterdir() if p.is_dir()):
+            inside = folder.resolve().is_relative_to(study_root.resolve())
+            if inside and (folder / TICKER_MARKER).is_file():
+                roots.append(folder)
+            else:
+                report.skipped_runs.append((folder, None))
     abandoned = frozenset(abandoned_runs)
+    for root in roots:
+        purge_runs(root, report, abandoned=abandoned, apply=apply)
+    return report
+
+
+def purge_runs(
+    runs_root: Path,
+    report: PurgeReport,
+    *,
+    abandoned: frozenset[str],
+    apply: bool,
+) -> None:
     root = runs_root.resolve()
     if runs_root.is_dir():
         for run_root in sorted(p for p in runs_root.iterdir() if p.is_dir()):
@@ -135,7 +197,6 @@ def purge(
                 if not sessions.resolve().is_relative_to(run_root.resolve()):
                     raise ValueError("Session directory escapes its run")
                 redact_sessions(sessions, report, apply=apply)
-    return report
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -148,6 +209,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar="RUN_ID",
         help="purge a named nonterminal run confirmed stopped, including its owned children",
     )
+    parser.add_argument("--capture-root", type=Path, help="study captures to purge")
+    parser.add_argument("--dataset-root", type=Path, help="study datasets to purge")
+    parser.add_argument(
+        "--study-root", type=Path, help="architecture output root with ticker folders"
+    )
     parser.add_argument(
         "--apply", action="store_true", help="delete; without it, only list"
     )
@@ -156,8 +222,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.runs_root,
         abandoned_runs=args.abandoned_run,
         apply=args.apply,
+        capture_root=args.capture_root,
+        dataset_root=args.dataset_root,
+        study_root=args.study_root,
     )
     verb = "Removed" if args.apply else "Would remove"
+    for path in report.dataset_paths:
+        print(f"{verb} study data {path}")
+    for path in report.marked_roots:
+        print(f"{'Marked' if args.apply else 'Would mark'} {path} as purged")
     for path in report.cache_dirs:
         print(f"{verb} cache directory {path}")
     for path in report.redacted_messages:

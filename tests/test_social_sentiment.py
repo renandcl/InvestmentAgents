@@ -107,7 +107,7 @@ class SocialSentimentTests(unittest.TestCase):
         for call in search.call_args_list:
             self.assertEqual(call.args, ("AAPL",))
             self.assertEqual(
-                call.kwargs, {"sort": "new", "time_filter": "all", "limit": 1000}
+                call.kwargs, {"sort": "new", "time_filter": "all", "limit": 250}
             )
         smaller = self.service.get_sentiment(
             "AAPL", "2025-08-01", "2025-08-20", max_posts=1
