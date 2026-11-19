@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,9 @@ FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
 FACTS_SLICE = "companyfacts"
 FRESHNESS_DAYS = 120
 FORMS = {"10-K": "annual", "10-Q": "quarterly"}
+QUARTER_DAYS = 91
+SPAN_DAYS = {"Q1": 91, "Q2": 182, "Q3": 273, "FY": 364}
+SPAN_TOLERANCE = 20
 BALANCE = (
     "CashAndCashEquivalentsAtCarryingValue",
     "MarketableSecuritiesCurrent",
@@ -131,23 +135,32 @@ def _statement(
     concepts: tuple[str, ...],
     accession: str,
     filing: dict[str, Any],
-    shortest: bool,
+    span_days: int | None,
 ) -> dict[str, Any]:
-    """One filing's own period, with one span for every concept."""
-    values: dict[str, Any] = {}
-    for concept in concepts:
-        rows = [
+    """One filing's own period: every duration fact shares one start."""
+    rows = {
+        concept: [
             row
             for row in facts.get(concept, [])
             if row["accn"] == accession and row["end"] == filing["end"]
         ]
-        if not rows:
-            continue
-        if "start" in rows[0]:
-            rows = [(min if shortest else max)(rows, key=_duration)]
-            values.setdefault("Period Start", rows[0]["start"])
-        values[concept] = rows[0]["val"]
-    return values
+        for concept in concepts
+    }
+    starts = Counter(
+        row["start"]
+        for found in rows.values()
+        for row in found
+        if "start" in row
+        and span_days is not None
+        and abs(_duration(row) - span_days) <= SPAN_TOLERANCE
+    )
+    start = min(starts, key=lambda day: (-starts[day], day)) if starts else None
+    values: dict[str, Any] = {"Period Start": start} if start else {}
+    for concept, found in rows.items():
+        match = [row for row in found if row.get("start") == start]
+        if match:
+            values[concept] = match[0]["val"]
+    return values if len(values) > bool(start) else {}
 
 
 def _records(raw: Path) -> tuple[list[Record], int]:
@@ -157,9 +170,13 @@ def _records(raw: Path) -> tuple[list[Record], int]:
     for accession, filing in sorted(filings.items()):
         freq = FORMS[filing["form"]]
         for source, concepts in STATEMENTS.items():
-            # 10-Q cash flow is reported only year to date; income is quarterly.
-            shortest = freq == "quarterly" and source == "edgar_income"
-            values = _statement(facts, concepts, accession, filing, shortest)
+            # 10-Q income is quarterly; cash flow and 10-Ks use the fiscal year to date.
+            span = SPAN_DAYS.get(filing.get("fp"))
+            if freq == "quarterly" and source == "edgar_income":
+                span = QUARTER_DAYS
+            if source == "edgar_balance":
+                span = None
+            values = _statement(facts, concepts, accession, filing, span)
             if not values:
                 continue
             payload = {

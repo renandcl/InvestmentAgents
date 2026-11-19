@@ -86,17 +86,23 @@ def window_coverage(
     lookback_days: int,
     page_max: int | None,
     dropped_rows: int,
+    filing_lag_days: int = 0,
 ) -> dict[str, Any]:
-    """Apply the Finnhub rule: reach the lookback start with no saturated page."""
+    """Reach the lookback start with no saturated page.
+
+    Windows keyed by trade date can hold filings up to `filing_lag_days` later,
+    so their saturation counts that far before the lookback start.
+    """
     cutoff = parse_instant(candidate["cutoff"])
     required = (cutoff.astimezone(NEW_YORK) - timedelta(days=lookback_days)).date()
+    earliest = required - timedelta(days=filing_lag_days)
     last = last_admitted_date(cutoff)
     starts = [date.fromisoformat(window["start"]) for window in windows]
     ends = [date.fromisoformat(window["end"]) for window in windows]
     truncated = any(
         window["saturated"]
         for window in windows
-        if window["start"] <= last.isoformat() and window["end"] >= required.isoformat()
+        if window["start"] <= last.isoformat() and window["end"] >= earliest.isoformat()
     )
     admitted = [
         record
