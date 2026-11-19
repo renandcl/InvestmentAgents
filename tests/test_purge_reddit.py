@@ -205,6 +205,29 @@ class PurgeRedditTests(unittest.TestCase):
         self.assertFalse((nested / "cache" / "reddit-news-data-server").exists())
         self.assertEqual(results(nested_message)["r1"], REDACTED)
 
+    def test_study_purge_skips_links_and_reuses_abandoned_ids(self):
+        outside = self.root / "outside"
+        write_json(outside / "reddit_posts" / "k" / "posts.json", [])
+        captures = self.root / "captures"
+        captures.mkdir()
+        (captures / "linked").symlink_to(outside, target_is_directory=True)
+        study = self.root / "study"
+        for ticker in ("t1", "t2"):
+            write_json(study / ticker / "ticker_key.json", {})
+            make_run(study / ticker, "stuck", "RUNNING")
+        purge(
+            self.runs,
+            abandoned_runs=iter(["stuck"]),
+            apply=True,
+            capture_root=captures,
+            study_root=study,
+        )
+        self.assertTrue((outside / "reddit_posts").exists())
+        self.assertFalse((outside / "purged.json").exists())
+        for ticker in ("t1", "t2"):
+            cache = study / ticker / "stuck" / "cache" / "reddit-news-data-server"
+            self.assertFalse(cache.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

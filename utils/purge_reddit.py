@@ -125,6 +125,9 @@ def purge_study_data(
 ) -> None:
     """Remove Reddit files from each capture or dataset and mark it purged."""
     for folder in sorted(p for p in root.iterdir() if p.is_dir()):
+        if not folder.resolve().is_relative_to(root.resolve()):
+            report.skipped_runs.append((folder, None))
+            continue
         for path in sorted(folder.glob(pattern)):
             if not path.resolve().is_relative_to(folder.resolve()):
                 raise ValueError("Reddit data escapes its study folder")
@@ -155,12 +158,14 @@ def purge(
     roots = [runs_root]
     if study_root is not None and study_root.is_dir():
         for folder in sorted(p for p in study_root.iterdir() if p.is_dir()):
-            if (folder / TICKER_MARKER).is_file():
+            inside = folder.resolve().is_relative_to(study_root.resolve())
+            if inside and (folder / TICKER_MARKER).is_file():
                 roots.append(folder)
             else:
                 report.skipped_runs.append((folder, None))
+    abandoned = frozenset(abandoned_runs)
     for root in roots:
-        purge_runs(root, report, abandoned_runs=abandoned_runs, apply=apply)
+        purge_runs(root, report, abandoned=abandoned, apply=apply)
     return report
 
 
@@ -168,10 +173,9 @@ def purge_runs(
     runs_root: Path,
     report: PurgeReport,
     *,
-    abandoned_runs: Iterable[str],
+    abandoned: frozenset[str],
     apply: bool,
 ) -> None:
-    abandoned = frozenset(abandoned_runs)
     root = runs_root.resolve()
     if runs_root.is_dir():
         for run_root in sorted(p for p in runs_root.iterdir() if p.is_dir()):
