@@ -6,18 +6,23 @@ import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest.mock import patch
 
 import pandas as pd
 
 from runtime.core.errors import InvalidRunConfig
+from runtime.providers.capture import window_coverage, write_slice
+from runtime.providers.timecut import format_instant
 from runtime.store.artifacts import hash_file
 from utils.extract_dataset import (
+    STATEMENTS,
     build,
     capture,
     child_environment,
     copy_key,
     last_closed_friday,
+    run_provider,
 )
 
 FAKE_PROVIDER = """
@@ -52,6 +57,41 @@ raise SystemExit(run_cli(fetch, normalize))
 """
 
 
+FAKE_SOURCES = """
+import json
+import sys
+from pathlib import Path
+
+from runtime.providers.capture import run_cli
+
+SOURCES = sys.argv.pop(1).split(",")
+GAPS = Path(__file__).parent / "gaps.json"
+
+
+def coverage(request, raw):
+    gaps = json.loads(GAPS.read_text(encoding="utf-8")) if GAPS.exists() else []
+    return {
+        item["date"]: {source: {"coverage_rule_met": True} for source in SOURCES}
+        for item in request["candidates"]
+        if item["date"] not in gaps
+    }
+
+
+raise SystemExit(run_cli(lambda request, output: None, lambda request, raw: [], coverage=coverage))
+"""
+
+
+def load_service(name: str, path: str) -> Any:
+    spec = importlib.util.spec_from_file_location(name, path)
+    service = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(service)
+    return service
+
+
+def candidate(day: str, cutoff: str) -> dict[str, str]:
+    return {"date": day, "cutoff": cutoff, "execution": day, "exit": day}
+
+
 def weekdays(start: date, end: date) -> list[str]:
     days = [start + timedelta(days=n) for n in range((end - start).days + 1)]
     return [day.isoformat() for day in days if day.weekday() < 5]
@@ -64,7 +104,23 @@ class ExtractDatasetTests(unittest.TestCase):
         self.root = Path(folder.name)
         self.script = self.root / "fake_provider.py"
         self.script.write_text(FAKE_PROVIDER, encoding="utf-8")
-        self.commands = {"yfinance": [sys.executable, "-B", str(self.script)]}
+        sources = self.root / "fake_sources.py"
+        sources.write_text(FAKE_SOURCES, encoding="utf-8")
+        self.commands = {
+            "yfinance": [sys.executable, "-B", str(self.script)],
+            "edgar": [
+                sys.executable,
+                "-B",
+                str(sources),
+                "edgar_balance,edgar_cashflow,edgar_income",
+            ],
+            "finnhub_fundamentals": [
+                sys.executable,
+                "-B",
+                str(sources),
+                "insider_transactions,insider_sentiment",
+            ],
+        }
         self.days = weekdays(date(2025, 12, 1), date(2026, 1, 30))
 
     def run_capture(self, bars: dict[str, list[str]]) -> None:
@@ -183,6 +239,14 @@ class ExtractDatasetTests(unittest.TestCase):
         self.assertEqual(last_closed_friday(before_close), date(2026, 1, 2))
         self.assertEqual(last_closed_friday(after_close), date(2026, 1, 9))
 
+    def test_only_fetch_loads_provider_env_file(self) -> None:
+        with patch("utils.extract_dataset.subprocess.run") as run:
+            for action in ("fetch", "normalize"):
+                run_provider(STATEMENTS, action, {}, self.root, None)
+        fetch, normalize = (call.args[0] for call in run.call_args_list)
+        self.assertIn("--env-file", fetch)
+        self.assertNotIn("--env-file", normalize)
+
     def test_only_fetch_receives_vendor_keys(self) -> None:
         keys = {
             "FINNHUB_API_KEY": "fixture",  # pragma: allowlist secret
@@ -194,17 +258,153 @@ class ExtractDatasetTests(unittest.TestCase):
         self.assertNotIn("FINNHUB_API_KEY", offline)
         self.assertNotIn("REDDIT_CLIENT_ID", offline)
 
+    def test_provider_gap_excludes_date_from_shared_calendar(self) -> None:
+        (self.root / "gaps.json").write_text('["2026-01-09"]', encoding="utf-8")
+        self.run_capture({"AAPL": self.days})
+        self.run_build()
+        manifest = self.manifest()
+        self.assertNotIn("2026-01-09", [item["date"] for item in manifest["dates"]])
+        self.assertIn("2026-01-09", manifest["coverage_summary"]["excluded_dates"])
+
     def test_empty_price_history_is_not_marked_finished(self) -> None:
-        path = Path("mcp-servers/yfin-market-data-server/services/yfin_service.py")
-        spec = importlib.util.spec_from_file_location("yfin_capture_service", path)
-        service = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(service)
+        service = load_service(
+            "yfin_capture_service",
+            "mcp-servers/yfin-market-data-server/services/yfin_service.py",
+        )
         output = self.root / "raw"
         with patch.object(service.yf, "Ticker") as ticker:
             ticker.return_value.history.return_value = pd.DataFrame()
             with self.assertRaises(ValueError):
                 service.fetch({"ticker": "AAPL"}, output)
         self.assertFalse((output / "history.done").exists())
+
+
+EDGAR_PATH = "mcp-servers/edgar-fundamentals-data-server/services/edgar_service.py"
+FUNDAMENTALS = "mcp-servers/finnhub-fundamentals-data-server/services"
+
+
+def fact(accn: str, filed: str, end: str, val: int, start: str = "") -> dict:
+    form, fp = ("10-K", "FY") if accn == "k" else ("10-Q", "Q2")
+    row = {"accn": accn, "form": form, "fp": fp, "filed": filed, "end": end}
+    return {**row, "val": val, **({"start": start} if start else {})}
+
+
+class FundamentalsCaptureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.raw = Path(folder.name)
+
+    def test_edgar_tool_returns_latest_statement_filed_by_curr_date(self) -> None:
+        service = load_service("edgar_tool_service", EDGAR_PATH)
+        units = [
+            fact("k", "2025-10-31", "2025-09-27", 40, "2024-09-29"),
+            fact("q1", "2026-01-30", "2025-12-27", 10, "2025-09-28"),
+            fact("q2", "2026-04-30", "2026-03-28", 15, "2025-12-28"),
+        ]
+        units[1]["fp"] = "Q1"
+        facts = {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": units}}}}}
+        text = service.latest_statement(
+            facts, "edgar_income", "AAPL", "quarterly", "2026-04-29"
+        )
+        self.assertIn("filed on 2026-01-30", text)
+        self.assertIn("NetIncomeLoss: 10", text)
+        annual = service.latest_statement(
+            facts, "edgar_income", "AAPL", "annual", "2025-10-30"
+        )
+        self.assertTrue(annual.startswith("No annual income statement"))
+
+    def test_edgar_statements_use_each_filings_own_period(self) -> None:
+        service = load_service("edgar_capture_service", EDGAR_PATH)
+        units = {
+            "NetIncomeLoss": [
+                fact("q2", "2026-04-30", "2026-03-28", 10, "2025-12-28"),
+                fact("q2", "2026-04-30", "2026-03-28", 25, "2025-09-28"),
+                fact("k", "2025-10-31", "2025-09-27", 40, "2024-09-29"),
+                fact("k", "2025-10-31", "2025-09-27", 12, "2025-06-29"),
+            ],
+            "NetCashProvidedByUsedInOperatingActivities": [
+                fact("q2", "2026-04-30", "2026-03-28", 60, "2025-09-28"),
+                fact("q2", "2026-04-30", "2026-03-28", 110, "2025-03-30"),
+            ],
+            "Assets": [
+                fact("q2", "2026-04-30", "2026-03-28", 300),
+                fact("q2", "2026-04-30", "2026-03-28", 200, "2025-09-28"),
+                fact("q2", "2026-04-30", "2025-09-27", 200),
+            ],
+        }
+        gaap = {name: {"units": {"USD": rows}} for name, rows in units.items()}
+        write_slice(self.raw, "companyfacts", {"facts": {"us-gaap": gaap}})
+        records = {(r.source, r.id): r for r in service.normalize({}, self.raw)}
+        key = "quarterly|2026-03-28|2026-04-30"
+        quarter = records["edgar_income", key]
+        self.assertEqual(quarter.payload["NetIncomeLoss"], 10)
+        self.assertEqual(format_instant(quarter.public_at), "2026-05-01T03:59:59Z")
+        cash = records["edgar_cashflow", key].payload
+        self.assertEqual(cash["Period Start"], "2025-09-28")
+        self.assertEqual(cash["NetIncomeLoss"], 25)
+        self.assertEqual(cash["NetCashProvidedByUsedInOperatingActivities"], 60)
+        annual = records["edgar_income", "annual|2025-09-27|2025-10-31"]
+        self.assertEqual(annual.payload["NetIncomeLoss"], 40)
+        self.assertEqual(records["edgar_balance", key].payload["Assets"], 300)
+
+        fresh = candidate("2026-08-28", "2026-08-28T04:00:00Z")
+        stale = candidate("2026-09-04", "2026-09-04T04:00:00Z")
+        entries = service.coverage({"candidates": [fresh, stale]}, self.raw)
+        self.assertTrue(entries["2026-08-28"]["edgar_income"]["coverage_rule_met"])
+        self.assertFalse(entries["2026-09-04"]["edgar_income"]["coverage_rule_met"])
+
+    def test_insider_transactions_split_saturated_pages(self) -> None:
+        service = load_service(
+            "insider_transactions_capture",
+            f"{FUNDAMENTALS}/insider_transactions_service.py",
+        )
+        rows = [
+            {"id": str(n), "name": "A", "filingDate": "2026-01-05"} for n in range(3)
+        ]
+        late = {"id": "9", "transactionDate": "2025-10-01", "filingDate": "2026-01-20"}
+
+        def transactions(ticker: str, start: str, end: str) -> dict:
+            found = [r for r in [*rows, late] if start <= r["filingDate"] <= end]
+            return {"data": found}
+
+        request = {
+            "ticker": "AAPL",
+            "candidates": [candidate("2026-01-23", "2026-01-23T05:00:00Z")],
+        }
+        key = {"FINNHUB_API_KEY": "fixture"}  # pragma: allowlist secret
+        with (
+            patch.dict(os.environ, key),
+            patch.object(service, "INSIDER_PAGE_MAX", 2),
+            patch.object(service.finnhub, "Client") as client,
+        ):
+            client.return_value.stock_insider_transactions.side_effect = transactions
+            service.fetch(request, self.raw)
+            entry = service.coverage(request, self.raw)["2026-01-23"]
+        self.assertTrue(entry["truncated"])
+        self.assertFalse(entry["coverage_rule_met"])
+        old_page = {
+            "start": "2025-11-24",
+            "end": "2025-11-24",
+            "saturated": True,
+            "rows": [],
+        }
+        late_lag = window_coverage(
+            [], [old_page], request["candidates"][0], 30, 2, 0, 30
+        )
+        self.assertFalse(late_lag["coverage_rule_met"])
+        filed = {r.id.split("|")[0]: r for r in service.normalize(request, self.raw)}
+        self.assertEqual(format_instant(filed["9"].public_at), "2026-01-21T04:59:59Z")
+
+    def test_insider_sentiment_is_public_on_third_weekday(self) -> None:
+        service = load_service(
+            "insider_sentiment_capture",
+            f"{FUNDAMENTALS}/insider_sentiment_service.py",
+        )
+        write_slice(self.raw, "insider_sentiment", [{"year": 2025, "month": 12}])
+        (record,) = service.normalize({}, self.raw)
+        self.assertEqual(record.id, "2025-12")
+        self.assertEqual(format_instant(record.public_at), "2026-01-06T04:59:59Z")
 
 
 if __name__ == "__main__":

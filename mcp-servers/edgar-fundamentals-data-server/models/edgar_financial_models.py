@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 
-class SimfinFinancialsParameters(BaseModel):
+class EdgarFinancialsParameters(BaseModel):
     ticker: str = Field(..., description="ticker symbol")
     freq: str = Field(
         ...,
