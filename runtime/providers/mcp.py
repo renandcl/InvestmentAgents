@@ -20,6 +20,7 @@ PROVIDERS = frozenset(
     {
         "yfin-market-data-server",
         "stockstats-market-data-server",
+        "edgar-fundamentals-data-server",
         "simfin-fundamentals-data-server",
         "finnhub-fundamentals-data-server",
         "finnhub-news-data-server",

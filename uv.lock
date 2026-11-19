@@ -754,11 +754,17 @@ name = "edgar-fundamentals-data-server"
 version = "0.1.0"
 source = { virtual = "mcp-servers/edgar-fundamentals-data-server" }
 dependencies = [
+    { name = "mcp" },
+    { name = "pydantic" },
     { name = "requests" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "requests", specifier = ">=2.34.2" }]
+requires-dist = [
+    { name = "mcp", specifier = ">=1.30.0" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "requests", specifier = ">=2.34.2" },
+]
 
 [[package]]
 name = "filelock"
