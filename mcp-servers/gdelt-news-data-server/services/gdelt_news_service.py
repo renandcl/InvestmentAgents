@@ -1,19 +1,24 @@
-"""GDELT DOC 2.0 article capture for the study dataset (spec 006)."""
+"""GDELT DOC 2.0 article search for the news tool and study dataset (spec 006)."""
 
 from __future__ import annotations
 
 import json
 import time
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from datetime import time as day_start
 from http.client import HTTPException
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from runtime.providers.cache import service_cache
 from runtime.providers.capture import slice_finished, write_slice
 from runtime.providers.timecut import NEW_YORK, Record, parse_instant
+
+if TYPE_CHECKING:
+    from runtime.providers.cache import RunCache
 
 SOURCE = "gdelt_news"
 API_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -22,6 +27,9 @@ MAX_RECORDS = 250
 PAUSE_SECONDS = 20
 TIMEOUT_SECONDS = 60
 RETRY_WAITS = (30, 60, 120, 240)
+TOOL_PAUSE_SECONDS = 5
+TOOL_RETRY_WAITS = (30, 60)
+TOOL_MAX_RESULTS = 50
 TICKER_QUERIES = {
     "AAPL": '("Apple" OR AAPL)',
     "MSFT": '("Microsoft" OR MSFT)',
@@ -47,22 +55,26 @@ def _pools(request: dict[str, Any], raw: Path) -> dict[str, tuple[str, Path]]:
     }
 
 
-def _articles(query: str, cutoff: datetime) -> list[dict[str, Any]] | None:
-    """Request the 7 days ending at the cutoff; None after exhausted retries."""
+def search(
+    query: str,
+    start: datetime,
+    end: datetime,
+    pause: int = PAUSE_SECONDS,
+    waits: tuple[int, ...] = RETRY_WAITS,
+) -> list[dict[str, Any]] | None:
+    """Articles GDELT first saw between start and end; None after exhausted retries."""
     params = {
         "query": f"{query} sourcelang:english",
         "mode": "artlist",
         "format": "json",
         "maxrecords": MAX_RECORDS,
         "sort": "hybridrel",
-        "startdatetime": (cutoff - timedelta(days=LOOKBACK_DAYS)).strftime(
-            QUERY_FORMAT
-        ),
-        "enddatetime": cutoff.strftime(QUERY_FORMAT),
+        "startdatetime": start.astimezone(timezone.utc).strftime(QUERY_FORMAT),
+        "enddatetime": end.astimezone(timezone.utc).strftime(QUERY_FORMAT),
     }
     request = Request(f"{API_URL}?{urlencode(params)}")
-    for wait in (*RETRY_WAITS, None):
-        time.sleep(PAUSE_SECONDS)
+    for wait in (*waits, None):
+        time.sleep(pause)
         try:
             with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
                 return json.loads(response.read() or b"{}").get("articles") or []
@@ -81,7 +93,7 @@ def fetch(request: dict[str, Any], output: Path) -> None:
             name = f"{pool}-{item['date']}"
             if slice_finished(folder, name):
                 continue
-            articles = _articles(query, cutoff)
+            articles = search(query, cutoff - timedelta(days=LOOKBACK_DAYS), cutoff)
             if articles is not None:
                 write_slice(folder, name, articles)
 
@@ -154,3 +166,47 @@ def coverage(request: dict[str, Any], raw: Path) -> dict[str, dict[str, Any]]:
         item["date"]: {SOURCE: _window(request, raw, item)[1]}
         for item in request["candidates"]
     }
+
+
+class GdeltNewsService:
+    def __init__(self, *, cache: RunCache | None = None) -> None:
+        self.cache = service_cache("gdelt-news-data-server", cache)
+
+    def get_news(self, query: str, start_date: str, end_date: str) -> str:
+        """Articles first seen from start_date through end_date, inclusive New York dates."""
+        key = self.cache.key(
+            "news", {"query": query, "start_date": start_date, "end_date": end_date}
+        )
+        cached = self.cache.read_json(key)
+        if cached is None:
+            start = datetime.combine(
+                date.fromisoformat(start_date), day_start(), NEW_YORK
+            )
+            end = datetime.combine(
+                date.fromisoformat(end_date) + timedelta(days=1), day_start(), NEW_YORK
+            )
+            articles = search(query, start, end, TOOL_PAUSE_SECONDS, TOOL_RETRY_WAITS)
+            if articles is None:
+                return "Error: GDELT did not respond; try again later."
+            cached = {"data": articles}
+            self.cache.write_json(key, cached)
+        return format_news(query, start_date, end_date, cached["data"])
+
+
+def format_news(
+    query: str, start_date: str, end_date: str, articles: list[dict[str, Any]]
+) -> str:
+    """Newest first, one entry per URL, at most 50."""
+    unique = {article["url"]: article for article in articles if article.get("url")}
+    newest = sorted(
+        unique.values(), key=lambda article: article.get("seendate", ""), reverse=True
+    )[:TOOL_MAX_RESULTS]
+    if not newest:
+        return "No news data available for this query."
+    entries = "".join(
+        f"### {article.get('title', '')}\n"
+        f"Source: {article.get('domain', '')} | Date: {article.get('seendate', '')}\n"
+        f"URL: {article['url']}\n\n"
+        for article in newest
+    )
+    return f"## {query} GDELT News, from {start_date} to {end_date}:\n\n" + entries

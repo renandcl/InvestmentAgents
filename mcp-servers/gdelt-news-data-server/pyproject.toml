@@ -1,10 +1,10 @@
 [project]
 name = "gdelt-news-data-server"
 version = "0.1.0"
-description = "GDELT DOC 2.0 news capture for the frozen study dataset."
+description = "MCP server for GDELT DOC 2.0 news"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
-
-[tool.setuptools]
-packages = ["services"]
+dependencies = [
+    "mcp>=1.30.0",
+    "pydantic>=2.13.5",
+]
