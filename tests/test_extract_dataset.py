@@ -12,15 +12,17 @@ from unittest.mock import patch
 import pandas as pd
 
 from runtime.core.errors import InvalidRunConfig
-from runtime.providers.capture import write_slice
+from runtime.providers.capture import window_coverage, write_slice
 from runtime.providers.timecut import format_instant
 from runtime.store.artifacts import hash_file
 from utils.extract_dataset import (
+    STATEMENTS,
     build,
     capture,
     child_environment,
     copy_key,
     last_closed_friday,
+    run_provider,
 )
 
 FAKE_PROVIDER = """
@@ -237,6 +239,14 @@ class ExtractDatasetTests(unittest.TestCase):
         self.assertEqual(last_closed_friday(before_close), date(2026, 1, 2))
         self.assertEqual(last_closed_friday(after_close), date(2026, 1, 9))
 
+    def test_only_fetch_loads_provider_env_file(self) -> None:
+        with patch("utils.extract_dataset.subprocess.run") as run:
+            for action in ("fetch", "normalize"):
+                run_provider(STATEMENTS, action, {}, self.root, None)
+        fetch, normalize = (call.args[0] for call in run.call_args_list)
+        self.assertIn("--env-file", fetch)
+        self.assertNotIn("--env-file", normalize)
+
     def test_only_fetch_receives_vendor_keys(self) -> None:
         keys = {
             "FINNHUB_API_KEY": "fixture",  # pragma: allowlist secret
@@ -273,9 +283,10 @@ EDGAR_PATH = "mcp-servers/simfin-fundamentals-data-server/services/edgar_service
 FUNDAMENTALS = "mcp-servers/finnhub-fundamentals-data-server/services"
 
 
-def fact(accn: str, form: str, filed: str, end: str, val: int, start: str = "") -> dict:
-    row = {"accn": accn, "form": form, "filed": filed, "end": end, "val": val}
-    return {**row, "start": start} if start else row
+def fact(accn: str, filed: str, end: str, val: int, start: str = "") -> dict:
+    form, fp = ("10-K", "FY") if accn == "k" else ("10-Q", "Q2")
+    row = {"accn": accn, "form": form, "fp": fp, "filed": filed, "end": end}
+    return {**row, "val": val, **({"start": start} if start else {})}
 
 
 class FundamentalsCaptureTests(unittest.TestCase):
@@ -288,31 +299,41 @@ class FundamentalsCaptureTests(unittest.TestCase):
         service = load_service("edgar_capture_service", EDGAR_PATH)
         units = {
             "NetIncomeLoss": [
-                fact("q1", "10-Q", "2026-01-30", "2025-12-27", 10, "2025-09-28"),
-                fact("k", "10-K", "2025-10-31", "2025-09-27", 40, "2024-09-29"),
-                fact("k", "10-K", "2025-10-31", "2025-09-27", 12, "2025-06-29"),
+                fact("q2", "2026-04-30", "2026-03-28", 10, "2025-12-28"),
+                fact("q2", "2026-04-30", "2026-03-28", 25, "2025-09-28"),
+                fact("k", "2025-10-31", "2025-09-27", 40, "2024-09-29"),
+                fact("k", "2025-10-31", "2025-09-27", 12, "2025-06-29"),
+            ],
+            "NetCashProvidedByUsedInOperatingActivities": [
+                fact("q2", "2026-04-30", "2026-03-28", 60, "2025-09-28"),
+                fact("q2", "2026-04-30", "2026-03-28", 110, "2025-03-30"),
             ],
             "Assets": [
-                fact("q1", "10-Q", "2026-01-30", "2025-12-27", 300),
-                fact("q1", "10-Q", "2026-01-30", "2025-09-27", 200),
+                fact("q2", "2026-04-30", "2026-03-28", 300),
+                fact("q2", "2026-04-30", "2026-03-28", 200, "2025-09-28"),
+                fact("q2", "2026-04-30", "2025-09-27", 200),
             ],
         }
         gaap = {name: {"units": {"USD": rows}} for name, rows in units.items()}
         write_slice(self.raw, "companyfacts", {"facts": {"us-gaap": gaap}})
         records = {(r.source, r.id): r for r in service.normalize({}, self.raw)}
-        quarter = records["edgar_income", "quarterly|2025-12-27|2026-01-30"]
+        key = "quarterly|2026-03-28|2026-04-30"
+        quarter = records["edgar_income", key]
         self.assertEqual(quarter.payload["NetIncomeLoss"], 10)
-        self.assertEqual(format_instant(quarter.public_at), "2026-01-31T04:59:59Z")
+        self.assertEqual(format_instant(quarter.public_at), "2026-05-01T03:59:59Z")
+        cash = records["edgar_cashflow", key].payload
+        self.assertEqual(cash["Period Start"], "2025-09-28")
+        self.assertEqual(cash["NetIncomeLoss"], 25)
+        self.assertEqual(cash["NetCashProvidedByUsedInOperatingActivities"], 60)
         annual = records["edgar_income", "annual|2025-09-27|2025-10-31"]
         self.assertEqual(annual.payload["NetIncomeLoss"], 40)
-        balance = records["edgar_balance", "quarterly|2025-12-27|2026-01-30"]
-        self.assertEqual(balance.payload["Assets"], 300)
+        self.assertEqual(records["edgar_balance", key].payload["Assets"], 300)
 
-        fresh = candidate("2026-05-29", "2026-05-29T04:00:00Z")
-        stale = candidate("2026-06-05", "2026-06-05T04:00:00Z")
+        fresh = candidate("2026-08-28", "2026-08-28T04:00:00Z")
+        stale = candidate("2026-09-04", "2026-09-04T04:00:00Z")
         entries = service.coverage({"candidates": [fresh, stale]}, self.raw)
-        self.assertTrue(entries["2026-05-29"]["edgar_income"]["coverage_rule_met"])
-        self.assertFalse(entries["2026-06-05"]["edgar_income"]["coverage_rule_met"])
+        self.assertTrue(entries["2026-08-28"]["edgar_income"]["coverage_rule_met"])
+        self.assertFalse(entries["2026-09-04"]["edgar_income"]["coverage_rule_met"])
 
     def test_insider_transactions_split_saturated_pages(self) -> None:
         service = load_service(
@@ -343,6 +364,16 @@ class FundamentalsCaptureTests(unittest.TestCase):
             entry = service.coverage(request, self.raw)["2026-01-23"]
         self.assertTrue(entry["truncated"])
         self.assertFalse(entry["coverage_rule_met"])
+        old_page = {
+            "start": "2025-11-24",
+            "end": "2025-11-24",
+            "saturated": True,
+            "rows": [],
+        }
+        late_lag = window_coverage(
+            [], [old_page], request["candidates"][0], 30, 2, 0, 30
+        )
+        self.assertFalse(late_lag["coverage_rule_met"])
         filed = {r.id.split("|")[0]: r for r in service.normalize(request, self.raw)}
         self.assertEqual(format_instant(filed["9"].public_at), "2026-01-21T04:59:59Z")
 

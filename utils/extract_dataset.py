@@ -112,7 +112,7 @@ def run_provider(
     command = list((provider_commands or {}).get(provider.name, ()))
     if not command:
         command = [shutil.which("uv") or "uv", "run"]
-        if provider.env_file:
+        if provider.env_file and action == "fetch":
             command += ["--env-file", str(server / ".env")]
         command.append(str(server / "capture.py"))
     with tempfile.TemporaryDirectory() as folder:

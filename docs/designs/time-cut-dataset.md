@@ -956,14 +956,15 @@ or did not reach the window start, and `ok` otherwise. Each post holds `id`, `ti
 *   **Type / Scope**: MCP service and extractor.
 *   **Proposed Changes**: `fetch` stores each ticker's EDGAR company facts once, using `SEC_USER_AGENT` from the server's `.env`. `normalize` emits one record per 10-K or 10-Q filing and
     statement, from a fixed list of US GAAP concepts. Each statement uses one span: a 10-Q income statement uses the quarter, a 10-Q cash flow statement the year to date (the only span
-    10-Qs report), and a 10-K the full year. Providers may return coverage by date and source from `normalize`, which `build` merges; a date a provider does not cover counts as
+    10-Qs report), and a 10-K the full year. The span comes from the filing's fiscal period, every duration value in a statement shares one start, and
+    a trailing-year value never replaces year to date. Provider `.env` files are loaded only for `fetch`, so `build` runs offline without them. Providers may return coverage by date and source from `normalize`, which `build` merges; a date a provider does not cover counts as
     unreachable. Register the provider in `CAPTURE_PROVIDERS`.
 
 #### 13. `mcp-servers/finnhub-fundamentals-data-server/capture.py` (Create); `mcp-servers/finnhub-fundamentals-data-server/services/insider_transactions_service.py`, `mcp-servers/finnhub-fundamentals-data-server/services/insider_sentiment_service.py`, `utils/extract_dataset.py` (Modify)
 
 *   **Type / Scope**: MCP services and extractor.
 *   **Proposed Changes**: Transactions `fetch` starts 30 days before the earliest `required_start` and uses 30-day sub-windows, halving a saturated one down to one day. Filings of trades older than
-    that start are not captured. Sentiment `fetch` covers four months before the first candidate through the last, so every candidate's three-month lookback is reached. `normalize` applies the `public_at` rules. Measure `INSIDER_PAGE_MAX` live and register the provider.
+    that start are not captured, so a saturated page counts against a candidate when it lies within 30 days before that candidate's lookback. Sentiment `fetch` covers four months before the first candidate through the last, so every candidate's three-month lookback is reached. `normalize` applies the `public_at` rules. Measure `INSIDER_PAGE_MAX` live and register the provider.
 
 #### 14. `tests/test_extract_dataset.py` (Modify)
 
